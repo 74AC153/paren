@@ -25,6 +25,7 @@ func        vars_node   expr_node
              +--------+
 */
 
+/* note: calls retain on result */
 static bool traverse(node_t *n, char *dir, node_t **result)
 {
 	while(dir && *dir) {
@@ -90,7 +91,7 @@ eval_err_t lambda_call(
 	node_t **environ,
 	node_t **result)
 {
-	node_t *var, *arg, *argeval, *newenv, *oldenv;
+	node_t *var, *arg, *argeval, *newenv, *oldenv, *temp;
 	eval_err_t status = EVAL_OK;
 
 	newenv = environ_push(*environ);
@@ -132,7 +133,13 @@ eval_err_t lambda_call(
 		node_release(argeval);
 	}
 	/* eval expr in new environment */
-	status = eval(expr, &newenv, result);
+	for(temp = NULL ; expr; expr = node_next_noref(expr)) {
+		node_release(temp);
+		status = eval(node_child_noref(expr), &newenv, &temp);
+	}
+	if(status == EVAL_OK) {
+		*result = temp;
+	}
 
 finish:
 	node_release(newenv);
@@ -189,25 +196,14 @@ eval_err_t eval(node_t *input, node_t **environ, node_t **output)
 		switch(node_type(func)) {
 		case NODE_LIST: {
 			/* ensure (lambda (vars) (expr)) */
-			traverse(func, "c", &sym);
-			traverse(func, "nc", &vars);
-			traverse(func, "nnc", &expr);
-			if(traverse(func, "nnn", NULL)) {
-				status = EVAL_ERR_TOO_MANY_ARGS;
-				*output = func;
-				goto finish;
-			}
-			if(node_type(sym) != NODE_SYMBOL ||
-			   strcmp(node_name(sym), "lambda")) {
-				status = EVAL_ERR_NONLAMBDA_FUNCALL;
+			status = validate_lambda_form(func);
+			if(status != EVAL_OK) {
 				*output = sym;
 				goto finish;
 			}
-			if(node_type(expr) == NODE_NIL) {
-				status = EVAL_ERR_MISSING_ARG;
-				*output = func;
-				goto finish;
-			}
+
+			traverse(func, "nc", &vars);
+			traverse(func, "nn", &expr);
 			status = lambda_call(vars, args, expr, environ, output);
 			break;
 		}

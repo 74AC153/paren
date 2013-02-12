@@ -71,7 +71,6 @@ int builtin_car(node_t *args, node_t **env, node_t **result)
 	/* temp must be a list */
 	if(node_type(temp) != NODE_LIST) {
 		status = EVAL_ERR_EXPECTED_LIST;
-		*result = temp;
 		goto finish;
 	}
 	
