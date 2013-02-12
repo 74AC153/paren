@@ -28,6 +28,7 @@ int main(int argc, char *argv[])
 {
 	node_t *parse_result, *eval_result, *env = NULL;
 	eval_err_t eval_stat;
+	parse_err_t parse_stat;
 	char *remain;
 	int i;
 
@@ -48,7 +49,13 @@ int main(int argc, char *argv[])
 
 	for(i = 1; i < argc; i++) {
 		printf("*** parse %s ***\n", argv[i]);
-		parse_result = parse(argv[i], &remain);
+		parse_stat = parse(argv[i], &remain, &parse_result);
+		if(parse_stat != PARSE_OK) {
+			printf("parse error for: %s\n", remain);
+			printf("-- %s\n", parse_err_str(parse_stat));
+			continue;
+		}
+
 		printf("parse result:\n");
 		node_print_pretty(parse_result);
 		printf("\n");
@@ -63,7 +70,7 @@ int main(int argc, char *argv[])
 			printf("eval error for: \n");
 			node_print_pretty(eval_result);
 			printf("\n");
-			printf("-- %s\n", eval_err_str(eval_stat));
+			printf("%s\n", eval_err_str(eval_stat));
 			return -1;
 		}
 		printf("eval result:\n");

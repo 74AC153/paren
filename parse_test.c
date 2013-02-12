@@ -5,13 +5,19 @@ int main(int argc, char *argv[])
 {
 	node_t *result;
 	char *remain;
+	parse_err_t status;
 
 	if(argc != 2) {
 		printf("usage: %s 'string'\n", argv[0]);
 		return -1;
 	}
 
-	result = parse(argv[1], &remain);
+	status = parse(argv[1], &remain, &result);
+	if(status != PARSE_OK) {
+		printf("parse error before: %s\n", (*remain ? remain : "end of input"));
+		printf("%s\n", parse_err_str(status));
+		return -1;
+	}
 	node_retain(result);
 
 	node_print_pretty(result);
