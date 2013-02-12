@@ -1,0 +1,20 @@
++
+-
+*
+/
+%
+<<
+>>
+->>
+|
+&
+^
+~
+&&
+||
+neq
+!
+
+add string token pass
+add quote parse pass
+
