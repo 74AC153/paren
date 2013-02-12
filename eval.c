@@ -44,6 +44,45 @@ static bool traverse(node_t *n, char *dir, node_t **result)
 	return n != NULL;
 }
 
+eval_err_t validate_lambda_form(node_t *input)
+{
+	eval_err_t status = EVAL_OK;
+	node_t *sym, *vars_list, *var;
+
+	/* ensure input is of form (lambda (...) ...) */
+
+	sym = node_child_noref(input);
+	if(node_type(sym) != NODE_SYMBOL) {
+		status = EVAL_ERR_EXPECTED_SYMBOL;
+		goto finish;
+	}
+
+	if(strcmp(node_name(sym), "lambda")) {
+		status = EVAL_ERR_FUNC_IS_NOT_LAMBDA;
+		goto finish;
+	}
+
+	if(node_type(node_next_noref(input)) != NODE_LIST) {
+		status = EVAL_ERR_EXPECTED_LIST;
+		goto finish;
+	}
+	vars_list = node_child_noref(node_next_noref(input));
+	if(node_type(vars_list) != NODE_LIST) {
+		status = EVAL_ERR_EXPECTED_LIST;
+		goto finish;
+	}
+	for( ; vars_list; vars_list = node_next_noref(vars_list)) {
+		var = node_child_noref(vars_list);
+		if(node_type(var) != NODE_SYMBOL && node_type(var) != NODE_LIST) {
+			status = EVAL_ERR_EXPECTED_LIST_SYM;
+			goto finish;
+		}
+	}
+	
+finish:	
+	return status;
+}
+
 eval_err_t lambda_call(
 	node_t *vars,
 	node_t *args,
@@ -121,13 +160,23 @@ eval_err_t eval(node_t *input, node_t **environ, node_t **output)
 
 	case NODE_LIST:
 		/*
+		   (lambda (...) ...) ?
+		*/
+		status = validate_lambda_form(input);
+		if(status == EVAL_OK) {
+			*output = node_retain(input);
+			break;
+		}
+
+		/*
+		   funcall:
 		   ((lambda ...) args ...)
 		   (symbol args ...)
 		*/
 		args = node_next(input);
 		func = node_child(input);
 
-		if(func->type == NODE_SYMBOL) {
+		if(node_type(func) == NODE_SYMBOL) {
 			node_t *newfunc = NULL;
 			status = eval(func, environ, &newfunc);
 			node_release(func);
@@ -137,7 +186,7 @@ eval_err_t eval(node_t *input, node_t **environ, node_t **output)
 			}
 		}
 
-		switch(func->type) {
+		switch(node_type(func)) {
 		case NODE_LIST: {
 			/* ensure (lambda (vars) (expr)) */
 			traverse(func, "c", &sym);
