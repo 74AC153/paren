@@ -43,7 +43,7 @@ parse_err_t parse_list(char **input, token_t **tok_list, node_t **result)
 {
 	node_t *child = NULL, *next = NULL, *ret = NULL;
 	token_t *tok = first_tok(input, tok_list);
-	parse_err_t status;
+	parse_err_t status = PARSE_OK;
 
 	if(tok_type(tok) == TOK_NONE) {
 		status = PARSE_TOKEN_UNDERFLOW;
@@ -54,7 +54,7 @@ parse_err_t parse_list(char **input, token_t **tok_list, node_t **result)
 	   returns */
 	else if(tok_type(tok) == TOK_RPAREN) {
 		ret = NULL;
-		return PARSE_OK;
+		goto finish;
 	}
 
 	status = parse_sexpr(input, tok_list, &child);
@@ -68,14 +68,11 @@ parse_err_t parse_list(char **input, token_t **tok_list, node_t **result)
 	}
 
 	ret = node_new_list(child, next);
+finish:
 	node_release(child);
 	node_release(next);
 	*result = ret;
 
-finish:
-	node_release(child);
-	node_release(next);
-	node_release(ret);
 	return status;
 }
 

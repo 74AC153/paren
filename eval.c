@@ -107,8 +107,8 @@ eval_err_t eval(node_t *input, node_t **environ, node_t **output)
 	node_t *func = NULL, *args = NULL;
 	node_t *sym = NULL, *vars = NULL, *expr = NULL;
 
-	/* not forcing this creates messy refcounting logic */
-	assert(*output != input);
+	/* not forcing this necessitates messy refcounting logic */
+	assert(!input || *output != input);
 
 	switch(node_type(input)) {
 	case NODE_NIL:
