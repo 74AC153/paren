@@ -35,6 +35,7 @@ add operators:
 *
 /
 %
+
 <<
 >>
 ->>
@@ -42,13 +43,28 @@ add operators:
 &
 ^
 ~
+
+<
+>
+<=
+>=
+!=
+
 &&
 ||
-neq
 !
 
-add string token pass
+add string tokenizer pass
 add quote parse pass
 
+variadic functions?:
+(lambda (foo &rest bar)) ?
+(lambda all-args all-args) and (lambda (first-arg second-arg . other-args) ?
+
+macros
+
 tail call elimination
+call/cc?
+-- requires rewrite of eval to be non-recursive?
+
 
