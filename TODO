@@ -64,7 +64,13 @@ variadic functions?:
 macros
 
 tail call elimination
+-- requires rewrite of eval to be non-recursive
 call/cc?
--- requires rewrite of eval to be non-recursive?
 
+reduce number of retain/releases by using _noref more often
 
+move builtins into evaluator
+
+create native builtin node types
+
+switch to slist to reduce code size
