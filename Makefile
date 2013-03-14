@@ -1,5 +1,5 @@
 #CFLAGS=-DREFCOUNT_DEBUG -DALLOC_DEBUG -g -Wall -Wextra -Werror
-CFLAGS=-Wall -Wextra -Werror -g
+CFLAGS=-Wall -Wextra -Werror -g --std=c99
 #CFLAGS=-Wall -Wextra -Werror -Os
 
 
@@ -32,7 +32,7 @@ parse.o: parse.c parse.h
 token.o: token.c token.h
 	gcc ${CFLAGS} -c token.c
 
-node.o: node.c node.h
+node.o: node.c node.h dlist.h
 	gcc ${CFLAGS} -c node.c
 
 tokenize_test.o: tokenize_test.c

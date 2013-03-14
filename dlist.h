@@ -70,8 +70,9 @@ dlist_t *dlnode_owner(dlnode_t *n)
 static inline
 void dlnode_insertnext(dlnode_t *n, dlnode_t *next)
 {
-	next->next = n->next;
-	n->next->prev = next;
+	dlnode_t *n_next = n->next;
+	next->next = n_next;
+	n_next->prev = next;
 	n->next = next;
 	next->prev = n;
 	next->owner = n->owner;
@@ -80,8 +81,9 @@ void dlnode_insertnext(dlnode_t *n, dlnode_t *next)
 static inline
 void dlnode_insertprev(dlnode_t *n, dlnode_t *prev)
 {
-	prev->prev = n->prev;
-	n->prev->next = prev;
+	dlnode_t *n_prev = n->prev;
+	prev->prev = n_prev;
+	n_prev->next = prev;
 	n->prev = prev;
 	prev->next = n;
 	prev->owner = n->owner;
@@ -90,13 +92,14 @@ void dlnode_insertprev(dlnode_t *n, dlnode_t *prev)
 static inline
 dlnode_t *dlnode_remove(dlnode_t *n)
 {
-	n->prev->next = n->next;
-	n->next->prev = n->prev;
+	dlnode_t *n_prev = n->prev;
+	dlnode_t *n_next = n->next;
+	n_prev->next = n_next;
+	n_next->prev = n_prev;
 	n->next = n->prev = NULL;
 	n->owner = NULL;
 	return n;
 }
-
 
 static inline
 void dlist_init(dlist_t *l)
