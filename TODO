@@ -1,3 +1,22 @@
+Lexical scope
+when creating a lambda function, must also have 'defining environment' so that bound variables at the time of instantiation can be accessed. i.e. lambda forms must have:
+  - ptr to actual function expression to be evaluated
+  - ptr to variable names that are to be bound when a call is made
+  - ptr to environment at the time of the lambda definition
+
+when function calls are made, both name->argument bindings for the subroutine environment as well as the parent environment (at time of subroutine definition) are passed.
+
+Tail call elimination must then take into account defining environment, but can
+still dispose "current" environment when (re)starting a function.
+
+When a subroutine is invoked, then, the environment stack is actually a mixture of 'definition environments' and 'function call stack' environments: at each node in the function call stack, there is a pointer to the definition environment, as well as a pointer to the variable binding environments.
+
+
+tail call elimination
+-- requires rewrite of eval to be non-recursive
+call/cc?
+
+
 add unit tests for parse and eval:
 
 ()
@@ -63,9 +82,6 @@ variadic functions?:
 
 macros
 
-tail call elimination
--- requires rewrite of eval to be non-recursive
-call/cc?
 
 reduce number of retain/releases by using _noref more often
 
@@ -74,3 +90,15 @@ move builtins into evaluator
 create native builtin node types
 
 switch to slist to reduce code size
+
+replace cond with not-nil?
+
+add let builtin to push environment
+
+distributed multithreaded, send on request when crossing address spaces
+- "hypernodes" represent cross-space links
+- need to work out serialization method
+
+make it so parse doesn't consume entire string if there are multiple lists in input string
+remove dead node type
+
