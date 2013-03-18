@@ -243,16 +243,19 @@ void node_print_pretty(node_t *n)
 		}
 }
 
-void node_gc()
+size_t node_gc(void)
 {
 	memcell_t *cell;
+	size_t count = 0;
 	
 	for(cell = (memcell_t *) dlist_first(&free_list);
 	    ! dlnode_is_terminal(&(cell->hdr));
 	    cell = (memcell_t *) dlist_first(&free_list)) {
 		dlnode_remove(&(cell->hdr));
 		free(cell);
+		count++;
 	}
+	return count;
 }
 
 int node_find_live(live_cb_t cb, void *p)

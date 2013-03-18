@@ -31,6 +31,7 @@ int main(int argc, char *argv[])
 	parse_err_t parse_stat;
 	char *remain;
 	int i;
+	size_t count;
 
 	if(argc < 2) {
 		printf("usage: %s 'string'\n", argv[0]);
@@ -90,7 +91,8 @@ int main(int argc, char *argv[])
 	node_release(env);
 
 	printf("*** cleanup ***\n");
-	node_gc();
+	count = node_gc();
+	printf("%llu nodes freed\n", (unsigned long long) count);
 
 	printf("leaked nodes:\n");
 	node_find_live(print_callback, NULL);

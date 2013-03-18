@@ -77,7 +77,7 @@ typedef int (live_cb_t)(node_t *n, void *p);
 int node_find_live(live_cb_t cb, void *p);
 int node_find_free(live_cb_t cb, void *p);
 
-/* free unused nodes */
-void node_gc();
+/* free unused nodes, returns # nodes freed */
+size_t node_gc(void);
 
 #endif
