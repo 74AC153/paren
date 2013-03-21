@@ -8,6 +8,7 @@
 #define NODE_TYPES \
 X(NODE_NIL) \
 X(NODE_LIST) \
+X(NODE_LAMBDA) \
 X(NODE_SYMBOL) \
 X(NODE_VALUE) \
 X(NODE_BUILTIN) \
@@ -33,6 +34,7 @@ struct node {
 	nodetype_t type;
 	union {
 		struct { struct node *child, *next; } list;
+		struct { struct node *env, *vars, *expr; } lambda;
 		builtin_t func;
 		char name[MAX_SYM_LEN];
 		uint64_t value;
@@ -56,6 +58,12 @@ node_t *node_next(node_t *n);
 /* thes don't bump refcounts */
 node_t *node_child_noref(node_t *n);
 node_t *node_next_noref(node_t *n);
+
+/* returns node with refcount=1 */
+node_t *node_new_lambda(node_t *env, node_t *vars, node_t *expr);
+node_t *node_lambda_env_noref(node_t *n);
+node_t *node_lambda_vars_noref(node_t *n);
+node_t *node_lambda_expr_noref(node_t *n);
 
 /* returns node with refcount=1 */
 node_t *node_new_value(uint64_t val);

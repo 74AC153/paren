@@ -133,6 +133,38 @@ node_t *node_next(node_t *n)
 	return node_retain(node_next_noref(n));
 }
 
+node_t *node_new_lambda(node_t *env, node_t *vars, node_t *expr)
+{
+	node_t *ret;
+	assert(ret = node_new());
+	ret->dat.lambda.env = node_retain(env);
+	ret->dat.lambda.vars = node_retain(vars);
+	ret->dat.lambda.expr = node_retain(expr);
+	ret->type = NODE_LAMBDA;
+#if defined(ALLOC_DEBUG)
+	printf("init lambda %p (e=%p v=%p, x=%p)\n", ret, env, vars, expr);
+#endif
+	return ret;
+}
+
+node_t *node_lambda_env_noref(node_t *n)
+{
+	assert(n->type = NODE_LAMBDA);
+	return n->dat.lambda.env;
+}
+
+node_t *node_lambda_vars_noref(node_t *n)
+{
+	assert(n->type = NODE_LAMBDA);
+	return n->dat.lambda.vars;
+}
+
+node_t *node_lambda_expr_noref(node_t *n)
+{
+	assert(n->type = NODE_LAMBDA);
+	return n->dat.lambda.expr;
+}
+
 node_t *node_new_value(uint64_t val)
 {
 	node_t *ret;
@@ -199,11 +231,23 @@ void node_print(node_t *n, bool recursive)
 		case NODE_LIST:
 			printf("child=%p next=%p", n->dat.list.child, n->dat.list.next);
 			break;
+		case NODE_LAMBDA:
+			printf("env=%p vars=%p expr=%p",
+			       n->dat.lambda.env,
+			       n->dat.lambda.vars,
+			       n->dat.lambda.expr);
+			break;
 		case NODE_SYMBOL:
-			printf("name: %s", n->dat.name);
+			printf("%s", n->dat.name);
 			break;
 		case NODE_VALUE:
-			printf("value: %llu", (unsigned long long) n->dat.value);
+			printf("%llu", (unsigned long long) n->dat.value);
+			break;
+		case NODE_BUILTIN:
+			printf("%p", n->dat.func);
+			break;
+		case NODE_DEAD:
+			printf("next=%p", n->dat.dead.next);
 			break;
 		default:
 			break;
@@ -230,6 +274,13 @@ void node_print_pretty(node_t *n)
 			printf(" . ");
 			node_print_pretty(n->dat.list.next);
 			printf(")");
+			break;
+		case NODE_LAMBDA:
+			printf("(lambda . (");
+			node_print_pretty(n->dat.lambda.vars);
+			printf(" . ");
+			node_print_pretty(n->dat.lambda.expr);
+			printf("))");
 			break;
 		case NODE_SYMBOL:
 			printf("%s", n->dat.name);

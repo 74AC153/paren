@@ -1,3 +1,4 @@
+
 Lexical scope
 when creating a lambda function, must also have 'defining environment' so that bound variables at the time of instantiation can be accessed. i.e. lambda forms must have:
   - ptr to actual function expression to be evaluated
@@ -11,6 +12,7 @@ still dispose "current" environment when (re)starting a function.
 
 When a subroutine is invoked, then, the environment stack is actually a mixture of 'definition environments' and 'function call stack' environments: at each node in the function call stack, there is a pointer to the definition environment, as well as a pointer to the variable binding environments.
 
+change node_next_noref to be default behavior
 
 tail call elimination
 -- requires rewrite of eval to be non-recursive
@@ -43,9 +45,21 @@ a
 ((a) . (b))
 ((b) . (a))
 
+(eq () (quote ()))
 (eq () (quote (())))
 (lambda (x) (car x))
+
+(lambda () 9)
+(label foo (lambda () 9))
+
 (label next (lambda (x) (car (cdr x))))
+
+(label my_car (lambda (x) (car x)))
+(my_car (quote (a b)))
+
+test lexical scope:
+(label myfun (lambda () 
+
 
 add operators:
 
@@ -85,9 +99,9 @@ macros
 
 reduce number of retain/releases by using _noref more often
 
-move builtins into evaluator
+move builtins into evaluator?
 
-create native builtin node types
+create native builtin node types?
 
 switch to slist to reduce code size
 

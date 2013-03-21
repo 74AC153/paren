@@ -26,6 +26,7 @@ func        vars_node   expr_node
 */
 
 /* note: calls retain on result */
+#if 0
 static bool traverse(node_t *n, char *dir, node_t **result)
 {
 	while(dir && *dir) {
@@ -44,6 +45,7 @@ static bool traverse(node_t *n, char *dir, node_t **result)
 	}
 	return n != NULL;
 }
+#endif
 
 eval_err_t validate_lambda_form(node_t *input)
 {
@@ -68,7 +70,7 @@ eval_err_t validate_lambda_form(node_t *input)
 		goto finish;
 	}
 	vars_list = node_child_noref(node_next_noref(input));
-	if(node_type(vars_list) != NODE_LIST) {
+	if(vars_list && node_type(vars_list) != NODE_LIST) {
 		status = EVAL_ERR_EXPECTED_LIST;
 		goto finish;
 	}
@@ -85,16 +87,16 @@ finish:
 }
 
 eval_err_t lambda_call(
-	node_t *vars,
+	node_t *func,
 	node_t *args,
-	node_t *expr,
 	node_t **environ,
 	node_t **result)
 {
-	node_t *var, *arg, *argeval, *newenv, *oldenv, *temp;
+	node_t *vars, *var, *arg, *expr, *argeval, *newenv, *oldenv, *temp;
 	eval_err_t status = EVAL_OK;
 
-	newenv = environ_push(*environ);
+	newenv = environ_push(node_lambda_env_noref(func));
+	vars = node_lambda_vars_noref(func);
 
 	/* create a new environment with the specified bindings */
 	for(;
@@ -132,11 +134,15 @@ eval_err_t lambda_call(
 		node_release(oldenv);
 		node_release(argeval);
 	}
-	/* eval expr in new environment */
+
+	/* eval expr list in new environment */
+	expr = node_lambda_expr_noref(func);
 	for(temp = NULL ; expr; expr = node_next_noref(expr)) {
 		node_release(temp);
 		status = eval(node_child_noref(expr), &newenv, &temp);
 	}
+
+	/* return value of last eval */
 	if(status == EVAL_OK) {
 		*result = temp;
 	}
@@ -171,13 +177,13 @@ eval_err_t eval(node_t *input, node_t **environ, node_t **output)
 		*/
 		status = validate_lambda_form(input);
 		if(status == EVAL_OK) {
-			*output = node_retain(input);
+			*output = node_new_lambda(*environ,
+			                          node_child_noref(node_next_noref(input)),
+			                          node_next_noref(node_next_noref(input)));
 			break;
 		}
 
 		/*
-		   funcall:
-		   ((lambda ...) args ...)
 		   (symbol args ...)
 		*/
 		args = node_next(input);
@@ -194,19 +200,10 @@ eval_err_t eval(node_t *input, node_t **environ, node_t **output)
 		}
 
 		switch(node_type(func)) {
-		case NODE_LIST: {
-			/* ensure (lambda (vars) (expr)) */
-			status = validate_lambda_form(func);
-			if(status != EVAL_OK) {
-				*output = sym;
-				goto finish;
-			}
-
-			traverse(func, "nc", &vars);
-			traverse(func, "nn", &expr);
-			status = lambda_call(vars, args, expr, environ, output);
+		case NODE_LAMBDA:
+			status = lambda_call(func, args, environ, output);
 			break;
-		}
+
 		case NODE_BUILTIN:
 			status = node_func(func)(args, environ, output);
 			break;
@@ -226,6 +223,7 @@ eval_err_t eval(node_t *input, node_t **environ, node_t **output)
 		}
 		break;
 
+	case NODE_LAMBDA:
 	case NODE_VALUE:
 	case NODE_BUILTIN:
 		*output = node_retain(input);
