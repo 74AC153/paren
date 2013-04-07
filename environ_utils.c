@@ -5,20 +5,14 @@ node_t *environ_add_builtins(node_t*env,
                              size_t num)
 {
 	size_t i;
-	node_t *key, *value, *oldenv, *newenv;
+	node_t *key, *value;
 
-	newenv = env;
 	for (i = 0; i < num; i++) {
 		key = node_new_symbol(builtins[i].name);
 		value = node_new_builtin(builtins[i].func);
-		oldenv = newenv;
 
-		newenv = environ_add(oldenv, key, value);
-
-		node_release(oldenv);
-		node_release(value);
-		node_release(key);
+		environ_add(&env, key, value);
 	}
 
-	return newenv;
+	return env;
 }

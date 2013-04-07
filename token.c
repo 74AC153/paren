@@ -60,7 +60,10 @@ static size_t read_tok(char *input, token_t *tok_out)
 void *memdup(void *src, size_t len)
 {
 	void *ret = malloc(len);
-	return memcpy(ret, src, len);
+	if(ret) {
+		memcpy(ret, src, len);
+	}
+	return ret;
 }
 
 token_t *first_tok(char **input, token_t **tok_list)

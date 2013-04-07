@@ -5,159 +5,105 @@
 #include "environ.h"
 #include "eval.h"
 
-/*
-(lamba (vars) (expr))
-
-func        vars_node   expr_node
-+---+---+   +---+---+   +---+---+
-|   |  ---> |   |  ---> |   |nil|
-+-|-+---+   +-|-+---+   +-|-+---+
-  |           |           | expr +---+---+
-  v           v           +----> |   |   |
-+--------+   vars                +---+---+
-| symbol |   +---+---+   +---+---+
-+-|------+   |   |  ---> |   |   |
-  |          +-|-+---+   +---+---+
-  v            |
- "lambda"      v
-             +--------+
-             | symbol |
-             +--------+
-*/
-
-/* note: calls retain on result */
-#if 0
-static bool traverse(node_t *n, char *dir, node_t **result)
+eval_err_t map_eval(node_t *args, node_t **environ, node_t **result)
 {
-	while(dir && *dir) {
-		if(node_type(n) != NODE_LIST) {
-			return false;
-		}
-		if(*dir == 'c') {
-			n = node_child_noref(n);
+	eval_err_t status;
+	node_t *newarg = NULL, *rest = NULL;
+
+	if(!args) {
+		*result = NULL;
+		return EVAL_OK;
+	}
+
+	status = eval(node_child_noref(args), environ, &newarg);
+	if(status != EVAL_OK) {
+		*result = newarg;
+		return status;
+	}
+
+	status = map_eval(node_next_noref(args), environ, &rest);
+	if(status != EVAL_OK) {
+		*result = rest;
+		node_release(newarg);
+		return status;
+	}
+
+	*result = node_retain(node_new_list(newarg, rest));
+	node_release(newarg);
+	node_release(rest);
+
+	return EVAL_OK;
+}
+
+eval_err_t lambda_bind(node_t **environ, node_t *vars, node_t *args)
+{
+	node_t *var_curs = NULL, *arg_curs = NULL;
+	node_t *name, *value;
+	node_t *env = *environ;
+	bool early_term = false;
+
+	node_retain(*environ);
+
+	var_curs = vars;
+	arg_curs = args;
+	while(true) {
+		/* ( ) */
+		if(! var_curs) {
+			if(arg_curs) {
+				node_release(env);
+				return EVAL_ERR_TOO_MANY_ARGS;
+			}
+			break;
+		/* ( sym ... ) */
+		} else if(node_type(var_curs) == NODE_LIST) {
+			if(node_type(arg_curs) != NODE_LIST) {
+				node_release(env);
+				return EVAL_ERR_MISSING_ARG;
+			}
+			value = node_child_noref(arg_curs);
+			name = node_child_noref(var_curs);
+			if(node_type(name) != NODE_SYMBOL) {
+				node_release(env);
+				return EVAL_ERR_EXPECTED_SYMBOL;
+			}
+		/* ( ... . sym ) */
+		} else if(node_type(var_curs) == NODE_SYMBOL) {
+			value = arg_curs;
+			name = var_curs;
+			early_term = true;
 		} else {
-			n = node_next_noref(n);
-		}
-		dir++;
-	}
-	if(result) {
-		*result = node_retain(n);
-	}
-	return n != NULL;
-}
-#endif
-
-eval_err_t validate_lambda_form(node_t *input)
-{
-	eval_err_t status = EVAL_OK;
-	node_t *sym, *vars_list, *var;
-
-	/* ensure input is of form (lambda (...) ...) */
-
-	sym = node_child_noref(input);
-	if(node_type(sym) != NODE_SYMBOL) {
-		status = EVAL_ERR_EXPECTED_SYMBOL;
-		goto finish;
-	}
-
-	if(strcmp(node_name(sym), "lambda")) {
-		status = EVAL_ERR_FUNC_IS_NOT_LAMBDA;
-		goto finish;
-	}
-
-	if(node_type(node_next_noref(input)) != NODE_LIST) {
-		status = EVAL_ERR_EXPECTED_LIST;
-		goto finish;
-	}
-	vars_list = node_child_noref(node_next_noref(input));
-	if(vars_list && node_type(vars_list) != NODE_LIST) {
-		status = EVAL_ERR_EXPECTED_LIST;
-		goto finish;
-	}
-	for( ; vars_list; vars_list = node_next_noref(vars_list)) {
-		var = node_child_noref(vars_list);
-		if(node_type(var) != NODE_SYMBOL && node_type(var) != NODE_LIST) {
-			status = EVAL_ERR_EXPECTED_LIST_SYM;
-			goto finish;
-		}
-	}
-	
-finish:	
-	return status;
-}
-
-eval_err_t lambda_call(
-	node_t *func,
-	node_t *args,
-	node_t **environ,
-	node_t **result)
-{
-	node_t *vars, *var, *arg, *expr, *argeval, *newenv, *oldenv, *temp;
-	eval_err_t status = EVAL_OK;
-
-	newenv = environ_push(node_lambda_env_noref(func));
-	vars = node_lambda_vars_noref(func);
-
-	/* create a new environment with the specified bindings */
-	for(;
-	    vars && args;
-	    vars = node_next_noref(vars), args = node_next_noref(args)) {
-
-		if(node_type(vars) != NODE_LIST) {
-			status = EVAL_ERR_EXPECTED_LIST;
-			*result = vars;
-			goto finish;
-		}
-		var = node_child_noref(vars);
-
-		if(node_type(args) != NODE_LIST) {
-			status = EVAL_ERR_EXPECTED_LIST;
-			*result = args;
-			goto finish;
-		}
-		arg = node_child_noref(args);
-
-		if(node_type(var) != NODE_SYMBOL) {
-			status = EVAL_ERR_EXPECTED_SYMBOL;
-			*result = var;
-			goto finish;
+			node_release(env);
+			return EVAL_ERR_EXPECTED_LIST_SYM;
 		}
 
-		status = eval(arg, environ, &argeval);
-		if(status != EVAL_OK) {
-			*result = arg;
-			goto finish;
+		environ_add(&env, name, value);
+
+		if(early_term) {
+			break;
 		}
+		var_curs = node_next_noref(var_curs);
+		arg_curs = node_next_noref(arg_curs);
+	}   
 
-		oldenv = newenv;
-		newenv = environ_add(oldenv, var, argeval);
-		node_release(oldenv);
-		node_release(argeval);
-	}
-
-	/* eval expr list in new environment */
-	expr = node_lambda_expr_noref(func);
-	for(temp = NULL ; expr; expr = node_next_noref(expr)) {
-		node_release(temp);
-		status = eval(node_child_noref(expr), &newenv, &temp);
-	}
-
-	/* return value of last eval */
-	if(status == EVAL_OK) {
-		*result = temp;
-	}
-
-finish:
-	node_release(newenv);
-	return status;
+	node_release(*environ);
+	*environ = env;
+	return EVAL_OK;
 }
 
 eval_err_t eval(node_t *input, node_t **environ, node_t **output)
 {
-	eval_err_t status = EVAL_OK;
-	bool lookup_stat = false;
-	node_t *func = NULL, *args = NULL;
-	node_t *sym = NULL, *vars = NULL, *expr = NULL;
+	node_t *expr_curs, *temp, *func, *args, *newenv, *newargs;
+	eval_err_t status;
+	bool tail_call = false;
+
+//start:
+	expr_curs = NULL;
+	temp = NULL;
+	func = NULL;
+	args = NULL;
+	newenv = NULL;
+	newargs = NULL;
+	status = EVAL_OK;
 
 	/* not forcing this necessitates messy refcounting logic */
 	assert(!input || *output != input);
@@ -167,42 +113,52 @@ eval_err_t eval(node_t *input, node_t **environ, node_t **output)
 		*output = NULL;
 		break;
 
-	case NODE_DEAD:
-		assert(node_type(input) != NODE_DEAD);
-		break;
+	case NODE_LIST: {
+		/* (symbol args...) */
+		args = node_retain(node_next_noref(input));
 
-	case NODE_LIST:
-		/*
-		   (lambda (...) ...) ?
-		*/
-		status = validate_lambda_form(input);
-		if(status == EVAL_OK) {
-			*output = node_new_lambda(*environ,
-			                          node_child_noref(node_next_noref(input)),
-			                          node_next_noref(node_next_noref(input)));
-			break;
-		}
-
-		/*
-		   (symbol args ...)
-		*/
-		args = node_next(input);
-		func = node_child(input);
-
-		if(node_type(func) == NODE_SYMBOL) {
-			node_t *newfunc = NULL;
-			status = eval(func, environ, &newfunc);
-			node_release(func);
-			func = newfunc;
-			if(status != EVAL_OK) {
-				goto finish;
-			}
+		status = eval(node_child_noref(input), environ, &func);
+		if(status != EVAL_OK) {
+			goto node_list_cleanup;
 		}
 
 		switch(node_type(func)) {
-		case NODE_LAMBDA:
-			status = lambda_call(func, args, environ, output);
+		case NODE_LAMBDA: {
+			/* eval passed arguments */
+			status = map_eval(args, environ, &newargs);
+			if(status != EVAL_OK) {
+				*output = newargs;
+				goto node_lambda_cleanup;
+			}
+			node_release(args);
+			args = newargs;
+
+			/* bind variables to passed eval'd arguments */
+			newenv = node_retain(*environ);
+			status = lambda_bind(&newenv, node_lambda_vars_noref(func), args);
+			if(status != EVAL_OK) {
+				*output = func;
+				goto node_lambda_cleanup;
+			}
+
+			/* eval expr list in new environment */
+			expr_curs = node_lambda_expr_noref(func);
+			for(temp = NULL;
+			    expr_curs;
+			    expr_curs = node_next_noref(expr_curs)) {
+				node_release(temp);
+				status = eval(node_child_noref(expr_curs), &newenv, &temp);
+				if(status != EVAL_OK) {
+					break;
+				}
+			}
+
+			/* return value of last eval */
+			*output = temp;
+		node_lambda_cleanup:
+			node_release(newenv);
 			break;
+		}
 
 		case NODE_BUILTIN:
 			status = node_func(func)(args, environ, output);
@@ -211,42 +167,31 @@ eval_err_t eval(node_t *input, node_t **environ, node_t **output)
 		default:
 			*output = func;
 			status = EVAL_ERR_UNKNOWN_FUNCALL;
-			goto finish;
+			break;
 		}
+	node_list_cleanup:
+		node_release(func);
+		node_release(args);
 		break;
+	}
 
-	case NODE_SYMBOL:
-		lookup_stat = environ_lookup(*environ, input, output);
-		if(! lookup_stat) {
+	case NODE_SYMBOL: {
+		if(! environ_lookup(*environ, input, output)) {
 			*output = input;
 			status = EVAL_ERR_UNRESOLVED_SYMBOL;
 		}
 		break;
+	}
 
 	case NODE_LAMBDA:
 	case NODE_VALUE:
 	case NODE_BUILTIN:
 		*output = node_retain(input);
 		break;
-	}
 
-finish:
-	node_release(args);
-	node_release(func);
-	node_release(sym);
-	node_release(vars);
-	node_release(expr);
+	default:
+		assert(false);
+	}
 	
 	return status;
-}
-
-static char *eval_err_messages[] = {
-#define X(A, B) B,
-EVAL_ERR_DEFS
-#undef X
-};
-
-char *eval_err_str(eval_err_t err)
-{
-	return eval_err_messages[err];
 }

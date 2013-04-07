@@ -10,6 +10,11 @@ X(TOK_RPAREN) \
 X(TOK_DOT) \
 X(TOK_ATOM)
 
+/*
+TOK_SYM
+TOK_LIT
+*/
+
 typedef enum {
 #define X(name) name,
 TOK_TYPES

@@ -5,12 +5,12 @@
 
 #define PARSE_ERR_DEFS \
 X(PARSE_OK, "no error") \
-X(PARSE_UNEXPECTED_DOT, "unexpected dot") \
-X(PARSE_UNEXPECTED_RPAREN, "unexpected right paren") \
+X(PARSE_UNEXPECTED_DOT, "unexpected '.'") \
+X(PARSE_UNEXPECTED_RPAREN, "unexpected ')'") \
 X(PARSE_TOKEN_UNDERFLOW, "token underflow") \
-X(PARSE_EXPECTED_RPAREN, "expected right paren") \
+X(PARSE_EXPECTED_RPAREN, "expected ')'") \
 X(PARSE_EXPECTED_ATOM, "expected atom") \
-X(PARSE_EXPECTED_LPAREN_ATOM, "epxected left paren or atom")
+X(PARSE_EXPECTED_LPAREN_ATOM, "epxected '(' or atom")
 
 typedef enum {
 #define X(A, B) A,

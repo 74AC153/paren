@@ -1,3 +1,9 @@
+currently working on:
+- automatic refcount bumping audit
+
+no automatic refcount bumping UNLESS explicitly adding links via constructors
+
+switch token.c to node-based allocator
 
 Lexical scope
 when creating a lambda function, must also have 'defining environment' so that bound variables at the time of instantiation can be accessed. i.e. lambda forms must have:
@@ -21,6 +27,7 @@ call/cc?
 
 add unit tests for parse and eval:
 
+parse tests:
 ()
 a
 (())
@@ -35,6 +42,8 @@ a
 (a . b)
 (b . a)
 
+(a b . c)
+
 (a (b))
 ((b) a)
 (a . (b))
@@ -45,6 +54,65 @@ a
 ((a) . (b))
 ((b) . (a))
 
+eval tests:
+()
+a
+1
+(a . b)
+
+(quote ())
+(quote 1)
+(quote a)
+(quote (a . b))
+
+(def! W)
+(def! X)
+(def! Y)
+(def! Z)
+
+(set! W (quote ()))
+(set! X (quote a))
+(set! Y (quote 1))
+(set! W (quote (a . b)))
+
+(atom W)
+(atom X)
+(atom Y)
+(atom Z)
+
+(car W)
+(car X)
+(car Y)
+(car Z)
+
+(cdr W)
+(cdr X)
+(cdr Y)
+(cdr Z)
+
+
+(if () (quote a) (quote b))
+(if a (quote a) (quote b))
+(if 1 (quote a) (quote b))
+(if (quote ()) (quote a) (quote b))
+(if (quote a) (quote a) (quote b))
+(if (quote 1) (quote a) (quote b))
+(if (quote (a . b)) (quote a) (quote b))
+
+(lambda () a)
+(lambda a a)
+(lambda (a) a)
+(lambda (a . b) (a b))
+
+
+
+cons
+
+eq
+defbang
+setbang
+
+(quote ())
 (eq () (quote ()))
 (eq () (quote (())))
 (lambda (x) (car x))
@@ -58,8 +126,16 @@ a
 (my_car (quote (a b)))
 
 test lexical scope:
-(label myfun (lambda () 
+(label myfun (lambda () (label x 5)
+                        (label five (lambda () x))
+                        (label x 6)
+                        (five)
+             )
+)
 
+(label myfun (lambda () (label x 5) (label five (lambda () x)) (label x 6) (five)))
+
+((lambda (a . b) (cons a (cons a ()))) 1 2 3)
 
 add operators:
 

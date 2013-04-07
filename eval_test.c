@@ -7,14 +7,16 @@
 #include "builtins.h"
 
 builtin_assoc_t builtins[] = {
-	{ "atom",  builtin_atom },
-	{ "car",   builtin_car },
-	{ "cdr",   builtin_cdr },
-	{ "cond",  builtin_cond },
-	{ "cons",  builtin_cons },
-	{ "eq",    builtin_eq },
-	{ "quote", builtin_quote },
-	{ "label", builtin_label }
+	{ "quote",  builtin_quote },
+	{ "def!",   builtin_defbang },
+	{ "set!",   builtin_setbang },
+	{ "atom",   builtin_atom },
+	{ "car",    builtin_car },
+	{ "cdr",    builtin_cdr },
+	{ "if",     builtin_if },
+	{ "cons",   builtin_cons },
+	{ "eq",     builtin_eq },
+	{ "lambda", builtin_lambda },
 };
 
 int print_callback(node_t *n, void *p)
@@ -38,6 +40,7 @@ int main(int argc, char *argv[])
 	}
 
 	/* setup environment */
+	printf("*** initialize environment ***\n");
 	env = environ_add_builtins(env, builtins, 
 	                           sizeof(builtins) / sizeof(builtins[0]));
 	printf("start environment:\n");
@@ -47,6 +50,7 @@ int main(int argc, char *argv[])
 	node_find_live(print_callback, NULL);
 	printf("dead nodes:\n");
 	node_find_free(print_callback, NULL);
+	node_sanity();
 
 	for(i = 1; i < argc; i++) {
 		printf("*** parse %s ***\n", argv[i]);
@@ -60,11 +64,13 @@ int main(int argc, char *argv[])
 		printf("parse result:\n");
 		node_print_pretty(parse_result);
 		printf("\n");
+
 		printf("remaining: %s\n", remain);
 		printf("live nodes:\n");
 		node_find_live(print_callback, NULL);
+		node_sanity();
 
-		printf("*** eval %s ***\n", argv[i]);
+		printf("*** eval ***\n");
 		eval_stat = eval(parse_result, &env, &eval_result);
 
 		if(eval_stat) {
@@ -84,10 +90,18 @@ int main(int argc, char *argv[])
 		printf("live nodes:\n");
 		node_find_live(print_callback, NULL);
 
+		node_sanity();
+
+		printf("*** releasing parse result ***\n");
 		node_release(parse_result);
+
+		printf("*** releasing eval result ***\n");
 		node_release(eval_result);
+
+		node_sanity();
 	}
 
+	printf("*** release toplevel environment ***\n");
 	node_release(env);
 
 	printf("*** cleanup ***\n");

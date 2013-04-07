@@ -1,5 +1,5 @@
-#CFLAGS=-DREFCOUNT_DEBUG -DALLOC_DEBUG -g -Wall -Wextra -Werror
-CFLAGS=-Wall -Wextra -Werror -g --std=c99
+CFLAGS=-DREFCOUNT_DEBUG -DALLOC_DEBUG -g -Wall -Wextra -Werror --std=c99
+#CFLAGS=-Wall -Wextra -Werror -g --std=c99
 #CFLAGS=-Wall -Wextra -Werror -Os
 
 
@@ -14,8 +14,8 @@ tokenize_test: tokenize_test.o token.o
 parse_test: parse_test.o parse.o token.o node.o
 	gcc -o parse_test parse_test.o parse.o token.o node.o
 
-eval_test: eval_test.o builtins.o eval.o parse.o token.o node.o environ.o environ_utils.o
-	gcc -o eval_test eval_test.o builtins.o eval.o parse.o token.o node.o environ.o environ_utils.o
+eval_test: eval_test.o builtins.o eval.o parse.o token.o node.o environ.o environ_utils.o eval_err.o
+	gcc -o eval_test eval_test.o builtins.o eval.o parse.o token.o node.o environ.o environ_utils.o eval_err.o
 
 builtins.o: builtins.c builtins.h
 	gcc ${CFLAGS} -c builtins.c
@@ -46,3 +46,6 @@ eval_test.o: eval_test.c
 
 environ_utils.o: environ_utils.c environ_utils.h
 	gcc ${CFLAGS} -c environ_utils.c
+
+eval_err.o: eval_err.c eval_err.h
+	gcc ${CFLAGS} -c eval_err.c

@@ -23,7 +23,7 @@ parse_err_t parse_atom(char **input, token_t **tok_list, node_t **result)
 
 	val = strtoll(tok_sym(tok), &end, 0);
 	if(! *end) {
-		/* we consumed the entire string doing the conversion -- was a number */
+		/* entire string consumed doing the conversion: number */
 		ret = node_new_value(val);
 	} else {
 		ret = node_new_symbol(tok_sym(tok));
@@ -31,7 +31,10 @@ parse_err_t parse_atom(char **input, token_t **tok_list, node_t **result)
 
 	next_tok(input, tok_list);
 
-	*result = ret;
+	assert(ret);
+
+	*result = node_retain(ret);
+
 	return PARSE_OK;
 }
 
@@ -41,37 +44,46 @@ parse_err_t parse_sexpr(char **input, token_t **tok_list, node_t **result);
 static
 parse_err_t parse_list(char **input, token_t **tok_list, node_t **result)
 {
-	node_t *child = NULL, *next = NULL, *ret = NULL;
 	token_t *tok = first_tok(input, tok_list);
 	parse_err_t status = PARSE_OK;
 
 	if(tok_type(tok) == TOK_NONE) {
 		status = PARSE_TOKEN_UNDERFLOW;
-		goto finish;
-	}
-	/* check but don't consume this RPAREN because the parse_sexpr
-	   that calls this function will check for it when this function
-	   returns */
-	else if(tok_type(tok) == TOK_RPAREN) {
-		ret = NULL;
-		goto finish;
-	}
+		*result = NULL;
+	} else if(tok_type(tok) == TOK_RPAREN) {
+		/* ... ) */
+		/* check but don't consume this RPAREN because the parse_sexpr
+		   that calls this function will check for it when this function
+		   returns */
+		*result = NULL;
+	} else if(tok_type(tok) == TOK_DOT) {
+		tok = next_tok(input, tok_list);
+		if(! tok) {
+			status = PARSE_TOKEN_UNDERFLOW;
+		} else if(tok_type(tok) == TOK_RPAREN) {
+			status = PARSE_UNEXPECTED_RPAREN;
+		} else if(tok_type(tok) == TOK_DOT) {
+			status = PARSE_UNEXPECTED_DOT;
+		} else {
+			status = parse_sexpr(input, tok_list, result);
+		}
+	} else {
+		node_t *child = NULL;
 
-	status = parse_sexpr(input, tok_list, &child);
-	if(status != PARSE_OK) {
-		goto finish;
-	}
+		status = parse_sexpr(input, tok_list, &child);
+		if(status == PARSE_OK) {
+			node_t *next = NULL;
 
-	status = parse_list(input, tok_list, &next);
-	if(status != PARSE_OK) {
-		goto finish;
-	}
+			status = parse_list(input, tok_list, &next);
 
-	ret = node_new_list(child, next);
-finish:
-	node_release(child);
-	node_release(next);
-	*result = ret;
+			if(status == PARSE_OK) {
+				*result = node_retain(node_new_list(child, next));
+			}
+
+			node_release(next);
+		}
+		node_release(child);
+	}
 
 	return status;
 }
@@ -79,13 +91,13 @@ finish:
 static
 parse_err_t parse_sexpr(char **input, token_t **tok_list, node_t **result)
 {
-	node_t *ret = NULL, *child = NULL, *next = NULL;
+	node_t *ret = NULL;
 	token_t *tok;
 
 	parse_err_t status = PARSE_OK;
 
 	if(! (tok = first_tok(input, tok_list))) {
-		goto underflow;
+		return PARSE_TOKEN_UNDERFLOW;
 	}
 
 	switch(tok_type(tok)) {
@@ -98,7 +110,8 @@ parse_err_t parse_sexpr(char **input, token_t **tok_list, node_t **result)
 
 		tok = next_tok(input, tok_list);
 		if(! tok) {
-			goto underflow;
+			status = PARSE_TOKEN_UNDERFLOW;
+			goto error;
 		}
 		if(tok_type(tok) == TOK_RPAREN) {
 			/* ( ) */
@@ -111,46 +124,14 @@ parse_err_t parse_sexpr(char **input, token_t **tok_list, node_t **result)
 			status = PARSE_UNEXPECTED_DOT;
 			goto error;
 		}
-		/* ( <sexpr> ... */
-		status = parse_sexpr(input, tok_list, &child);
-
-		tok = first_tok(input, tok_list);
-		if(! tok) {
-			goto underflow;
-		}
-		if(tok_type(tok) == TOK_DOT) {
-			/* ( <sexpr> . <sexpr> */
-			tok = next_tok(input, tok_list);
-			if(! tok) {
-				goto underflow;
-			}
-			if(tok_type(tok) == TOK_RPAREN) {
-				status = PARSE_UNEXPECTED_RPAREN;
-				goto error;
-			}
-			if(tok_type(tok) == TOK_DOT) {
-				status = PARSE_UNEXPECTED_DOT;
-				goto error;
-			}
-			status = parse_sexpr(input, tok_list, &next);
-			if(status != PARSE_OK) {
-				goto error;
-			}
-		} else {
-			/* ( <sexpr> <sexpr>*  */
-			status = parse_list(input, tok_list, &next);
-			if(status != PARSE_OK) {
-				goto error;
-			}
-		}
-		ret = node_new_list(child, next);
-		node_release(child);
-		node_release(next);
+		/* ( ... */
+		status = parse_list(input, tok_list, &ret);
 
 		/* ... ) */
 		tok = first_tok(input, tok_list);
 		if(! tok) {
-			goto underflow;
+			status = PARSE_TOKEN_UNDERFLOW;
+			goto error;
 		}
 		if(tok_type(tok) != TOK_RPAREN) {
 			status = PARSE_EXPECTED_RPAREN;
@@ -169,16 +150,7 @@ parse_err_t parse_sexpr(char **input, token_t **tok_list, node_t **result)
 	return status;
 
 error:
-	node_release(child);
 	node_release(ret);
-	node_release(next);
-	return status;
-
-underflow:
-	status = PARSE_TOKEN_UNDERFLOW;
-	node_release(child);
-	node_release(ret);
-	node_release(next);
 	return status;
 }
 
@@ -202,5 +174,8 @@ PARSE_ERR_DEFS
 
 char *parse_err_str(parse_err_t err)
 {
+	if(err >= sizeof(parse_err_messages) / sizeof(parse_err_messages[0])) {
+		return "unknown error";
+	}
 	return parse_err_messages[err];
 }

@@ -5,38 +5,30 @@
 
 /* Environ format:
 
-environ      parent environ
+environ
 +---+---+    +---+---+
 |   | ------>|   | -----> ...
-+-|-+---+    +---+---+
-  |
-  v
-child        next child
-+---+---+    +---+---+
-|   | ------>|   | -----> ...
-+-|-+---+    +---+---+
-  |
-  v
-keyval
++-|-+---+    +-|-+---+
+  |            |
+  v            v
+keyval         ...
 +---+---+
 |   |   |
 +-|-+-|-+
   |   +-----+
   |         |
   v         v
-key        val
+ key       val
 +-------+  +-------+
 |symbol |  |   ?   |
 +-------+  +-------+
 */
 
-/* returned value has refcount = 1 */
-node_t *environ_push(node_t *environ);
+/* *environ released and replaced with new environ */
+void environ_add(node_t **environ, node_t *key, node_t *val);
 
-/* environ will leak if you don't release it */
-node_t *environ_add(node_t *environ, node_t *key, node_t *val);
-
-/* retain of *value required */
+/* *value and *keyvalue are retained before return */
+bool environ_keyvalue(node_t *environ, node_t *key, node_t **keyvalue);
 bool environ_lookup(node_t *environ, node_t *key, node_t **value);
 
 void environ_print(node_t *environ);

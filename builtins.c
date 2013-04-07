@@ -1,16 +1,35 @@
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 
 #include "environ.h"
 #include "builtins.h"
 #include "eval.h"
+
+eval_err_t builtin_quote(node_t *args, node_t **env, node_t **result)
+{
+	(void) env;
+	*result = args;
+
+	if(node_type(args) != NODE_LIST) {
+		return EVAL_ERR_EXPECTED_LIST;
+	}
+
+	if(node_next_noref(args)) {
+		return EVAL_ERR_TOO_MANY_ARGS;
+	}
+
+	*result = node_retain(node_child_noref(args));
+
+	return EVAL_OK;
+}
 
 static bool check_atom(node_t* arg)
 {
 	return (!arg || arg->type == NODE_VALUE || arg->type == NODE_SYMBOL);
 }
 
-int builtin_atom(node_t *args, node_t **env, node_t **result)
+eval_err_t builtin_atom(node_t *args, node_t **env, node_t **result)
 {
 	node_t *temp = NULL;
 	eval_err_t status = EVAL_OK;
@@ -18,24 +37,23 @@ int builtin_atom(node_t *args, node_t **env, node_t **result)
 	*result = args;
 
 	if(node_type(args) != NODE_LIST) {
-		status = EVAL_ERR_EXPECTED_LIST;
-		goto finish;
+		return EVAL_ERR_EXPECTED_LIST;
 	}
 
 	if(node_next_noref(args)) {
-		status = EVAL_ERR_TOO_MANY_ARGS;
-		goto finish;
+		return EVAL_ERR_TOO_MANY_ARGS;
 	}
 
-	/* evai arg */
+	/* eval arg */
 	status = eval(node_child_noref(args), env, &temp);
 	if(status != EVAL_OK) {
+		*result = temp;
 		goto finish;
 	}
 	
 	/* temp must be NULL, a value, or a symbol to be an atom */
 	if(check_atom(temp)) {
-		*result = node_new_value(1);
+		*result = node_retain(node_new_value(1));
 	} else {
 		*result = NULL;
 	}
@@ -45,7 +63,8 @@ finish:
 	return status;
 }
 
-int builtin_car(node_t *args, node_t **env, node_t **result)
+/* *result is retained */
+eval_err_t builtin_car(node_t *args, node_t **env, node_t **result)
 {
 	node_t *temp = NULL;
 	eval_err_t status = EVAL_OK;
@@ -53,13 +72,11 @@ int builtin_car(node_t *args, node_t **env, node_t **result)
 	*result = args;
 
 	if(node_type(args) != NODE_LIST) {
-		status = EVAL_ERR_EXPECTED_LIST;
-		goto finish;
+		return EVAL_ERR_EXPECTED_LIST;
 	}
 
 	if(node_next_noref(args)) {
-		status = EVAL_ERR_TOO_MANY_ARGS;
-		goto finish;
+		return EVAL_ERR_TOO_MANY_ARGS;
 	}
 
 	/* evai arg */
@@ -74,28 +91,26 @@ int builtin_car(node_t *args, node_t **env, node_t **result)
 		goto finish;
 	}
 	
-	*result = node_child(temp);
+	*result = node_retain(node_child_noref(temp));
 
 finish:
 	node_release(temp);
 	return status;
 }
 
-int builtin_cdr(node_t *args, node_t **env, node_t **result)
+eval_err_t builtin_cdr(node_t *args, node_t **env, node_t **result)
 {
-	node_t *temp;
+	node_t *temp = NULL;
 	eval_err_t status = EVAL_OK;
 
 	*result = args;
 
 	if(node_type(args) != NODE_LIST) {
-		status = EVAL_ERR_EXPECTED_LIST;
-		goto finish;
+		return EVAL_ERR_EXPECTED_LIST;
 	}
 
 	if(node_next_noref(args)) {
-		status = EVAL_ERR_TOO_MANY_ARGS;
-		goto finish;
+		return EVAL_ERR_TOO_MANY_ARGS;
 	}
 
 	/* evai arg */
@@ -112,57 +127,62 @@ int builtin_cdr(node_t *args, node_t **env, node_t **result)
 		goto finish;
 	}
 	
-	*result = node_next(temp);
+	*result = node_retain(node_next_noref(temp));
 
 finish:
 	node_release(temp);
 	return status;
 }
 
-/*
-	(cond ((test) (rest)) ((test2) (rest2)) ...)
-
-	args
-    +---+---+
-    |   |  ---> ...
-    +-|-+---+
-      |
-      v
-    pair-test   pair-rest
-    +---+---+   +---+---+
-    |   |  ---> |   |nil|
-    +-|-+---+   +-|-+---+
-      |           |
-      v           v
-    test        rest
-*/
-
-int builtin_cond(node_t *args, node_t **env, node_t **result)
+/* (if eval-test-expr eval-if-true-expr eval-if-false-expr) */
+eval_err_t builtin_if(node_t *args, node_t **env, node_t **result)
 {
-	node_t *args_curs, *pair_test, *test, *pair_rest, *rest, *test_res;
-	eval_err_t status = EVAL_OK;
+	node_t *test = NULL, *pass = NULL, *fail = NULL, *test_result = NULL;
+	eval_err_t status;
 
-	for(args_curs = args; args_curs; args_curs = node_next_noref(args_curs)) {
-		pair_test = node_child_noref(args_curs);
-		pair_rest = node_next_noref(pair_test);
-		test = node_child_noref(pair_test);
-		rest = node_child_noref(pair_rest);
-		status = eval(test, env, &test_res);
-		if(status != EVAL_OK) {
-			*result = test_res;
-			goto finish;
-		}
-		if(test_res) {
-			node_release(test_res);
-			status = eval(rest, env, result);
-			break;
-		}
+	*result = args;
+
+	if(node_type(args) != NODE_LIST) {
+		return EVAL_ERR_EXPECTED_LIST;
 	}
+	
+	pass = node_next_noref(args);
+	if(node_type(pass) != NODE_LIST) {
+		*result = pass;
+		return EVAL_ERR_EXPECTED_LIST;
+	}
+
+	fail = node_next_noref(pass);
+	if(node_type(fail) != NODE_LIST) {
+		*result = fail;
+		return EVAL_ERR_EXPECTED_LIST;
+	}
+
+	test = node_retain(node_child_noref(args));
+	pass = node_retain(node_child_noref(pass));
+	fail = node_retain(node_child_noref(fail));
+
+	status = eval(test, env, &test_result);
+	if(status != EVAL_OK) {
+		*result = test;
+		goto finish;
+	}
+
+	if(test_result != NULL) {
+		status = eval(pass, env, result);
+	} else {
+		status = eval(fail, env, result);
+	}
+
 finish:
+	node_release(test_result);
+	node_release(test);
+	node_release(pass);
+	node_release(fail);
 	return status;
 }
 
-int builtin_cons(node_t *args, node_t **env, node_t **result)
+eval_err_t builtin_cons(node_t *args, node_t **env, node_t **result)
 {
 	node_t *child = NULL, *next = NULL;
 	eval_err_t status = EVAL_OK;
@@ -170,23 +190,19 @@ int builtin_cons(node_t *args, node_t **env, node_t **result)
 	*result = args;
 
 	if(node_type(args) != NODE_LIST) {
-		status = EVAL_ERR_EXPECTED_LIST;
-		goto finish;
+		return EVAL_ERR_EXPECTED_LIST;
 	}
 
 	if(!node_next_noref(args)) {
-		status = EVAL_ERR_MISSING_ARG;
-		goto finish;
+		return EVAL_ERR_MISSING_ARG;
 	}
 
 	if(node_type(node_next_noref(args)) != NODE_LIST) {
-		status = EVAL_ERR_EXPECTED_LIST;
-		goto finish;
+		return EVAL_ERR_EXPECTED_LIST;
 	}
 
 	if(node_next_noref(node_next_noref(args))) {
-		status = EVAL_ERR_TOO_MANY_ARGS;
-		goto finish;
+		return EVAL_ERR_TOO_MANY_ARGS;
 	}
 
 	/* eval args */
@@ -202,7 +218,7 @@ int builtin_cons(node_t *args, node_t **env, node_t **result)
 		goto finish;
 	}
 
-	*result = node_new_list(child, next);
+	*result = node_retain(node_new_list(child, next));
 
 finish:
 	node_release(child);
@@ -210,7 +226,7 @@ finish:
 	return status;
 }
 
-int builtin_eq(node_t *args, node_t **env, node_t **result)
+eval_err_t builtin_eq(node_t *args, node_t **env, node_t **result)
 {
 	node_t *temp = NULL, *temp2 = NULL;
 	eval_err_t status = EVAL_OK;
@@ -218,32 +234,30 @@ int builtin_eq(node_t *args, node_t **env, node_t **result)
 	*result = args;
 
 	if(node_type(args) != NODE_LIST) {
-		status = EVAL_ERR_EXPECTED_LIST;
-		goto finish;
+		return EVAL_ERR_EXPECTED_LIST;
 	}
 
 	if(! node_next_noref(args)) {
-		status = EVAL_ERR_MISSING_ARG;
-		goto finish;
+		return EVAL_ERR_MISSING_ARG;
 	}
 
 	if(node_type(node_next_noref(args)) != NODE_LIST) {
-		status = EVAL_ERR_EXPECTED_LIST;
-		goto finish;
+		return EVAL_ERR_EXPECTED_LIST;
 	}
 
 	if(node_next_noref(node_next_noref(args))) {
-		status = EVAL_ERR_TOO_MANY_ARGS;
-		goto finish;
+		return EVAL_ERR_TOO_MANY_ARGS;
 	}
 
-	/* evai args */
+	/* eval args */
 	status = eval(node_child_noref(args), env, &temp);
 	if(status != EVAL_OK) {
+		*result = temp;
 		goto finish;
 	}
 	status = eval(node_child_noref(node_next_noref(args)), env, &temp2);
 	if(status != EVAL_OK) {
+		*result = temp2;
 		goto finish;
 	}
 	
@@ -256,7 +270,7 @@ int builtin_eq(node_t *args, node_t **env, node_t **result)
 	    strcmp(node_name(temp), node_name(temp2)))) {
 		*result = NULL;
 	} else {
-		*result = node_new_value(1);
+		*result = node_retain(node_new_value(1));
 	}
 
 finish:
@@ -265,83 +279,91 @@ finish:
 	return status;
 }
 
-int builtin_quote(node_t *args, node_t **env, node_t **result)
+eval_err_t builtin_defbang(node_t *args, node_t **env, node_t **result)
 {
-	eval_err_t status = EVAL_OK;
-
-	env = env;
 	*result = args;
 
 	if(node_type(args) != NODE_LIST) {
-		status = EVAL_ERR_EXPECTED_LIST;
-		goto finish;
+		return EVAL_ERR_EXPECTED_LIST;
 	}
 
-	if(node_next_noref(args)) {
-		status = EVAL_ERR_TOO_MANY_ARGS;
-		goto finish;
+	/* note: we return the symbol that was added to environment */
+	*result = node_child_noref(args);
+	if(node_type(*result) != NODE_SYMBOL) {
+		return EVAL_ERR_EXPECTED_SYMBOL;
 	}
 
-	*result = node_child(args);
+	environ_add(env, *result, NULL);
 
-finish:
+	node_retain(*result);
 	return EVAL_OK;
 }
 
-int builtin_label(node_t *args, node_t **env, node_t **result)
+eval_err_t builtin_setbang(node_t *args, node_t **env, node_t **result)
 {
-	node_t *key = NULL, *valexpr = NULL, *val = NULL, *oldenv = NULL;
+	node_t *name = NULL, *val = NULL, *newval = NULL, *keyval = NULL;
 	eval_err_t status = EVAL_OK;
 
 	*result = args;
 
 	if(node_type(args) != NODE_LIST) {
-		status = EVAL_ERR_EXPECTED_LIST;
-		goto finish;
+		return EVAL_ERR_EXPECTED_LIST;
 	}
-	if(!node_child_noref(args)) {
-		status = EVAL_ERR_MISSING_ARG;
-		goto finish;
+
+	name = node_child_noref(args);
+	if(node_type(name) != NODE_SYMBOL) {
+		return EVAL_ERR_EXPECTED_SYMBOL;
 	}
-	if(node_type(node_child_noref(args)) != NODE_SYMBOL) {
-		status = EVAL_ERR_EXPECTED_SYMBOL;
-		goto finish;
-	}
-	if(!node_next_noref(args)) {
-		status = EVAL_ERR_MISSING_ARG;
-		goto finish;
-	}
+
 	if(node_type(node_next_noref(args)) != NODE_LIST) {
-		status = EVAL_ERR_EXPECTED_LIST;
-		goto finish;
+		return EVAL_ERR_EXPECTED_LIST;
 	}
-	if(node_next_noref(node_next_noref(args)) != NULL) {
-		status = EVAL_ERR_MISSING_ARG;
-		goto finish;
-	}
+	val = node_child_noref(node_next_noref(args));
 
-	key = node_child(args);
-	if(node_type(key) != NODE_SYMBOL) {
-		status = EVAL_ERR_EXPECTED_SYMBOL;
-		goto finish;
-	}
-
-	valexpr = node_child(node_next_noref(args));
-
-	status = eval(valexpr, env, &val);
+	status = eval(val, env, &newval);
 	if(status != EVAL_OK) {
-		goto finish;
+		return status;
 	}
 
-	oldenv = *env;
-	*env = environ_add(oldenv, key, val);
+	if(! environ_keyvalue(*env, name, &keyval)) {
+		node_release(newval);
+		status = EVAL_ERR_UNRESOLVED_SYMBOL;
+	}
 
-	*result = node_retain(val);
+	node_patch_list_next(keyval, newval);
+	*result = node_retain(newval);
 
-finish:
-	node_release(key);
-	node_release(valexpr);
-	node_release(val);
-	node_release(oldenv);
-	return status;
+	return EVAL_OK;
+}
+
+eval_err_t builtin_lambda(node_t *args, node_t **env, node_t **result)
+{
+	node_t *vars_curs = NULL;
+
+	if(node_type(args) != NODE_LIST) {
+		return EVAL_ERR_EXPECTED_LIST;
+	}
+
+	/* ensure that vars list is NULL, a sym, or list of syms */
+	for(vars_curs = node_child_noref(args);
+	    vars_curs;
+	    vars_curs = node_next_noref(vars_curs)) {
+		if(node_type(vars_curs) == NODE_SYMBOL) {
+			break;
+		} else if(node_type(vars_curs) == NODE_LIST) {
+			if(node_type(node_child_noref(vars_curs)) != NODE_SYMBOL) {
+				return EVAL_ERR_EXPECTED_SYMBOL;
+			}
+		} else {
+			return EVAL_ERR_EXPECTED_LIST_SYM;
+		}
+	}
+
+	*result = node_new_lambda(*env,
+	                          node_child_noref(args), /* vars */
+	                          node_next_noref(args)); /* expr list */
+
+	node_retain(*result);
+
+	return EVAL_OK;
 }
