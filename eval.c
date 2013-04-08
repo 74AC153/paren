@@ -94,9 +94,9 @@ eval_err_t eval(node_t *input, node_t **environ, node_t **output)
 {
 	node_t *expr_curs, *temp, *func, *args, *newenv, *newargs;
 	eval_err_t status;
-	bool tail_call = false;
 
-//start:
+eval_tailcall_restart:
+
 	expr_curs = NULL;
 	temp = NULL;
 	func = NULL;
@@ -147,9 +147,19 @@ eval_err_t eval(node_t *input, node_t **environ, node_t **output)
 			    expr_curs;
 			    expr_curs = node_next_noref(expr_curs)) {
 				node_release(temp);
-				status = eval(node_child_noref(expr_curs), &newenv, &temp);
-				if(status != EVAL_OK) {
-					break;
+				if(node_next_noref(expr_curs) == NULL) {
+					/* tail call: clean up and setup to restart */
+					node_release(*environ);
+					*environ = newenv;
+					input = node_child_noref(expr_curs);
+					node_release(args);
+					node_release(func);
+					goto eval_tailcall_restart;
+				} else {
+					status = eval(node_child_noref(expr_curs), &newenv, &temp);
+					if(status != EVAL_OK) {
+						break;
+					}
 				}
 			}
 
