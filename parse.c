@@ -105,6 +105,17 @@ parse_err_t parse_sexpr(char **input, token_t **tok_list, node_t **result)
 		status = parse_atom(input, tok_list, &ret);
 		break;
 
+	case TOK_QUOTE: {
+		node_t *val = NULL;
+		/* consume quote and parse remaining */
+		tok = next_tok(input, tok_list);
+		status = parse_sexpr(input, tok_list, &val);
+		if(status == PARSE_OK) {
+			ret = node_retain(node_new_quote(val));
+		}
+		node_release(val);
+		break;
+	}
 	case TOK_LPAREN:
 		/* ( ... */
 

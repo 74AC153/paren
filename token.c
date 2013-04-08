@@ -15,7 +15,7 @@ char *token_type_names[] = {
 
 static bool is_atom_char(char c)
 {
-	return !isspace(c) && c != '(' && c != ')' && c != '.';
+	return !isspace(c) && c != '(' && c != ')' && c != '.' && c != '\'';
 }
 
 static size_t read_tok(char *input, token_t *tok_out)
@@ -40,6 +40,10 @@ static size_t read_tok(char *input, token_t *tok_out)
 		break;
 	case '.':
 		tok_out->type = TOK_DOT;
+		end = start + 1;
+		break;
+	case '\'':
+		tok_out->type = TOK_QUOTE;
 		end = start + 1;
 		break;
 	default:

@@ -193,6 +193,10 @@ eval_tailcall_restart:
 		break;
 	}
 
+	case NODE_QUOTE:
+		*output = node_retain(node_quote_val_noref(input));
+		break;
+
 	case NODE_LAMBDA:
 	case NODE_VALUE:
 	case NODE_BUILTIN:

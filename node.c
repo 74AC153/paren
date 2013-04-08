@@ -126,6 +126,9 @@ void node_release(node_t *n)
 				dec_rc_move_pend_z(&pend_list, n->dat.lambda.expr);
 				dec_rc_move_pend_z(&pend_list, n->dat.lambda.env);
 				break;
+			case NODE_QUOTE:
+				dec_rc_move_pend_z(&pend_list, n->dat.quote.val);
+				break;
 			default:
 				assert(n->type != NODE_DEAD);
 				break;
@@ -294,6 +297,24 @@ builtin_t node_func(node_t *n)
 	return n->dat.func;
 }
 
+node_t *node_new_quote(node_t *val)
+{
+	node_t *ret;
+	assert(ret = node_new());
+	ret->dat.quote.val = node_retain(val);
+	ret->type = NODE_QUOTE;
+#if defined(ALLOC_DEBUG)
+	printf("init quote %p (%p)\n", ret, ret->dat.quote.val);
+#endif
+	return ret;
+}
+
+node_t *node_quote_val_noref(node_t *n)
+{
+	assert(node_type(n) == NODE_QUOTE);
+	return n->dat.quote.val;
+}
+
 void node_print(node_t *n, bool recursive)
 {
 	if(!n) {
@@ -321,6 +342,9 @@ void node_print(node_t *n, bool recursive)
 		case NODE_BUILTIN:
 			printf("%p", n->dat.func);
 			break;
+		case NODE_QUOTE:
+			printf("%p", n->dat.quote.val);
+			break;
 		case NODE_DEAD:
 			printf("next=%p", n->dat.dead.next);
 			break;
@@ -328,9 +352,17 @@ void node_print(node_t *n, bool recursive)
 			break;
 		}
 		printf("\n");
-		if(recursive && n->type == NODE_LIST) {
-			if(n->dat.list.child) node_print(n->dat.list.child, true);
-			if(n->dat.list.next) node_print(n->dat.list.next, true);
+		if(recursive) {
+			if(n->type == NODE_LIST) {
+				if(n->dat.list.child) node_print(n->dat.list.child, true);
+				if(n->dat.list.next) node_print(n->dat.list.next, true);
+			} else if(n->type == NODE_LAMBDA) {
+		    	if(n->dat.lambda.env) node_print(n->dat.lambda.env, true);
+				if(n->dat.lambda.vars) node_print(n->dat.lambda.vars, true);
+				if(n->dat.lambda.expr) node_print(n->dat.lambda.expr, true);
+			} else if(n->type == NODE_QUOTE) {
+		    	if(n->dat.quote.val) node_print(n->dat.quote.val, true);
+			}
 		}
 	}
 }
@@ -365,6 +397,10 @@ void node_print_pretty(node_t *n)
 			break;
 		case NODE_BUILTIN:
 			printf("builtin:%p", n->dat.func);
+			break;
+		case NODE_QUOTE:
+			printf("'");
+			node_print_pretty(n->dat.quote.val);
 			break;
 		}
 }

@@ -8,6 +8,7 @@ X(TOK_NONE) \
 X(TOK_LPAREN) \
 X(TOK_RPAREN) \
 X(TOK_DOT) \
+X(TOK_QUOTE) \
 X(TOK_ATOM)
 
 /*

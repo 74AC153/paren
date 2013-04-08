@@ -13,6 +13,7 @@ X(NODE_LAMBDA) \
 X(NODE_SYMBOL) \
 X(NODE_VALUE) \
 X(NODE_BUILTIN) \
+X(NODE_QUOTE) \
 X(NODE_DEAD)
 
 typedef enum {
@@ -40,6 +41,7 @@ struct node {
 		builtin_t func;
 		char name[MAX_SYM_LEN];
 		uint64_t value;
+		struct { struct node *val; } quote;
 		struct { struct node *next; } dead;
 	} dat;
 };
@@ -81,6 +83,9 @@ char *node_name(node_t *n);
 
 node_t *node_new_builtin(builtin_t func);
 builtin_t node_func(node_t *n);
+
+node_t *node_new_quote(node_t *val);
+node_t *node_quote_val_noref(node_t *n);
 
 void node_print(node_t *n, bool recursive);
 void node_print_pretty(node_t *n);
