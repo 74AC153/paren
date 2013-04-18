@@ -367,6 +367,28 @@ void node_print(node_t *n, bool recursive)
 	}
 }
 
+node_t *node_new_if_func(void)
+{
+	node_t *ret;
+	assert(ret = node_new());
+	ret->type = NODE_IF_FUNC;
+#if defined(ALLOC_DEBUG)
+	printf("init if_func\n");
+#endif
+	return ret;
+}
+
+node_t *node_new_lambda_func(void)
+{
+	node_t *ret;
+	assert(ret = node_new());
+	ret->type = NODE_LAMBDA_FUNC;
+#if defined(ALLOC_DEBUG)
+	printf("init lambda_func\n");
+#endif
+	return ret;
+}
+
 void node_print_pretty(node_t *n)
 {
 		switch(node_type(n)) {
@@ -401,6 +423,12 @@ void node_print_pretty(node_t *n)
 		case NODE_QUOTE:
 			printf("'");
 			node_print_pretty(n->dat.quote.val);
+			break;
+		case NODE_IF_FUNC:
+			printf("if");
+			break;
+		case NODE_LAMBDA_FUNC:
+			printf("lambda");
 			break;
 		}
 }

@@ -9,7 +9,7 @@ node_t *environ_add_builtins(node_t*env,
 
 	for (i = 0; i < num; i++) {
 		key = node_new_symbol(builtins[i].name);
-		value = node_new_builtin(builtins[i].func);
+		value = builtins[i].func();
 
 		environ_add(&env, key, value);
 	}

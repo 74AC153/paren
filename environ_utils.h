@@ -8,7 +8,7 @@
 
 typedef struct {
 	char *name;
-	builtin_t func;
+	node_t *(*func)(void);
 } builtin_assoc_t;
 
 node_t *environ_add_builtins(node_t *env,

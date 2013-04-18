@@ -38,7 +38,7 @@ eval_err_t map_eval(node_t *args, node_t **environ, node_t **result)
 eval_err_t lambda_bind(node_t **environ, node_t *vars, node_t *args)
 {
 	node_t *var_curs = NULL, *arg_curs = NULL;
-	node_t *name, *value;
+	node_t *kv, *name, *value;
 	node_t *env = *environ;
 	bool early_term = false;
 
@@ -76,7 +76,14 @@ eval_err_t lambda_bind(node_t **environ, node_t *vars, node_t *args)
 			return EVAL_ERR_EXPECTED_LIST_SYM;
 		}
 
-		environ_add(&env, name, value);
+		/* if the symbol already exists in the current frame, update its
+		   value, otherwise, add the value to the frame*/
+		if(environ_keyvalue_frame(*environ, name, &kv)) {
+			node_patch_list_next(kv, value);
+			node_release(kv);
+		} else {
+			environ_add(&env, name, value);
+		}
 
 		if(early_term) {
 			break;
@@ -94,6 +101,8 @@ eval_err_t eval(node_t *input, node_t **environ, node_t **output)
 {
 	node_t *expr_curs, *temp, *func, *args, *newenv, *newargs;
 	eval_err_t status;
+
+	environ_pushframe(environ);
 
 eval_tailcall_restart:
 
@@ -116,6 +125,11 @@ eval_tailcall_restart:
 	case NODE_LIST: {
 		/* (symbol args...) */
 		args = node_retain(node_next_noref(input));
+		if(node_type(args) != NODE_LIST) {
+			*output = args;
+			status = EVAL_ERR_EXPECTED_LIST;
+			break;
+		}
 
 		status = eval(node_child_noref(input), environ, &func);
 		if(status != EVAL_OK) {
@@ -134,8 +148,7 @@ eval_tailcall_restart:
 			args = newargs;
 
 			/* bind variables to passed eval'd arguments */
-			newenv = node_retain(*environ);
-			status = lambda_bind(&newenv, node_lambda_vars_noref(func), args);
+			status = lambda_bind(environ, node_lambda_vars_noref(func), args);
 			if(status != EVAL_OK) {
 				*output = func;
 				goto node_lambda_cleanup;
@@ -149,8 +162,6 @@ eval_tailcall_restart:
 				node_release(temp);
 				if(node_next_noref(expr_curs) == NULL) {
 					/* tail call: clean up and setup to restart */
-					node_release(*environ);
-					*environ = newenv;
 					input = node_child_noref(expr_curs);
 					node_release(args);
 					node_release(func);
@@ -167,6 +178,51 @@ eval_tailcall_restart:
 			*output = temp;
 		node_lambda_cleanup:
 			node_release(newenv);
+			break;
+		}
+
+		case NODE_LAMBDA_FUNC:
+			*output = node_new_lambda(*environ,
+			                          node_child_noref(args), /* vars */
+			                          node_next_noref(args)); /* expr list */
+			node_retain(*output);
+			break;
+
+		case NODE_IF_FUNC: {
+			node_t *test = NULL, *pass = NULL, *fail = NULL, *test_res = NULL;
+			test = node_child_noref(args);
+	
+			*output = pass = node_next_noref(args);
+			if(node_type(pass) != NODE_LIST) {
+				status = EVAL_ERR_EXPECTED_LIST;
+				break;
+			}
+			pass = node_child_noref(pass);
+
+			*output = fail = node_next_noref(node_next_noref(args));
+			if(node_type(fail) != NODE_LIST) {
+				status = EVAL_ERR_EXPECTED_LIST;
+				break;
+			}
+			fail = node_child_noref(fail);
+
+			status = eval(test, environ, &test_res);
+			if(status != EVAL_OK) {
+				*output = test;
+				break;
+			}
+
+			/* tail call with branch taken */
+			if(test_res != NULL) {
+				input = pass;
+			} else {
+				input = fail;
+			}
+			node_release(args);
+			node_release(func);
+			node_release(test_res);
+
+			goto eval_tailcall_restart;
 			break;
 		}
 
@@ -207,5 +263,7 @@ eval_tailcall_restart:
 		assert(false);
 	}
 	
+	environ_popframe(environ);
+
 	return status;
 }

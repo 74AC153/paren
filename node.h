@@ -14,6 +14,8 @@ X(NODE_SYMBOL) \
 X(NODE_VALUE) \
 X(NODE_BUILTIN) \
 X(NODE_QUOTE) \
+X(NODE_IF_FUNC) \
+X(NODE_LAMBDA_FUNC) \
 X(NODE_DEAD)
 
 typedef enum {
@@ -86,6 +88,10 @@ builtin_t node_func(node_t *n);
 
 node_t *node_new_quote(node_t *val);
 node_t *node_quote_val_noref(node_t *n);
+
+node_t *node_new_if_func(void);
+
+node_t *node_new_lambda_func(void);
 
 void node_print(node_t *n, bool recursive);
 void node_print_pretty(node_t *n);

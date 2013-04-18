@@ -134,6 +134,7 @@ finish:
 	return status;
 }
 
+#if 0
 /* (if eval-test-expr eval-if-true-expr eval-if-false-expr) */
 eval_err_t builtin_if(node_t *args, node_t **env, node_t **result)
 {
@@ -181,6 +182,7 @@ finish:
 	node_release(fail);
 	return status;
 }
+#endif
 
 eval_err_t builtin_cons(node_t *args, node_t **env, node_t **result)
 {
@@ -331,11 +333,14 @@ eval_err_t builtin_setbang(node_t *args, node_t **env, node_t **result)
 	}
 
 	node_patch_list_next(keyval, newval);
-	*result = node_retain(newval);
+	*result = newval;
+
+	node_release(keyval); /* ??? */
 
 	return EVAL_OK;
 }
 
+#if 0
 eval_err_t builtin_lambda(node_t *args, node_t **env, node_t **result)
 {
 	node_t *vars_curs = NULL;
@@ -367,3 +372,4 @@ eval_err_t builtin_lambda(node_t *args, node_t **env, node_t **result)
 
 	return EVAL_OK;
 }
+#endif

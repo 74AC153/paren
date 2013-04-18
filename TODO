@@ -137,6 +137,19 @@ test lexical scope:
 
 ((lambda (a . b) (cons a (cons a ()))) 1 2 3)
 
+(def! last-item-rec)
+(set! last-item-rec (lambda (first rest)
+                        (if (eq rest ())
+                            'first
+                            (last-item-rec (car rest) (cdr rest)))))
+
+(set! last-item-rec (lambda (first rest) (if (eq rest ()) 'first (last-item-rec (car rest) (cdr rest)))))
+
+(def! last-item)
+(set! last-item (lambda (l) (last-item-rec ((car l) (cdr l)))))
+(last-item '(a b c))
+
+
 add operators:
 
 +

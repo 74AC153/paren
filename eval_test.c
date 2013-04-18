@@ -6,17 +6,44 @@
 #include "environ_utils.h"
 #include "builtins.h"
 
+#define DEFINE_BUILTIN_MAKER(FUNC) \
+node_t *make_ ## FUNC (void) \
+{ \
+	return node_new_builtin(FUNC); \
+}
+
+DEFINE_BUILTIN_MAKER(builtin_quote)
+DEFINE_BUILTIN_MAKER(builtin_defbang)
+DEFINE_BUILTIN_MAKER(builtin_setbang)
+DEFINE_BUILTIN_MAKER(builtin_atom)
+DEFINE_BUILTIN_MAKER(builtin_car)
+DEFINE_BUILTIN_MAKER(builtin_cdr)
+
+node_t *make_builtin_if(void)
+{
+	return node_new_if_func();
+}
+
+DEFINE_BUILTIN_MAKER(builtin_cons)
+DEFINE_BUILTIN_MAKER(builtin_eq)
+
+node_t *make_builtin_lambda(void)
+{
+	return node_new_lambda_func();
+}
+
+/* rewrite these... */
 builtin_assoc_t builtins[] = {
-	{ "quote",  builtin_quote },
-	{ "def!",   builtin_defbang },
-	{ "set!",   builtin_setbang },
-	{ "atom",   builtin_atom },
-	{ "car",    builtin_car },
-	{ "cdr",    builtin_cdr },
-	{ "if",     builtin_if },
-	{ "cons",   builtin_cons },
-	{ "eq",     builtin_eq },
-	{ "lambda", builtin_lambda },
+	{ "quote",  make_builtin_quote },
+	{ "def!",   make_builtin_defbang },
+	{ "set!",   make_builtin_setbang },
+	{ "atom",   make_builtin_atom },
+	{ "car",    make_builtin_car },
+	{ "cdr",    make_builtin_cdr },
+	{ "if",     make_builtin_if },
+	{ "cons",   make_builtin_cons },
+	{ "eq",     make_builtin_eq },
+	{ "lambda", make_builtin_lambda },
 };
 
 int print_callback(node_t *n, void *p)
