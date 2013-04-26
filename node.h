@@ -34,7 +34,7 @@ typedef eval_err_t (*builtin_t)(struct node *args,
                                 struct node **result);
 
 struct node {
-	size_t refcount;
+	uintptr_t refcount;
 	nodetype_t type;
 	uint32_t flags;
 	union {
@@ -96,6 +96,8 @@ node_t *node_new_lambda_func(void);
 void node_print(node_t *n, bool recursive);
 void node_print_pretty(node_t *n);
 
+bool node_reachable_from(node_t *src, node_t *dst);
+
 /* call cb on all live nodes */
 typedef int (live_cb_t)(node_t *n, void *p);
 int node_find_live(live_cb_t cb, void *p);
@@ -104,5 +106,10 @@ int node_find_free(live_cb_t cb, void *p);
 /* free unused nodes, returns # nodes freed */
 size_t node_gc(void);
 void node_sanity(void);
+
+void node_gc_addroot(node_t *n);
+void node_gc_remroot(node_t *n);
+void node_gc_advise_link(node_t *n);
+void node_gc_iterate(void);
 
 #endif

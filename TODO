@@ -1,3 +1,12 @@
+tracing garbage collector with refcounting hints
+refcounting for immediate jumping processing queue to be freed,
+
+split out memcell layer from node layer
+
+
+
+allow def! to take a value as well
+
 currently working on:
 - automatic refcount bumping audit
 
@@ -140,17 +149,29 @@ test lexical scope:
 (def! last-item-rec)
 (set! last-item-rec (lambda (first rest)
                         (if (eq rest ())
-                            'first
+                            first
                             (last-item-rec (car rest) (cdr rest)))))
 
-(set! last-item-rec (lambda (first rest) (if (eq rest ()) 'first (last-item-rec (car rest) (cdr rest)))))
+(set! last-item-rec (lambda (first rest) (if (eq rest ()) first (last-item-rec (car rest) (cdr rest)))))
 
 (def! last-item)
-(set! last-item (lambda (l) (last-item-rec ((car l) (cdr l)))))
+(set! last-item (lambda (l) (last-item-rec (car l) (cdr l))))
 (last-item '(a b c))
+
+(def! reverse)
+(set! reverse (lambda (fwd rev) (if (eq fwd ()) rev (reverse (cdr fwd) (cons (car fwd) rev)))))
+(reverse '(1 2 3) ())
 
 
 add operators:
+
+nil?
+atom?
+list?
+value?
+symbol?
+lambda?
+...
 
 +
 -
