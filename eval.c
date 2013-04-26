@@ -1,6 +1,7 @@
 #include <string.h>
 #include <assert.h>
 #include <stdbool.h>
+#include <stdio.h>
 
 #include "environ.h"
 #include "eval.h"
@@ -101,10 +102,13 @@ eval_err_t eval(node_t *input, node_t **environ, node_t **output)
 {
 	node_t *expr_curs, *temp, *func, *args, *newenv, *newargs;
 	eval_err_t status;
-
-	environ_pushframe(environ);
+	bool tailcall = false;
+	bool frameadded = false;
 
 eval_tailcall_restart:
+	printf("eval of:");
+	node_print_pretty(input);
+	printf("\n");
 
 	expr_curs = NULL;
 	temp = NULL;
@@ -148,6 +152,10 @@ eval_tailcall_restart:
 			args = newargs;
 
 			/* bind variables to passed eval'd arguments */
+			if(! tailcall) {
+				environ_pushframe(environ);
+				frameadded = true;
+			}
 			status = lambda_bind(environ, node_lambda_vars_noref(func), args);
 			if(status != EVAL_OK) {
 				*output = func;
@@ -165,6 +173,7 @@ eval_tailcall_restart:
 					input = node_child_noref(expr_curs);
 					node_release(args);
 					node_release(func);
+					tailcall = true;
 					goto eval_tailcall_restart;
 				} else {
 					status = eval(node_child_noref(expr_curs), &newenv, &temp);
@@ -212,7 +221,6 @@ eval_tailcall_restart:
 				break;
 			}
 
-			/* tail call with branch taken */
 			if(test_res != NULL) {
 				input = pass;
 			} else {
@@ -263,7 +271,9 @@ eval_tailcall_restart:
 		assert(false);
 	}
 	
-	environ_popframe(environ);
+	if(frameadded) {
+		environ_popframe(environ);
+	}
 
 	return status;
 }
