@@ -2,6 +2,7 @@
 #define DLIST_H
 
 #include <stdbool.h>
+#include <stdlib.h>
 
 struct dlnode {
 	struct dlnode *prev, *next;
@@ -33,6 +34,9 @@ typedef struct dlist dlist_t;
 	void dlnode_insertnext(dlnode_t *n, dlnode_t *next)
 	void dlnode_insertprev(dlnode_t *n, dlnode_t *prev)
 	dlnode_t *dlnode_remove(dlnode_t *n)
+
+	typedef int (*iterate_cb_t)(dlnode_t *n, void *p);
+	int dlist_iterate(dlist_t *l, iterate_cb_t cb, void *p);
 */
 
 static inline
@@ -136,6 +140,20 @@ static inline
 bool dlist_is_empty(dlist_t *l)
 {
 	return l->hdr.next == &(l->hdr);
+}
+
+typedef int (*iterate_cb_t)(dlnode_t *n, void *p);
+static inline
+int dlist_iterate(dlist_t *l, iterate_cb_t cb, void *p)
+{
+	int status = 0;
+	dlnode_t *n = dlist_first(l);
+	
+	for( ; ! dlnode_is_terminal(n) && !status; n = dlnode_next(n)) {
+		status = cb(n, p);
+	}
+	
+	return status;
 }
 
 #endif

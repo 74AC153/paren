@@ -99,17 +99,16 @@ void node_print_pretty(node_t *n);
 bool node_reachable_from(node_t *src, node_t *dst);
 
 /* call cb on all live nodes */
-typedef int (live_cb_t)(node_t *n, void *p);
-int node_find_live(live_cb_t cb, void *p);
-int node_find_free(live_cb_t cb, void *p);
+typedef int (*find_cb_t)(node_t *n, void *p);
+int node_find_live(find_cb_t cb, void *p);
+int node_find_free(find_cb_t cb, void *p);
+int node_find_roots(find_cb_t cb, void *p);
+int node_find_unproc(find_cb_t cb, void *p);
+int node_find_reachable(find_cb_t cb, void *p);
+int node_find_boundary(find_cb_t cb, void *p);
 
 /* free unused nodes, returns # nodes freed */
 size_t node_gc(void);
 void node_sanity(void);
-
-void node_gc_addroot(node_t *n);
-void node_gc_remroot(node_t *n);
-void node_gc_advise_link(node_t *n);
-void node_gc_iterate(void);
 
 #endif

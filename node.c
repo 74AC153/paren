@@ -28,183 +28,6 @@ static size_t num_live = 0;
 static dlist_t free_list = DLIST_STATIC_INITIALIZER(free_list);
 static size_t num_free = 0;
 
-static memcell_t *roots_cursor = NULL;
-static dlist_t gc_roots_list = DLIST_STATIC_INITIALIZER(gc_roots_list);
-static dlist_t gc_boundary_list = DLIST_STATIC_INITIALIZER(gc_boundary_list);
-static dlist_t gc_white_list = DLIST_STATIC_INITIALIZER(gc_roots_list);
-static dlist_t gc_black_list = DLIST_STATIC_INITIALIZER(gc_roots_list);
-static dlist_t *gc_reachable_list = &gc_white_list;
-static dlist_t *gc_unproc_list = &gc_black_list;
-
-void node_gc_addroot(node_t *n)
-{
-	memcell_t *mc = node_to_memcell(n);
-	if(dlnode_owner(&(mc->hdr)) != &gc_roots_list) {
-		dlnode_remove(&(mc->hdr));
-		dlist_insertlast(&gc_roots_list, &(mc->hdr));
-	}
-}
-
-void node_gc_advise_link(node_t *n)
-{
-	memcell_t *mc = node_to_memcell(n);
-	if(dlnode_owner(&(mc->hdr)) == gc_unproc_list) {
-		dlnode_remove(&(mc->hdr));
-		dlist_insertlast(gc_reachable_list, &(mc->hdr));
-	}
-}
-
-void node_gc_remroot(node_t *n)
-{
-	memcell_t *mc = node_to_memcell(n);
-	assert(dlnode_owner(&(mc->hdr)) == &gc_roots_list);
-	dlnode_remove(&(mc->hdr));
-	dlist_insertlast(gc_reachable_list, &(mc->hdr));
-}
-
-static void move_unproc_link_to_boundary(memcell_t *mc)
-{
-	if(dlnode_owner(&(mc->hdr)) == gc_unproc_list) {
-		dlist_insertlast(&gc_boundary_list, dlnode_remove(&(mc->hdr)));
-	}
-}
-
-static void move_unproc_links_to_boundary(node_t *n)
-{
-	switch(node_type(n)) {
-	case NODE_LIST:
-		move_unproc_link_to_boundary(node_to_memcell(n->dat.list.child));
-		move_unproc_link_to_boundary(node_to_memcell(n->dat.list.next));
-		break;
-	case NODE_LAMBDA:
-		move_unproc_link_to_boundary(node_to_memcell(n->dat.lambda.env));
-		move_unproc_link_to_boundary(node_to_memcell(n->dat.lambda.vars));
-		move_unproc_link_to_boundary(node_to_memcell(n->dat.lambda.expr));
-		break;
-	case NODE_QUOTE:
-		move_unproc_link_to_boundary(node_to_memcell(n->dat.quote.val));
-		break;
-	default:
-		break;
-	}
-}
-
-void node_gc_iterate(void)
-{
-	/* first check to see if there are any boundary nodes to process */
-	if(! dlist_is_empty(&gc_boundary_list)) {
-		memcell_t *mc = (memcell_t *) dlist_first(&gc_boundary_list);
-		move_unproc_links_to_boundary(&(mc->n));
-		dlnode_remove(&(mc->hdr));
-		dlist_insertrear(gc_reachable_list, &(mc->hdr));
-		return;
-	}
-
-	/* if not, process a root node */
-	if(! roots_cursor || dlnode_is_terminal(&(roots_cursor->hdr))) {
-		roots_cursor = dlist_first(&gc_roots_list);
-	} else {
-		roots_cursor = (memcell_t *) dlnode_next(&(roots_cursor->hdr));
-	}
-	if(! dlnode_is_terminal(roots_cursor)) {
-		move_unproc_links_to_boundary(&(roots_cursor->n));
-		return;
-	}
-
-	/* if no more root nodes to process, begin processing the unreachables */
-	if(! dlist_is_empty(gc_unproc_list)) {
-		memcell_t *mc = (memcell_t *) dlist_first(gc_unproc_list);
-		dlist_insertlast(&free_list, dlnode_remove(&(mc->hdr)));
-		return;
-	}
-
-	/* when unreachables are processed, reset state */
-	roots_cursor = dlist_first(&gc_roots_list);	
-	if(gc_reachable_list == &gc_white_list) {
-		gc_unproc_list = gc_reachable_list;
-		gc_reachable_list = &gc_black_list;
-	} else {
-		gc_unproc_list = gc_reachable_list;
-		gc_reachable_list = &gc_white_list;
-	}
-}
-
-node_t *gc_request_node(void)
-{
-	memcell_t *mc;
-	if(! dlist_is_empty(&free_list)) {
-		mc = (memcell_t *) dlnode_remove(dlist_first(&free_list));
-	} else {
-		mc = (memcell_t *) dlnode_init(malloc(sizeof(memcell_t)));
-#if defined(ALLOC_DEBUG)
-		printf("malloc node %p\n", &(mc->n));
-#endif
-	}
-	dlist_insertfirst(&gc_roots_list, &(mc->hdr));
-	return &(mc->n);
-}
-
-/* garbage collector end */
-
-
-#if 0
-enum {
-	GC_STATE_UNINITIALIZED,
-	GC_STATE_TRAVERSE,
-	GC_STATE_ROOTS,
-	GC_STATE_CLEANUP
-} gc_state = GC_STATE_UNINITIALIZED;
-
-void node_gc_iterate(void)
-{
-	static memcell_t *roots_cursor, *boundary_cursor, *unproc_cursor;
-
-	switch(gc_state) {
-	case GC_STATE_UNINITIALIZED:
-		roots_cursor = (memcell_t *) dlist_first(&gc_roots_list);
-		gc_state = GC_STATE_ROOTS;
-		break;
-	case GC_STATE_ROOTS:
-		if(dlnode_is_terminal(&(roots_cursor->hdr))) {
-			boundary_cursor = (memcell_t *) dlist_first(&gc_boundary_list);
-			gc_state = GC_STATE_TRAVERSE;
-		} else {
-			move_unproc_links_to_boundary(&(roots_cursor->n));
-			roots_cursor = (memcell_t *) dlnode_next(&(roots_cursor->hdr));
-		}
-		break;
-	case GC_STATE_TRAVERSE:
-		if(dlnode_is_terminal(&(boundary_cursor->hdr))) {
-			unproc_cursor = (memcell_t *) dlist_first(gc_unproc_list);
-			gc_state = GC_STATE_CLEANUP;
-		} else {
-			memcell_t *mc = roots_cursor;
-			move_unproc_links_to_boundary(&(boundary_cursor->n));
-			boundary_cursor = (memcell_t *)dlnode_next(&(boundary_cursor->hdr));
-			dlist_insertlast(gc_reachable_list, &(mc->hdr));
-		}
-		break;
-	case GC_STATE_CLEANUP:
-		if(dlnode_is_terminal(&(unproc_cursor->hdr))) {
-			if(gc_reachable_list == &gc_white_list) {
-				gc_unproc_list = gc_reachable_list;
-				gc_reachable_list = &gc_black_list;
-			} else {
-				gc_unproc_list = gc_reachable_list;
-				gc_reachable_list = &gc_white_list;
-			}
-			gc_state = GC_STATE_UNINITIALIZED;
-		} else {
-			memcell_t *mc = unproc_cursor;
-			unproc_cursor = (memcell_t *) dlnode_next(&(unproc_cursor->hdr));
-			dlist_insertlast(&free_list, dlnode_remove(&(mc->hdr)));
-		}
-		break;
-	}
-}
-#endif
-
-
 #define NODE_FLAG_DEL_PENDING 0x1
 
 char *node_type_names[] = {
@@ -655,32 +478,29 @@ size_t node_gc(void)
 	return count;
 }
 
-int node_find_live(live_cb_t cb, void *p)
+struct m2n_info
 {
-	int status = 0;
-	memcell_t *cell;
-	
-	for(cell = (memcell_t *) dlist_first(&live_list);
-	    ! dlnode_is_terminal(&(cell->hdr)) && !status;
-	    cell = (memcell_t *) dlnode_next(&(cell->hdr))) {
-		status = cb(&(cell->n), p);
-	}
-	
-	return status;
+	find_cb_t cb;
+	void *p;
+};
+
+int memcell_to_node_cb(dlnode_t *n, void *p)
+{
+	memcell_t *mc = (memcell_t *) n;
+	struct m2n_info *info = (struct m2n_info *) p;
+	return info->cb(&(mc->n), info->p);
 }
 
-int node_find_free(live_cb_t cb, void *p)
+int node_find_live(find_cb_t cb, void *p)
 {
-	int status = 0;
-	memcell_t *cell;
-	
-	for(cell = (memcell_t *) dlist_first(&free_list);
-	    ! dlnode_is_terminal(&(cell->hdr)) && !status;
-	    cell = (memcell_t *) dlnode_next(&(cell->hdr))) {
-		status = cb(&(cell->n), p);
-	}
-	
-	return status;
+	struct m2n_info info = { cb, p };
+	return dlist_iterate(&live_list, memcell_to_node_cb, &info);
+}
+
+int node_find_free(find_cb_t cb, void *p)
+{
+	struct m2n_info info = { cb, p };
+	return dlist_iterate(&free_list, memcell_to_node_cb, &info);
 }
 
 void node_sanity(void)
@@ -760,4 +580,3 @@ void node_sanity(void)
 		}
 	}
 }
-

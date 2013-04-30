@@ -14,8 +14,8 @@ tokenize_test: tokenize_test.o token.o
 parse_test: parse_test.o parse.o token.o node.o
 	gcc -o parse_test parse_test.o parse.o token.o node.o
 
-eval_test: eval_test.o builtins.o eval.o parse.o token.o node.o environ.o environ_utils.o eval_err.o
-	gcc -o eval_test eval_test.o builtins.o eval.o parse.o token.o node.o environ.o environ_utils.o eval_err.o
+eval_test: eval_test.o builtins.o eval.o parse.o token.o node.o environ.o environ_utils.o eval_err.o memory.o
+	gcc -o eval_test eval_test.o builtins.o eval.o parse.o token.o node.o environ.o environ_utils.o eval_err.o memory.o
 
 builtins.o: builtins.c builtins.h
 	gcc ${CFLAGS} -c builtins.c
@@ -49,3 +49,6 @@ environ_utils.o: environ_utils.c environ_utils.h
 
 eval_err.o: eval_err.c eval_err.h
 	gcc ${CFLAGS} -c eval_err.c
+
+memory.o: memory.c memory.h
+	gcc ${CFLAGS} -c memory.c
