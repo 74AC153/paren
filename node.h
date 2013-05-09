@@ -15,8 +15,7 @@ X(NODE_VALUE) \
 X(NODE_BUILTIN) \
 X(NODE_QUOTE) \
 X(NODE_IF_FUNC) \
-X(NODE_LAMBDA_FUNC) \
-X(NODE_DEAD)
+X(NODE_LAMBDA_FUNC)
 
 typedef enum {
 #define X(name) name,
@@ -42,7 +41,6 @@ struct node {
 		char name[MAX_SYM_LEN];
 		uint64_t value;
 		struct { struct node *val; } quote;
-		struct { struct node *next; } dead;
 	} dat;
 };
 

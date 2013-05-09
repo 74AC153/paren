@@ -357,9 +357,6 @@ void node_print(node_t *n)
 		case NODE_QUOTE:
 			printf("quote %p", n->dat.quote.val);
 			break;
-		case NODE_DEAD:
-			printf("dead next=%p", n->dat.dead.next);
-			break;
 		default:
 			break;
 		}
@@ -386,8 +383,6 @@ void node_print_recursive(node_t *n )
 void node_print_pretty(node_t *n)
 {
 		switch(node_type(n)) {
-		case NODE_DEAD:
-			printf("--dead--");
 		case NODE_NIL:
 			printf("()");
 			break;
