@@ -1,4 +1,7 @@
-CFLAGS=-DREFCOUNT_DEBUG -DALLOC_DEBUG -g -Wall -Wextra -Werror --std=c99
+CFLAGS=-DREFCOUNT_DEBUG -DALLOC_DEBUG -DNODE_INIT_TRACING -DNODE_INCREMENTAL_GC -g -Wall -Wextra -Werror --std=c99
+#CFLAGS=-DREFCOUNT_DEBUG -DALLOC_DEBUG -DNODE_INIT_TRACING -DNODE_INCREMENTAL_GC -DNODE_GC_TRACING -DGC_TRACING -g -Wall -Wextra -Werror --std=c99
+#CFLAGS=-DREFCOUNT_DEBUG -DALLOC_DEBUG -DNODE_INIT_TRACING -DNODE_GC_TRACING -DGC_TRACING -g -Wall -Wextra -Werror --std=c99
+#CFLAGS=-DREFCOUNT_DEBUG -DALLOC_DEBUG -DGC_TRACING -g -Wall -Wextra -Werror --std=c99
 #CFLAGS=-Wall -Wextra -Werror -g --std=c99
 #CFLAGS=-Wall -Wextra -Werror -Os
 
@@ -11,8 +14,8 @@ clean:
 tokenize_test: tokenize_test.o token.o
 	gcc -o tokenize_test tokenize_test.o token.o
 
-parse_test: parse_test.o parse.o token.o node.o
-	gcc -o parse_test parse_test.o parse.o token.o node.o
+parse_test: parse_test.o parse.o token.o node.o memory.o
+	gcc -o parse_test parse_test.o parse.o token.o node.o memory.o
 
 eval_test: eval_test.o builtins.o eval.o parse.o token.o node.o environ.o environ_utils.o eval_err.o memory.o
 	gcc -o eval_test eval_test.o builtins.o eval.o parse.o token.o node.o environ.o environ_utils.o eval_err.o memory.o

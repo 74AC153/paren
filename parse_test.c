@@ -1,24 +1,19 @@
 #include <stdio.h>
 #include "parse.h"
 
-int print_callback(node_t *n, void *p)
-{
-	p = p;
-	node_print(n, false);
-	return 0;
-}
-
 int main(int argc, char *argv[])
 {
 	node_t *result;
 	char *remain;
 	parse_err_t status;
-	size_t count;
+	//size_t count;
 
 	if(argc != 2) {
 		printf("usage: %s 'string'\n", argv[0]);
 		return -1;
 	}
+
+	nodes_initialize();
 
 	status = parse(argv[1], &remain, &result);
 	if(status != PARSE_OK) {
@@ -29,18 +24,14 @@ int main(int argc, char *argv[])
 
 	node_print_pretty(result);
 	printf("\n");
-	node_print(result, true);
+	node_print_recursive(result);
 
 	node_release(result);
-
-	printf("tokens remaining: %s\n", remain);
+	node_forget(result);
 
 	printf("*** cleanup ***\n");
-	count = node_gc();
-	printf("%llu nodes freed\n", (unsigned long long) count);
-
-	printf("leaked nodes:\n");
-	node_find_live(print_callback, NULL);
+	node_gc();
+	node_gc();
 
 	return 0;
 }

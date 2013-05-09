@@ -106,9 +106,11 @@ eval_err_t eval(node_t *input, node_t **environ, node_t **output)
 	bool frameadded = false;
 
 eval_tailcall_restart:
+#if defined(EVAL_TRACING)
 	printf("eval of:");
 	node_print_pretty(input);
 	printf("\n");
+#endif
 
 	expr_curs = NULL;
 	temp = NULL;
@@ -171,6 +173,9 @@ eval_tailcall_restart:
 				if(node_next_noref(expr_curs) == NULL) {
 					/* tail call: clean up and setup to restart */
 					input = node_child_noref(expr_curs);
+					if(args && node_is_remembered(args)) {
+						node_forget(args);
+					}
 					node_release(args);
 					node_release(func);
 					tailcall = true;
@@ -229,6 +234,9 @@ eval_tailcall_restart:
 			node_release(args);
 			node_release(func);
 			node_release(test_res);
+			if(test_res && node_is_remembered(test_res)) {
+				node_forget(test_res);
+			}
 
 			goto eval_tailcall_restart;
 			break;

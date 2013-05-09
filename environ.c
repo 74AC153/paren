@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 
 #include "node.h"
 #include "environ.h"
@@ -8,28 +9,39 @@
 void environ_pushframe(node_t **environ)
 {
 	node_t *oldenv = *environ;
+	assert(! *environ || node_is_remembered(*environ));
 	*environ = node_retain(node_new_list(NULL, *environ));
 	node_release(oldenv);
+	assert(*environ && node_is_remembered(*environ));
 }
 
 void environ_popframe(node_t **environ)
 {
 	node_t *oldenv = *environ;
+	assert(! *environ || node_is_remembered(*environ));
 	*environ = node_retain(node_next_noref(*environ));
 	node_release(oldenv);
+	node_remember(*environ);
+	node_forget(oldenv);
+	assert(! *environ || node_is_remembered(*environ));
 }
 
 void environ_add(node_t **environ, node_t *key, node_t *val)
 {
+	assert(! *environ || node_is_remembered(*environ));
+
 	node_t *nextent = node_child_noref(*environ);
 	node_t *nextfrm = node_next_noref(*environ);
 
 	node_t *newkv = node_new_list(key, val);
 	node_t *newent = node_new_list(newkv, nextent);
 	node_t *newfrm = node_retain(node_new_list(newent, nextfrm));
+	node_remember(newfrm);
 	
 	node_release(*environ);
+	node_forget(*environ);
 	*environ = newfrm;
+	assert(*environ && node_is_remembered(*environ));
 }
 
 bool environ_keyvalue_frame(node_t *frame, node_t *key, node_t **keyvalue)
@@ -97,6 +109,7 @@ void environ_print(node_t *environ)
 {
 	node_t *frame_curs, *entry_curs, *keyval;
 
+	printf("environ %p:\n", environ);
 	for (frame_curs = environ;
 	     frame_curs;
 	     frame_curs = node_next_noref(frame_curs)) {

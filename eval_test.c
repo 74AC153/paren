@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <assert.h>
 
 #include "parse.h"
 #include "eval.h"
@@ -32,6 +33,8 @@ node_t *make_builtin_lambda(void)
 	return node_new_lambda_func();
 }
 
+#define ARR_LEN(ARR) (sizeof(ARR) / sizeof((ARR)[0]))
+
 /* rewrite these... */
 builtin_assoc_t builtins[] = {
 	{ "quote",  make_builtin_quote },
@@ -46,40 +49,33 @@ builtin_assoc_t builtins[] = {
 	{ "lambda", make_builtin_lambda },
 };
 
-int print_callback(node_t *n, void *p)
-{
-	p = p;
-	node_print(n, false);
-	return 0;
-}
-
 int main(int argc, char *argv[])
 {
 	node_t *parse_result, *eval_result, *env = NULL;
 	eval_err_t eval_stat;
 	parse_err_t parse_stat;
 	char *remain;
-	int i;
-	size_t count;
+	size_t i;
 
-	if(argc < 2) {
-		printf("usage: %s 'string'\n", argv[0]);
-	}
+	nodes_initialize();
 
 	/* setup environment */
 	printf("*** initialize environment ***\n");
-	env = environ_add_builtins(env, builtins, 
-	                           sizeof(builtins) / sizeof(builtins[0]));
-	printf("start environment:\n");
-	environ_print(env);
+	{
+		node_t *key, *value;
+		for (i = 0; i < ARR_LEN(builtins); i++) {
+			key = node_new_symbol(builtins[i].name);
+			value = builtins[i].func();
 
-	printf("live nodes:\n");
-	node_find_live(print_callback, NULL);
-	printf("dead nodes:\n");
-	node_find_free(print_callback, NULL);
-	node_sanity();
+			environ_add(&env, key, value);
+		}
+	}
+	assert(! env || node_is_remembered(env));
 
-	for(i = 1; i < argc; i++) {
+	/* parse + eval argv */
+	for(i = 1; i < (unsigned) argc; i++) {
+		assert(! env || node_is_remembered(env));
+
 		printf("*** parse %s ***\n", argv[i]);
 		parse_stat = parse(argv[i], &remain, &parse_result);
 		if(parse_stat != PARSE_OK) {
@@ -88,14 +84,24 @@ int main(int argc, char *argv[])
 			continue;
 		}
 
+		assert(! env || node_is_remembered(env));
+
 		printf("parse result:\n");
 		node_print_pretty(parse_result);
 		printf("\n");
 
-		printf("remaining: %s\n", remain);
-		printf("live nodes:\n");
-		node_find_live(print_callback, NULL);
-		node_sanity();
+		//printf("*** gc state ***\n");
+		//node_gc_state();
+
+		printf("*** run gc ***\n");
+		node_gc();
+		printf("*** run gc ***\n");
+		node_gc();
+
+		assert(! env || node_is_remembered(env));
+
+		printf("start environment:\n");
+		environ_print(env);
 
 		printf("*** eval ***\n");
 		eval_stat = eval(parse_result, &env, &eval_result);
@@ -111,32 +117,47 @@ int main(int argc, char *argv[])
 		node_print_pretty(eval_result);
 		printf("\n");
 
-		printf("result environment:\n");
-		environ_print(env);
+		//printf("*** gc state ***\n");
+		//node_gc_state();
 
-		printf("live nodes:\n");
-		node_find_live(print_callback, NULL);
+		printf("*** run gc ***\n");
+		node_gc();
+		printf("*** run gc ***\n");
+		node_gc();
 
-		node_sanity();
+		assert(! env || node_is_remembered(env));
 
-		printf("*** releasing parse result ***\n");
+		printf("*** releasing parse result %p ***\n", parse_result);
 		node_release(parse_result);
+		node_forget(parse_result);
 
-		printf("*** releasing eval result ***\n");
+		printf("*** releasing eval result %p ***\n", eval_result);
 		node_release(eval_result);
+		node_forget(eval_result);
 
-		node_sanity();
+		printf("*** run gc ***\n");
+		node_gc();
+		printf("*** run gc ***\n");
+		node_gc();
+
+		assert(! env || node_is_remembered(env));
 	}
 
-	printf("*** release toplevel environment ***\n");
+	printf("*** result environment %p ***\n", env);
+	environ_print(env);
+
+	printf("*** release toplevel environment %p ***\n", env);
 	node_release(env);
+	node_forget(env);
 
 	printf("*** cleanup ***\n");
-	count = node_gc();
-	printf("%llu nodes freed\n", (unsigned long long) count);
+	printf("*** run gc ***\n");
+	node_gc();
+	printf("*** run gc ***\n");
+	node_gc();
 
-	printf("leaked nodes:\n");
-	node_find_live(print_callback, NULL);
+	node_gc_state();
+
 
 	return 0;
 }

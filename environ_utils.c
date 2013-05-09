@@ -1,6 +1,6 @@
 #include "environ_utils.h"
 
-node_t *environ_add_builtins(node_t*env,
+void environ_add_builtins(node_t **env,
                              builtin_assoc_t *builtins,
                              size_t num)
 {
@@ -11,8 +11,6 @@ node_t *environ_add_builtins(node_t*env,
 		key = node_new_symbol(builtins[i].name);
 		value = builtins[i].func();
 
-		environ_add(&env, key, value);
+		environ_add(env, key, value);
 	}
-
-	return env;
 }
