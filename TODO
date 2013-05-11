@@ -1,3 +1,19 @@
+add quote syntactic shorthand
+tail-call-optimize if
+tail call optimization -- done?
+move existing 'builtins' into eval, i.e. create special node types, etc
+remname 'builtin' to 'foreign'
+continuations -- make eval totally non-recursive laying breadcrumbs
+macros -- write a parser in scheme
+
+remote eval -- pending
+
+test
+test
+test
+
+
+
 tracing garbage collector with refcounting hints
 refcounting for immediate jumping processing queue to be freed,
 
@@ -160,7 +176,7 @@ test lexical scope:
 
 (def! reverse)
 (set! reverse (lambda (fwd rev) (if (eq fwd ()) rev (reverse (cdr fwd) (cons (car fwd) rev)))))
-(reverse '(1 2 3) ())
+(reverse (quote (1 2 3)) ())
 
 
 add operators:

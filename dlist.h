@@ -19,6 +19,7 @@ typedef struct dlist dlist_t;
 	{ { &((LIST).hdr), &((LIST).hdr), &(LIST)} }
 
 /*
+	DLIST_STATIC_INITIALIZER(list)
 	void dlist_init(void *p)
 	dlnode_t *dlist_first(dlist_t *l)
 	dlnode_t *dlist_last(dlist_t *l)
