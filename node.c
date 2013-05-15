@@ -82,6 +82,9 @@ node_t *node_retain(node_t *n)
 #if defined(NODE_INCREMENTAL_GC)
 	memory_gc_iterate(&g_memstate);
 #endif
+	if(n) {
+		memory_gc_advise_new_link(&g_memstate, n);
+	}
 	return n;
 }
 
@@ -91,6 +94,9 @@ void node_release(node_t *n)
 #if defined(NODE_INCREMENTAL_GC)
 	memory_gc_iterate(&g_memstate);
 #endif
+	if(n) {
+		memory_gc_advise_stale_link(&g_memstate, n);
+	}
 }
 
 void node_retrel(node_t *n)
@@ -192,7 +198,6 @@ node_t *node_new_lambda(node_t *env, node_t *vars, node_t *expr)
 #if defined(NODE_INIT_TRACING)
 	printf("init lambda %p (e=%p v=%p, x=%p)\n", ret, env, vars, expr);
 #endif
-	memory_gc_advise_link(&g_memstate, ret->dat.lambda.env);
 	return ret;
 }
 

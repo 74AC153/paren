@@ -2,9 +2,9 @@
 #CFLAGS=-DREFCOUNT_DEBUG -DALLOC_DEBUG -DNODE_INIT_TRACING -DNODE_INCREMENTAL_GC -DNODE_GC_TRACING -DGC_TRACING -g -Wall -Wextra -Werror --std=c99
 #CFLAGS=-DREFCOUNT_DEBUG -DALLOC_DEBUG -DNODE_INIT_TRACING -DNODE_GC_TRACING -DGC_TRACING -g -Wall -Wextra -Werror --std=c99
 #CFLAGS=-DREFCOUNT_DEBUG -DALLOC_DEBUG -DGC_TRACING -g -Wall -Wextra -Werror --std=c99
-CFLAGS=-Wall -Wextra -Werror -g --std=c99 -Os
+CFLAGS=-DALLOC_DEBUG -DNODE_INCREMENTAL_GC -DGC_VERBOSE -DALLOC_DEBUG -DNODE_INIT_TRACING -DNODE_GC_TRACING -DGC_TRACING -Wall -Wextra -Werror -g --std=c99 -O0
 #CFLAGS=-Wall -Wextra -Werror -g --std=c99
-#CFLAGS=-Wall -Wextra -Werror -Os
+#CFLAGS=-Wall -Wextra -Werror -Os --std=c99
 
 
 default: tokenize_test parse_test eval_test

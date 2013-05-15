@@ -36,6 +36,7 @@ typedef struct dlist dlist_t;
 	void dlnode_insertprev(dlnode_t *n, dlnode_t *prev)
 	dlnode_t *dlnode_remove(dlnode_t *n)
 
+	DLIST_FOR_FWD(LISTPTR, CURS)
 	typedef int (*iterate_cb_t)(dlnode_t *n, void *p);
 	int dlist_iterate(dlist_t *l, iterate_cb_t cb, void *p);
 */
@@ -142,6 +143,11 @@ bool dlist_is_empty(dlist_t *l)
 {
 	return l->hdr.next == &(l->hdr);
 }
+
+#define DLIST_FOR_FWD(LISTPTR, CURS) \
+	for(CURS = dlist_first(LISTPTR); \
+	    ! dlnode_is_terminal(CURS); \
+	    CURS = dlnode_next(CURS))
 
 typedef int (*iterate_cb_t)(dlnode_t *n, void *p);
 static inline

@@ -93,10 +93,12 @@ int main(int argc, char *argv[])
 		//printf("*** gc state ***\n");
 		//node_gc_state();
 
+#if 0
 		printf("*** run gc ***\n");
 		node_gc();
 		printf("*** run gc ***\n");
 		node_gc();
+#endif
 
 		assert(! env || node_is_remembered(env));
 
@@ -120,10 +122,12 @@ int main(int argc, char *argv[])
 		//printf("*** gc state ***\n");
 		//node_gc_state();
 
+#if 0
 		printf("*** run gc ***\n");
 		node_gc();
 		printf("*** run gc ***\n");
 		node_gc();
+#endif
 
 		assert(! env || node_is_remembered(env));
 
@@ -135,10 +139,12 @@ int main(int argc, char *argv[])
 		node_release(eval_result);
 		node_forget(eval_result);
 
+#if 0
 		printf("*** run gc ***\n");
 		node_gc();
 		printf("*** run gc ***\n");
 		node_gc();
+#endif
 
 		assert(! env || node_is_remembered(env));
 	}
@@ -150,6 +156,7 @@ int main(int argc, char *argv[])
 	node_release(env);
 	node_forget(env);
 
+	node_gc_state();
 	printf("*** cleanup ***\n");
 	printf("*** run gc ***\n");
 	node_gc();
