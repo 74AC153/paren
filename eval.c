@@ -25,13 +25,11 @@ eval_err_t map_eval(node_t *args, node_t **environ, node_t **result)
 	status = map_eval(node_next_noref(args), environ, &rest);
 	if(status != EVAL_OK) {
 		*result = rest;
-		node_release(newarg);
+		node_forget(newarg);
 		return status;
 	}
 
-	*result = node_retain(node_new_list(newarg, rest));
-	node_release(newarg);
-	node_release(rest);
+	*result = node_new_list(newarg, rest);
 
 	return EVAL_OK;
 }
@@ -43,28 +41,23 @@ eval_err_t lambda_bind(node_t **environ, node_t *vars, node_t *args)
 	node_t *env = *environ;
 	bool early_term = false;
 
-	node_retain(*environ);
-
 	var_curs = vars;
 	arg_curs = args;
 	while(true) {
 		/* ( ) */
 		if(! var_curs) {
 			if(arg_curs) {
-				node_release(env);
 				return EVAL_ERR_TOO_MANY_ARGS;
 			}
 			break;
 		/* ( sym ... ) */
 		} else if(node_type(var_curs) == NODE_LIST) {
 			if(node_type(arg_curs) != NODE_LIST) {
-				node_release(env);
 				return EVAL_ERR_MISSING_ARG;
 			}
 			value = node_child_noref(arg_curs);
 			name = node_child_noref(var_curs);
 			if(node_type(name) != NODE_SYMBOL) {
-				node_release(env);
 				return EVAL_ERR_EXPECTED_SYMBOL;
 			}
 		/* ( ... . sym ) */
@@ -73,7 +66,6 @@ eval_err_t lambda_bind(node_t **environ, node_t *vars, node_t *args)
 			name = var_curs;
 			early_term = true;
 		} else {
-			node_release(env);
 			return EVAL_ERR_EXPECTED_LIST_SYM;
 		}
 
@@ -81,7 +73,6 @@ eval_err_t lambda_bind(node_t **environ, node_t *vars, node_t *args)
 		   value, otherwise, add the value to the frame*/
 		if(environ_keyvalue_frame(*environ, name, &kv)) {
 			node_patch_list_next(kv, value);
-			node_release(kv);
 		} else {
 			environ_add(&env, name, value);
 		}
@@ -93,14 +84,13 @@ eval_err_t lambda_bind(node_t **environ, node_t *vars, node_t *args)
 		arg_curs = node_next_noref(arg_curs);
 	}   
 
-	node_release(*environ);
 	*environ = env;
 	return EVAL_OK;
 }
 
 eval_err_t eval(node_t *input, node_t **environ, node_t **output)
 {
-	node_t *expr_curs, *temp, *func, *args, *newenv, *newargs;
+	node_t *expr_curs, *temp, *func, *args, *newargs;
 	eval_err_t status;
 	bool tailcall = false;
 	bool frameadded = false;
@@ -116,7 +106,6 @@ eval_tailcall_restart:
 	temp = NULL;
 	func = NULL;
 	args = NULL;
-	newenv = NULL;
 	newargs = NULL;
 	status = EVAL_OK;
 
@@ -130,7 +119,7 @@ eval_tailcall_restart:
 
 	case NODE_LIST: {
 		/* (symbol args...) */
-		args = node_retain(node_next_noref(input));
+		args = node_next_noref(input);
 		if(node_type(args) != NODE_LIST) {
 			*output = args;
 			status = EVAL_ERR_EXPECTED_LIST;
@@ -150,7 +139,6 @@ eval_tailcall_restart:
 				*output = newargs;
 				goto node_lambda_cleanup;
 			}
-			node_release(args);
 			args = newargs;
 
 			/* bind variables to passed eval'd arguments */
@@ -169,19 +157,14 @@ eval_tailcall_restart:
 			for(temp = NULL;
 			    expr_curs;
 			    expr_curs = node_next_noref(expr_curs)) {
-				node_release(temp);
+				node_forget(temp);
 				if(node_next_noref(expr_curs) == NULL) {
 					/* tail call: clean up and setup to restart */
 					input = node_child_noref(expr_curs);
-					if(args && node_is_remembered(args)) {
-						node_forget(args);
-					}
-					node_release(args);
-					node_release(func);
 					tailcall = true;
 					goto eval_tailcall_restart;
 				} else {
-					status = eval(node_child_noref(expr_curs), &newenv, &temp);
+					status = eval(node_child_noref(expr_curs), environ, &temp);
 					if(status != EVAL_OK) {
 						break;
 					}
@@ -191,7 +174,6 @@ eval_tailcall_restart:
 			/* return value of last eval */
 			*output = temp;
 		node_lambda_cleanup:
-			node_release(newenv);
 			break;
 		}
 
@@ -199,7 +181,6 @@ eval_tailcall_restart:
 			*output = node_new_lambda(*environ,
 			                          node_child_noref(args), /* vars */
 			                          node_next_noref(args)); /* expr list */
-			node_retain(*output);
 			break;
 
 		case NODE_IF_FUNC: {
@@ -231,12 +212,7 @@ eval_tailcall_restart:
 			} else {
 				input = fail;
 			}
-			node_release(args);
-			node_release(func);
-			node_release(test_res);
-			if(test_res && node_is_remembered(test_res)) {
-				node_forget(test_res);
-			}
+			node_forget(test_res);
 
 			goto eval_tailcall_restart;
 			break;
@@ -252,8 +228,6 @@ eval_tailcall_restart:
 			break;
 		}
 	node_list_cleanup:
-		node_release(func);
-		node_release(args);
 		break;
 	}
 
@@ -266,13 +240,13 @@ eval_tailcall_restart:
 	}
 
 	case NODE_QUOTE:
-		*output = node_retain(node_quote_val_noref(input));
+		*output = node_quote_val_noref(input);
 		break;
 
 	case NODE_LAMBDA:
 	case NODE_VALUE:
 	case NODE_BUILTIN:
-		*output = node_retain(input);
+		*output = input;
 		break;
 
 	default:

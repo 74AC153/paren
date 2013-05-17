@@ -26,12 +26,13 @@ int main(int argc, char *argv[])
 	printf("\n");
 	node_print_recursive(result);
 
-	node_release(result);
 	node_forget(result);
 
 	printf("*** cleanup ***\n");
 	node_gc();
 	node_gc();
+
+	node_gc_state();
 
 	return 0;
 }

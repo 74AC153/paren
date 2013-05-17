@@ -33,7 +33,7 @@ parse_err_t parse_atom(char **input, token_t **tok_list, node_t **result)
 
 	assert(ret);
 
-	*result = node_retain(ret);
+	*result = ret;
 
 	return PARSE_OK;
 }
@@ -77,12 +77,11 @@ parse_err_t parse_list(char **input, token_t **tok_list, node_t **result)
 			status = parse_list(input, tok_list, &next);
 
 			if(status == PARSE_OK) {
-				*result = node_retain(node_new_list(child, next));
+				*result = node_new_list(child, next);
+			} else {
+				node_forget(next);
 			}
-
-			node_release(next);
 		}
-		node_release(child);
 	}
 
 	return status;
@@ -111,9 +110,10 @@ parse_err_t parse_sexpr(char **input, token_t **tok_list, node_t **result)
 		tok = next_tok(input, tok_list);
 		status = parse_sexpr(input, tok_list, &val);
 		if(status == PARSE_OK) {
-			ret = node_retain(node_new_quote(val));
+			ret = node_new_quote(val);
+		} else {
+			node_forget(val);
 		}
-		node_release(val);
 		break;
 	}
 	case TOK_LPAREN:
@@ -161,7 +161,7 @@ parse_err_t parse_sexpr(char **input, token_t **tok_list, node_t **result)
 	return status;
 
 error:
-	node_release(ret);
+	node_forget(ret);
 	return status;
 }
 
@@ -171,6 +171,9 @@ parse_err_t parse(char *input, char **remain, node_t **result)
 	token_t *tok_list = NULL;
 
 	status = parse_sexpr(&input, &tok_list, result);
+	if(status != PARSE_OK) {
+		node_forget(*result);
+	}
 
 	*remain = input;
 

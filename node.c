@@ -25,7 +25,7 @@ static void links_cb(void (*cb)(void *link, void *p), void *data, void *p)
 	switch(node_type(n)) {
 	case NODE_LIST:
 #if defined(NODE_GC_TRACING)
-		printf("links_cb: lst %p links to c=%p n=%p\n",
+		printf("node links_cb: lst %p links to c=%p n=%p\n",
 		       n, n->dat.list.child, n->dat.list.next);
 #endif
 		cb(n->dat.list.child, p);
@@ -33,7 +33,7 @@ static void links_cb(void (*cb)(void *link, void *p), void *data, void *p)
 		break;
 	case NODE_LAMBDA:
 #if defined(NODE_GC_TRACING)
-		printf("links_cb: lam %p links to e=%p v=%p e=%p\n",
+		printf("node links_cb: lam %p links to e=%p v=%p e=%p\n",
 		       n, n->dat.lambda.env, n->dat.lambda.vars, n->dat.lambda.vars);
 #endif
 		cb(n->dat.lambda.env, p);
@@ -42,7 +42,7 @@ static void links_cb(void (*cb)(void *link, void *p), void *data, void *p)
 		break;
 	case NODE_QUOTE:
 #if defined(NODE_GC_TRACING)
-		printf("links_bc: q %p links to v=%p\n", n, n->dat.quote.val);
+		printf("node links_cb: q %p links to v=%p\n", n, n->dat.quote.val);
 #endif
 		cb(n->dat.quote.val, p);
 		break;
@@ -77,7 +77,7 @@ nodetype_t node_type(node_t *n)
 	return NODE_NIL;
 }
 
-node_t *node_retain(node_t *n)
+static node_t *node_retain(node_t *n)
 {
 #if defined(NODE_INCREMENTAL_GC)
 	memory_gc_iterate(&g_memstate);
@@ -88,7 +88,7 @@ node_t *node_retain(node_t *n)
 	return n;
 }
 
-void node_release(node_t *n)
+static void node_release(node_t *n)
 {
 	(void) n;
 #if defined(NODE_INCREMENTAL_GC)
@@ -97,14 +97,6 @@ void node_release(node_t *n)
 	if(n) {
 		memory_gc_advise_stale_link(&g_memstate, n);
 	}
-}
-
-void node_retrel(node_t *n)
-{
-	(void) n;
-#if defined(NODE_INCREMENTAL_GC)
-	memory_gc_iterate(&g_memstate);
-#endif
 }
 
 void node_forget(node_t *n)
@@ -140,7 +132,7 @@ node_t *node_new_list(node_t *c, node_t *n)
 	ret->dat.list.next = node_retain(n);
 	ret->type = NODE_LIST;
 #if defined(NODE_INIT_TRACING)
-	printf("init list %p (%p, %p)\n", ret, c, n);
+	printf("node init list %p (%p, %p)\n", ret, c, n);
 #endif
 	return ret;
 }
@@ -196,7 +188,7 @@ node_t *node_new_lambda(node_t *env, node_t *vars, node_t *expr)
 	ret->dat.lambda.expr = node_retain(expr);
 	ret->type = NODE_LAMBDA;
 #if defined(NODE_INIT_TRACING)
-	printf("init lambda %p (e=%p v=%p, x=%p)\n", ret, env, vars, expr);
+	printf("node init lambda %p (e=%p v=%p, x=%p)\n", ret, env, vars, expr);
 #endif
 	return ret;
 }
@@ -235,7 +227,7 @@ node_t *node_new_value(uint64_t val)
 	ret->dat.value = val;
 	ret->type = NODE_VALUE;
 #if defined(NODE_INIT_TRACING)
-	printf("init value %p (%llu)\n", ret, (unsigned long long) val);
+	printf("node init value %p (%llu)\n", ret, (unsigned long long) val);
 #endif
 	return ret;
 }
@@ -256,7 +248,7 @@ node_t *node_new_symbol(char *name)
 	strncpy(ret->dat.name, name, sizeof(ret->dat.name));
 	ret->type = NODE_SYMBOL;
 #if defined(NODE_INIT_TRACING)
-	printf("init symbol %p (\"%s\")\n", ret, ret->dat.name);
+	printf("node init symbol %p (\"%s\")\n", ret, ret->dat.name);
 #endif
 	return ret;
 }
@@ -277,7 +269,7 @@ node_t *node_new_builtin(builtin_t func)
 	ret->dat.func = func;
 	ret->type = NODE_BUILTIN;
 #if defined(NODE_INIT_TRACING)
-	printf("init builtin %p (%p)\n", ret, ret->dat.func);
+	printf("node init builtin %p (%p)\n", ret, ret->dat.func);
 #endif
 	return ret;
 }
@@ -298,7 +290,7 @@ node_t *node_new_quote(node_t *val)
 	ret->dat.quote.val = node_retain(val);
 	ret->type = NODE_QUOTE;
 #if defined(NODE_INIT_TRACING)
-	printf("init quote %p (%p)\n", ret, ret->dat.quote.val);
+	printf("node init quote %p (%p)\n", ret, ret->dat.quote.val);
 #endif
 	return ret;
 }
@@ -318,7 +310,7 @@ node_t *node_new_if_func(void)
 	assert(ret = node_new());
 	ret->type = NODE_IF_FUNC;
 #if defined(NODE_INIT_TRACING)
-	printf("init if_func\n");
+	printf("node init if_func\n");
 #endif
 	return ret;
 }
@@ -329,7 +321,7 @@ node_t *node_new_lambda_func(void)
 	assert(ret = node_new());
 	ret->type = NODE_LAMBDA_FUNC;
 #if defined(NODE_INIT_TRACING)
-	printf("init lambda_func\n");
+	printf("node init lambda_func\n");
 #endif
 	return ret;
 }
@@ -339,7 +331,7 @@ void node_print(node_t *n)
 	if(!n) {
 		printf("node NULL\n");
 	} else {
-		printf("node %p : ", n);
+		printf("node@%p: ", n);
 
 		switch(n->type) {
 		case NODE_LIST:

@@ -43,7 +43,7 @@ void *memory_request(memory_state_t *s)
 		assert(! mc->refcount);
 		s->total_free--;
 #if defined(ALLOC_DEBUG)
-		printf("gc (%llu): reuse node %p\n", s->iter_count, mc);
+		printf("gc (%llu): reuse node %p (%p)\n", s->iter_count, mc, mc->data);
 #endif
 	} else {
 		mc = (memcell_t *) dlnode_init(malloc(sizeof(memcell_t)+s->datasize));
@@ -51,7 +51,7 @@ void *memory_request(memory_state_t *s)
 		mc->refcount = 0;
 		s->total_alloc++;
 #if defined(ALLOC_DEBUG)
-		printf("gc (%llu): malloc node %p\n", s->iter_count, mc);
+		printf("gc (%llu): malloc node %p (%p)\n", s->iter_count, mc, mc->data);
 #endif
 	}
 	dlist_insertlast(&(s->roots_list), &(mc->hdr));
@@ -60,6 +60,8 @@ void *memory_request(memory_state_t *s)
 
 void memory_gc_lock(memory_state_t *s, void *data)
 {
+	/* set locked state and make root */
+
 	memcell_t *mc = data_to_memcell(data);
 	mc->locked = true;
 	if(dlnode_owner(&(mc->hdr)) != &(s->roots_list)) {
@@ -81,6 +83,8 @@ void memory_gc_lock(memory_state_t *s, void *data)
 
 void memory_gc_unlock(memory_state_t *s, void *data)
 {
+	/* clear lock, make boundary if referenced, else make free_pending */
+
 	memcell_t *mc = data_to_memcell(data);
 	assert(dlnode_owner(&(mc->hdr)) == &(s->roots_list));
 #if defined(GC_TRACING)
@@ -99,9 +103,19 @@ void memory_gc_unlock(memory_state_t *s, void *data)
 
 void memory_gc_advise_new_link(memory_state_t *s, void *data)
 {
-	memcell_t *mc = data_to_memcell(data);
+	memcell_t *mc;
+	/* increase refcount, and add to boundary if unlocked root */
+	if(!data) {
+		return;
+	}
+	mc = data_to_memcell(data);
 	mc->refcount++;
-	if(!mc->locked && dlnode_owner(&(mc->hdr)) == &(s->roots_list)) {
+#if defined(GC_REFCOUNT_DEBUG)
+	printf("gc: %p (%p) refcount++ -> %u\n",
+	       mc, mc->data, (unsigned) mc->refcount);
+#endif
+	if((!mc->locked && dlnode_owner(&(mc->hdr)) == &(s->roots_list))
+	   || dlnode_owner(&(mc->hdr)) == s->unproc_listref) {
 		dlnode_remove(&(mc->hdr));
 		dlist_insertlast(&(s->boundary_list), &(mc->hdr));
 	}
@@ -109,9 +123,18 @@ void memory_gc_advise_new_link(memory_state_t *s, void *data)
 
 void memory_gc_advise_stale_link(memory_state_t *s, void *data)
 {
-	memcell_t *mc = data_to_memcell(data);
+	memcell_t *mc;
+	/* decrease refcount and add to free_pending if not locked */
+	if(!data) {
+		return;
+	}
+	mc = data_to_memcell(data);
 	assert(mc->refcount > 0);
-	mc->refcount --;
+	mc->refcount--;
+#if defined(GC_REFCOUNT_DEBUG)
+	printf("gc: %p (%p) refcount-- -> %u\n",
+	       mc, mc->data, (unsigned) mc->refcount);
+#endif
 	if(!mc->refcount && !mc->locked) {
 		dlnode_remove(&(mc->hdr));
 		dlist_insertlast(&(s->free_pending_list), &(mc->hdr));
@@ -121,19 +144,29 @@ void memory_gc_advise_stale_link(memory_state_t *s, void *data)
 bool memory_gc_isroot(memory_state_t *s, void *data)
 {
 	bool status;
-	memcell_t *mc = data_to_memcell(data);
+	memcell_t *mc;
+	if(!data) {
+		return false;
+	}
+	mc = data_to_memcell(data);
 	status = dlnode_owner(&(mc->hdr)) == &(s->roots_list);
 	return status;
 }
 
 bool memory_gc_islive(memory_state_t *s, void *data)
 {
-	memcell_t *mc = data_to_memcell(data);
+	memcell_t *mc;
+	if(!data) {
+		return false;
+	}
+	mc = data_to_memcell(data);
 	return dlnode_owner(&(mc->hdr)) != &(s->free_list);
 }
 
 static void dl_cb_try_move_boundary(void *link, void *p)
 {
+	/* move to boundary if unprocessed, or an unlocked root */
+
 	memory_state_t *s = (memory_state_t *) p;
 	memcell_t *mc;
 
@@ -181,14 +214,7 @@ static void dl_cb_try_move_boundary(void *link, void *p)
 static void dl_cb_decref_free_pending_z(void *link, void *p)
 {
 	memory_state_t *s = (memory_state_t *) p;
-	memcell_t *mc = data_to_memcell(link);
-
-	assert(mc->refcount > 0);
-	mc->refcount--;
-	if(!mc->refcount) {
-		dlnode_remove(&(mc->hdr));
-		dlist_insertlast(&(s->free_pending_list), &(mc->hdr));
-	}
+	memory_gc_advise_stale_link(s, link);
 }
 
 /* returns true when a complete gc cycle has been completed */
@@ -202,8 +228,6 @@ bool memory_gc_iterate(memory_state_t *s)
 	/* process free_pending nodes */
 	if(! dlist_is_empty(&(s->free_pending_list))) {
 		mc = (memcell_t *) dlist_first(&(s->free_pending_list));
-		assert(!mc->locked); // locked nodes should stay in root list
-		assert(!mc->refcount); // free_pending nodees should not be linked to
 #if defined(GC_TRACING)
 		printf("gc (%llu) iter free_pending: %p ", s->iter_count, mc);
 		s->p_cb(mc->data);
@@ -212,6 +236,8 @@ bool memory_gc_iterate(memory_state_t *s)
 #if defined(ALLOC_DEBUG)
 		printf("gc (%llu): free node (pending) %p\n", s->iter_count, mc);
 #endif
+		assert(!mc->locked); // locked nodes should stay in root list
+		assert(!mc->refcount); // free_pending nodees should not be linked to
 		s->dl_cb(dl_cb_decref_free_pending_z, &(mc->data), s);
 		dlist_insertlast(&(s->free_list), dlnode_remove(&(mc->hdr)));
 		s->total_free++;
@@ -221,13 +247,13 @@ bool memory_gc_iterate(memory_state_t *s)
 	/* process boundary nodes */
 	if(! dlist_is_empty(&(s->boundary_list))) {
 		mc = (memcell_t *) dlist_first(&(s->boundary_list));
-		assert(!mc->locked); // locked nodes should stay in root list
-		assert(mc->refcount); // referenced nodes should have refcount
 #if defined(GC_TRACING)
 		printf("gc (%llu) iter reachable: %p ", s->iter_count, mc);
 		s->p_cb(mc->data);
 		printf("\n");
 #endif
+		assert(!mc->locked); // locked nodes should stay in root list
+		assert(mc->refcount); // referenced nodes should have refcount
 		s->dl_cb(dl_cb_try_move_boundary, &(mc->data), s);
 		dlnode_remove(&(mc->hdr));
 		dlist_insertlast(s->reachable_listref, &(mc->hdr));
@@ -251,8 +277,6 @@ bool memory_gc_iterate(memory_state_t *s)
 	/* process unreachables */
 	if(! dlist_is_empty(s->unproc_listref)) {
 		mc = (memcell_t *) dlist_first(s->unproc_listref);
-		assert(!mc->locked); // locked nodes should stay in root list
-		assert(!mc->refcount); // unreachable should not be referenced
 #if defined(GC_TRACING)
 		printf("gc (%llu) iter unreachable: %p\n", s->iter_count, mc);
 		s->p_cb(mc->data);
@@ -261,6 +285,8 @@ bool memory_gc_iterate(memory_state_t *s)
 #if defined(ALLOC_DEBUG)
 		printf("gc (%llu): free node (unreachable) %p\n", s->iter_count, mc);
 #endif
+		assert(!mc->locked); // locked nodes should stay in root list
+		assert(!mc->refcount); // unreachable should not be referenced
 		s->dl_cb(dl_cb_decref_free_pending_z, &(mc->data), s);
 		dlist_insertlast(&(s->free_list), dlnode_remove(&(mc->hdr)));
 		s->total_free++;
@@ -301,7 +327,7 @@ void memory_gc_print_state(memory_state_t *s)
 
 	DLIST_FOR_FWD(&(s->free_pending_list), cursor) {
 		mc = (memcell_t *) cursor;
-		printf("   free_pend: %p ", mc);
+		printf("   free_pend: %p (%u) ", mc, (unsigned) mc->refcount);
 		s->p_cb(mc->data);
 		printf("\n");
 	}
@@ -311,7 +337,8 @@ void memory_gc_print_state(memory_state_t *s)
 			printf("   root (sentinel)\n");
 		} else {
 			mc = (memcell_t *) cursor;
-			printf("   root %p ", mc);
+			printf("   root %p (%u) %s",
+			       mc, (unsigned) mc->refcount, mc->locked ? "L ": "");
 			s->p_cb(mc->data);
 			printf("\n");
 		}
@@ -320,28 +347,28 @@ void memory_gc_print_state(memory_state_t *s)
 
 	DLIST_FOR_FWD(&(s->boundary_list), cursor) {
 		mc = (memcell_t *) cursor;
-		printf("   boundary %p ", mc);
+		printf("   boundary %p (%u) ", mc, (unsigned) mc->refcount);
 		s->p_cb(mc->data);
 		printf("\n");
 	}
 
 	DLIST_FOR_FWD(s->reachable_listref, cursor) {
 		mc = (memcell_t *) cursor;
-		printf("   reachable %p ", mc);
+		printf("   reachable %p (%u) ", mc, (unsigned) mc->refcount);
 		s->p_cb(mc->data);
 		printf("\n");
 	}
 
 	DLIST_FOR_FWD(s->unproc_listref, cursor) {
 		mc = (memcell_t *) cursor;
-		printf("   unprocessed %p ", mc);
+		printf("   unprocessed %p (%u) ", mc, (unsigned) mc->refcount);
 		s->p_cb(mc->data);
 		printf("\n");
 	}
 
 	DLIST_FOR_FWD(&(s->free_list), cursor) {
 		mc = (memcell_t *) cursor;
-		printf("   free: %p ", mc);
+		printf("   free: %p (%u) ", mc, (unsigned) mc->refcount);
 		s->p_cb(mc->data);
 		printf("\n");
 	}

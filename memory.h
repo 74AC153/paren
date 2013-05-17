@@ -46,19 +46,19 @@ void memory_state_init(
 /* request memory from the GC */
 void *memory_request(memory_state_t *s);
 
-/* this memory should never be freed */
+/* this memory should never be freed (not NULL) */
 void memory_gc_lock(memory_state_t *s, void *data);
-/* this memory can be freed if not linked to */
+/* this memory can be freed if not linked to (not NULL) */
 void memory_gc_unlock(memory_state_t *s, void *data);
 
-/* tell the GC that a new link to data has been created */
+/* tell the GC that a new link to data has been created (NULL noop) */
 void memory_gc_advise_new_link(memory_state_t *s, void *data);
-/* tell the GC that a new link to data has been removed */
+/* tell the GC that a new link to data has been removed (NULL noop) */
 void memory_gc_advise_stale_link(memory_state_t *s, void *data);
 
-/* indicate whether data is a root node */
+/* indicate whether data is a root node (false if NULL) */
 bool memory_gc_isroot(memory_state_t *s, void *data);
-/* indicate whether data is not in a freed node */
+/* indicate whether data is not in a freed node (false if NULL) */
 bool memory_gc_islive(memory_state_t *s, void *data);
 
 /* run the GC one iteration */

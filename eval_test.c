@@ -90,16 +90,6 @@ int main(int argc, char *argv[])
 		node_print_pretty(parse_result);
 		printf("\n");
 
-		//printf("*** gc state ***\n");
-		//node_gc_state();
-
-#if 0
-		printf("*** run gc ***\n");
-		node_gc();
-		printf("*** run gc ***\n");
-		node_gc();
-#endif
-
 		assert(! env || node_is_remembered(env));
 
 		printf("start environment:\n");
@@ -118,33 +108,19 @@ int main(int argc, char *argv[])
 		printf("eval result:\n");
 		node_print_pretty(eval_result);
 		printf("\n");
+		//node_print_recursive(eval_result);
 
-		//printf("*** gc state ***\n");
-		//node_gc_state();
-
-#if 0
-		printf("*** run gc ***\n");
-		node_gc();
-		printf("*** run gc ***\n");
-		node_gc();
-#endif
+		
+		printf("*** gc state following eval ***\n");
+		node_gc_state();
 
 		assert(! env || node_is_remembered(env));
 
 		printf("*** releasing parse result %p ***\n", parse_result);
-		node_release(parse_result);
 		node_forget(parse_result);
 
 		printf("*** releasing eval result %p ***\n", eval_result);
-		node_release(eval_result);
 		node_forget(eval_result);
-
-#if 0
-		printf("*** run gc ***\n");
-		node_gc();
-		printf("*** run gc ***\n");
-		node_gc();
-#endif
 
 		assert(! env || node_is_remembered(env));
 	}
@@ -153,18 +129,21 @@ int main(int argc, char *argv[])
 	environ_print(env);
 
 	printf("*** release toplevel environment %p ***\n", env);
-	node_release(env);
 	node_forget(env);
 
-	node_gc_state();
+	
 	printf("*** cleanup ***\n");
-	printf("*** run gc ***\n");
-	node_gc();
-	printf("*** run gc ***\n");
-	node_gc();
 
 	node_gc_state();
 
+	printf("*** run gc ***\n");
+	node_gc();
+	printf("*** run gc ***\n");
+	node_gc();
+
+	printf("*** final state ***\n");
+
+	node_gc_state();
 
 	return 0;
 }

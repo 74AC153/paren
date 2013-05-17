@@ -47,9 +47,9 @@ struct node {
 void nodes_initialize();
 
 nodetype_t node_type(node_t *n);
-node_t *node_retain(node_t *n);
-void node_release(node_t *n);
-void node_retrel(node_t *n);
+//node_t *node_retain(node_t *n);
+//void node_release(node_t *n);
+//void node_retrel(node_t *n);
 void node_forget(node_t *n);
 void node_remember(node_t *n);
 bool node_is_remembered(node_t *n);
@@ -82,7 +82,7 @@ node_t *node_new_if_func(void);
 node_t *node_new_lambda_func(void);
 
 void node_print(node_t *n);
-void node_print_recursive(node_t *n );
+void node_print_recursive(node_t *n);
 void node_print_pretty(node_t *n);
 
 bool node_reachable_from(node_t *src, node_t *dst);

@@ -19,7 +19,7 @@ eval_err_t builtin_quote(node_t *args, node_t **env, node_t **result)
 		return EVAL_ERR_TOO_MANY_ARGS;
 	}
 
-	*result = node_retain(node_child_noref(args));
+	*result = node_child_noref(args);
 
 	return EVAL_OK;
 }
@@ -53,17 +53,16 @@ eval_err_t builtin_atom(node_t *args, node_t **env, node_t **result)
 	
 	/* temp must be NULL, a value, or a symbol to be an atom */
 	if(check_atom(temp)) {
-		*result = node_retain(node_new_value(1));
+		*result = node_new_value(1);
 	} else {
 		*result = NULL;
 	}
 
 finish:
-	node_release(temp);
+	node_forget(temp);
 	return status;
 }
 
-/* *result is retained */
 eval_err_t builtin_car(node_t *args, node_t **env, node_t **result)
 {
 	node_t *temp = NULL;
@@ -91,10 +90,10 @@ eval_err_t builtin_car(node_t *args, node_t **env, node_t **result)
 		goto finish;
 	}
 	
-	*result = node_retain(node_child_noref(temp));
+	*result = node_child_noref(temp);
 
 finish:
-	node_release(temp);
+	node_forget(temp);
 	return status;
 }
 
@@ -127,62 +126,12 @@ eval_err_t builtin_cdr(node_t *args, node_t **env, node_t **result)
 		goto finish;
 	}
 	
-	*result = node_retain(node_next_noref(temp));
+	*result = node_next_noref(temp);
 
 finish:
-	node_release(temp);
+	node_forget(temp);
 	return status;
 }
-
-#if 0
-/* (if eval-test-expr eval-if-true-expr eval-if-false-expr) */
-eval_err_t builtin_if(node_t *args, node_t **env, node_t **result)
-{
-	node_t *test = NULL, *pass = NULL, *fail = NULL, *test_result = NULL;
-	eval_err_t status;
-
-	*result = args;
-
-	if(node_type(args) != NODE_LIST) {
-		return EVAL_ERR_EXPECTED_LIST;
-	}
-	
-	pass = node_next_noref(args);
-	if(node_type(pass) != NODE_LIST) {
-		*result = pass;
-		return EVAL_ERR_EXPECTED_LIST;
-	}
-
-	fail = node_next_noref(pass);
-	if(node_type(fail) != NODE_LIST) {
-		*result = fail;
-		return EVAL_ERR_EXPECTED_LIST;
-	}
-
-	test = node_retain(node_child_noref(args));
-	pass = node_retain(node_child_noref(pass));
-	fail = node_retain(node_child_noref(fail));
-
-	status = eval(test, env, &test_result);
-	if(status != EVAL_OK) {
-		*result = test;
-		goto finish;
-	}
-
-	if(test_result != NULL) {
-		status = eval(pass, env, result);
-	} else {
-		status = eval(fail, env, result);
-	}
-
-finish:
-	node_release(test_result);
-	node_release(test);
-	node_release(pass);
-	node_release(fail);
-	return status;
-}
-#endif
 
 eval_err_t builtin_cons(node_t *args, node_t **env, node_t **result)
 {
@@ -220,11 +169,9 @@ eval_err_t builtin_cons(node_t *args, node_t **env, node_t **result)
 		goto finish;
 	}
 
-	*result = node_retain(node_new_list(child, next));
+	*result = node_new_list(child, next);
 
 finish:
-	node_release(child);
-	node_release(next);
 	return status;
 }
 
@@ -272,12 +219,12 @@ eval_err_t builtin_eq(node_t *args, node_t **env, node_t **result)
 	    strcmp(node_name(temp), node_name(temp2)))) {
 		*result = NULL;
 	} else {
-		*result = node_retain(node_new_value(1));
+		*result = node_new_value(1);
 	}
 
 finish:
-	node_release(temp);
-	node_release(temp2);
+	node_forget(temp);
+	node_forget(temp2);
 	return status;
 }
 
@@ -297,7 +244,6 @@ eval_err_t builtin_defbang(node_t *args, node_t **env, node_t **result)
 
 	environ_add(env, *result, NULL);
 
-	node_retain(*result);
 	return EVAL_OK;
 }
 
@@ -328,48 +274,12 @@ eval_err_t builtin_setbang(node_t *args, node_t **env, node_t **result)
 	}
 
 	if(! environ_keyvalue(*env, name, &keyval)) {
-		node_release(newval);
+		node_forget(newval);
 		status = EVAL_ERR_UNRESOLVED_SYMBOL;
 	}
 
 	node_patch_list_next(keyval, newval);
 	*result = newval;
 
-	node_release(keyval); /* ??? */
-
 	return EVAL_OK;
 }
-
-#if 0
-eval_err_t builtin_lambda(node_t *args, node_t **env, node_t **result)
-{
-	node_t *vars_curs = NULL;
-
-	if(node_type(args) != NODE_LIST) {
-		return EVAL_ERR_EXPECTED_LIST;
-	}
-
-	/* ensure that vars list is NULL, a sym, or list of syms */
-	for(vars_curs = node_child_noref(args);
-	    vars_curs;
-	    vars_curs = node_next_noref(vars_curs)) {
-		if(node_type(vars_curs) == NODE_SYMBOL) {
-			break;
-		} else if(node_type(vars_curs) == NODE_LIST) {
-			if(node_type(node_child_noref(vars_curs)) != NODE_SYMBOL) {
-				return EVAL_ERR_EXPECTED_SYMBOL;
-			}
-		} else {
-			return EVAL_ERR_EXPECTED_LIST_SYM;
-		}
-	}
-
-	*result = node_new_lambda(*env,
-	                          node_child_noref(args), /* vars */
-	                          node_next_noref(args)); /* expr list */
-
-	node_retain(*result);
-
-	return EVAL_OK;
-}
-#endif

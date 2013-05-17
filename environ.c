@@ -10,8 +10,9 @@ void environ_pushframe(node_t **environ)
 {
 	node_t *oldenv = *environ;
 	assert(! *environ || node_is_remembered(*environ));
-	*environ = node_retain(node_new_list(NULL, *environ));
-	node_release(oldenv);
+	*environ = node_new_list(NULL, *environ);
+	node_remember(*environ);
+	node_forget(oldenv);
 	assert(*environ && node_is_remembered(*environ));
 }
 
@@ -19,8 +20,7 @@ void environ_popframe(node_t **environ)
 {
 	node_t *oldenv = *environ;
 	assert(! *environ || node_is_remembered(*environ));
-	*environ = node_retain(node_next_noref(*environ));
-	node_release(oldenv);
+	*environ = node_next_noref(*environ);
 	node_remember(*environ);
 	node_forget(oldenv);
 	assert(! *environ || node_is_remembered(*environ));
@@ -35,10 +35,8 @@ void environ_add(node_t **environ, node_t *key, node_t *val)
 
 	node_t *newkv = node_new_list(key, val);
 	node_t *newent = node_new_list(newkv, nextent);
-	node_t *newfrm = node_retain(node_new_list(newent, nextfrm));
+	node_t *newfrm = node_new_list(newent, nextfrm);
 	node_remember(newfrm);
-	
-	node_release(*environ);
 	node_forget(*environ);
 	*environ = newfrm;
 	assert(*environ && node_is_remembered(*environ));
@@ -56,7 +54,7 @@ bool environ_keyvalue_frame(node_t *frame, node_t *key, node_t **keyvalue)
 		testkey = node_child_noref(kv);
 
 		if(!strcmp(node_name(testkey), node_name(key))) {
-			*keyvalue = node_retain(kv);
+			*keyvalue = kv;
 			return true;
 		}
 		
@@ -86,24 +84,9 @@ bool environ_lookup(node_t *environ, node_t *key, node_t **value)
 	if(! environ_keyvalue(environ, key, &keyvalue)) {
 		return false;
 	}
-	*value = node_retain(node_next_noref(keyvalue));
-	node_release(keyvalue);
+	*value = node_next_noref(keyvalue);
 	return true;
 }
-
-#if 0
-bool environ_lookup_frame(node_t *environ, node_t *key, node_t **value)
-{
-	node_t *keyvalue;
-
-	if(! environ_keyvalue_frame(environ, key, &keyvalue)) {
-		return false;
-	}
-	*value = node_retain(node_next_noref(keyvalue));
-	node_release(keyvalue);
-	return true;
-}
-#endif
 
 void environ_print(node_t *environ)
 {
