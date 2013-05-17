@@ -129,7 +129,12 @@ void memory_gc_advise_stale_link(memory_state_t *s, void *data)
 		return;
 	}
 	mc = data_to_memcell(data);
-	assert(mc->refcount > 0);
+	if(!mc->refcount) { // refcount may already be zero if there is a loop
+#if defined(GC_REFCOUNT_DEBUG)
+		printf("gc: %p (%p) refcount-- 0 -> 0 (loop?)\n", mc, mc->data);
+#endif
+		return;
+	}
 	mc->refcount--;
 #if defined(GC_REFCOUNT_DEBUG)
 	printf("gc: %p (%p) refcount-- -> %u\n",
@@ -286,7 +291,7 @@ bool memory_gc_iterate(memory_state_t *s)
 		printf("gc (%llu): free node (unreachable) %p\n", s->iter_count, mc);
 #endif
 		assert(!mc->locked); // locked nodes should stay in root list
-		assert(!mc->refcount); // unreachable should not be referenced
+		// NB: unreachable can be referenced if e.g. lambda points back to it.
 		s->dl_cb(dl_cb_decref_free_pending_z, &(mc->data), s);
 		dlist_insertlast(&(s->free_list), dlnode_remove(&(mc->hdr)));
 		s->total_free++;

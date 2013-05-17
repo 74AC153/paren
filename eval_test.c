@@ -111,8 +111,8 @@ int main(int argc, char *argv[])
 		//node_print_recursive(eval_result);
 
 		
-		printf("*** gc state following eval ***\n");
-		node_gc_state();
+		//printf("*** gc state following eval ***\n");
+		//node_gc_state();
 
 		assert(! env || node_is_remembered(env));
 

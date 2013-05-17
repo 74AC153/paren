@@ -147,6 +147,7 @@ eval_tailcall_restart:
 				frameadded = true;
 			}
 			status = lambda_bind(environ, node_lambda_vars_noref(func), args);
+			node_forget(args);
 			if(status != EVAL_OK) {
 				*output = func;
 				goto node_lambda_cleanup;
