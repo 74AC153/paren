@@ -1,36 +1,23 @@
-*add quote syntactic shorthand
-*tail-call-optimize if
-*tail call optimization -- done?
-move existing 'builtins' into eval, i.e. create special node types, etc
+allow def! to take a value
 remname 'builtin' to 'foreign'
+rename list to cons
 rename *_noref to *
 rename node_remember/forget to node_makeroot/droproot
-continuations -- make eval totally non-recursive laying breadcrumbs
-macros -- write a parser in scheme
 
+move existing 'builtins' into eval, i.e. create special node types, etc
+add theory of operation in various source files
+switch token.c to node-based allocator
+quoted string shorthand in tokenizer
+makesym/splitsym to create new symbols
+write a REPL and test harness
+continuations -- make eval totally non-recursive laying breadcrumbs
+macros -- rewrite parser in scheme
 remote eval -- pending
 
 test
 test
 test
 
-
-
-tracing garbage collector with refcounting hints
-refcounting for immediate jumping processing queue to be freed,
-
-split out memcell layer from node layer
-
-
-
-allow def! to take a value as well
-
-currently working on:
-- automatic refcount bumping audit
-
-no automatic refcount bumping UNLESS explicitly adding links via constructors
-
-switch token.c to node-based allocator
 
 Lexical scope
 when creating a lambda function, must also have 'defining environment' so that bound variables at the time of instantiation can be accessed. i.e. lambda forms must have:

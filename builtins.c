@@ -230,6 +230,8 @@ finish:
 
 eval_err_t builtin_defbang(node_t *args, node_t **env, node_t **result)
 {
+	node_t *val, *newval, *name;
+	eval_err_t status = EVAL_OK;
 	*result = args;
 
 	if(node_type(args) != NODE_LIST) {
@@ -237,14 +239,25 @@ eval_err_t builtin_defbang(node_t *args, node_t **env, node_t **result)
 	}
 
 	/* note: we return the symbol that was added to environment */
-	*result = node_child_noref(args);
-	if(node_type(*result) != NODE_SYMBOL) {
+	*result = name = node_child_noref(args);
+	if(node_type(name) != NODE_SYMBOL) {
 		return EVAL_ERR_EXPECTED_SYMBOL;
 	}
 
-	environ_add(env, *result, NULL);
+	/* eval passed value */
+	if(node_type(node_next_noref(args)) != NODE_LIST) {
+		return EVAL_ERR_EXPECTED_LIST;
+	}
+	val = node_child_noref(node_next_noref(args));
 
-	return EVAL_OK;
+	status = eval(val, env, &newval);
+	if(status != EVAL_OK) {
+		return status;
+	}
+
+	environ_add(env, name, newval);
+
+	return status;
 }
 
 eval_err_t builtin_setbang(node_t *args, node_t **env, node_t **result)
