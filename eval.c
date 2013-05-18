@@ -219,8 +219,8 @@ eval_tailcall_restart:
 			break;
 		}
 
-		case NODE_BUILTIN:
-			status = node_func(func)(args, environ, output);
+		case NODE_FOREIGN:
+			status = node_foreign(func)(args, environ, output);
 			break;
 
 		default:
@@ -246,7 +246,7 @@ eval_tailcall_restart:
 
 	case NODE_LAMBDA:
 	case NODE_VALUE:
-	case NODE_BUILTIN:
+	case NODE_FOREIGN:
 		*output = input;
 		break;
 

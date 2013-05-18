@@ -22,7 +22,7 @@ typedef void (*print_callback)(void *data);
 typedef struct
 {
 	size_t datasize;
-	uintptr_t total_alloc, total_free;
+	uintptr_t total_alloc;
 	unsigned long long iter_count;
 	dlist_t free_list;
 	dlnode_t root_sentinel;

@@ -9,10 +9,10 @@
 typedef struct {
 	char *name;
 	node_t *(*func)(void);
-} builtin_assoc_t;
+} foreign_assoc_t;
 
 void environ_add_builtins(node_t **env,
-                          builtin_assoc_t *builtins,
+                          foreign_assoc_t *builtins,
                           size_t num);
 
 

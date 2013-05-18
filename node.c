@@ -262,24 +262,24 @@ char *node_name(node_t *n)
 	return n->dat.name;
 }
 
-node_t *node_new_builtin(builtin_t func)
+node_t *node_new_foreign(foreign_t func)
 {
 	node_t *ret;
 	assert(ret = node_new());
 	ret->dat.func = func;
-	ret->type = NODE_BUILTIN;
+	ret->type = NODE_FOREIGN;
 #if defined(NODE_INIT_TRACING)
-	printf("node init builtin %p (%p)\n", ret, ret->dat.func);
+	printf("node init foreign %p (%p)\n", ret, ret->dat.func);
 #endif
 	return ret;
 }
 
-builtin_t node_func(node_t *n)
+foreign_t node_foreign(node_t *n)
 {
 #if defined(NODE_INCREMENTAL_GC)
 	memory_gc_iterate(&g_memstate);
 #endif
-	assert(n->type == NODE_BUILTIN);
+	assert(n->type == NODE_FOREIGN);
 	return n->dat.func;
 }
 
@@ -348,8 +348,8 @@ void node_print(node_t *n)
 		case NODE_VALUE:
 			printf("value %llu", (unsigned long long) n->dat.value);
 			break;
-		case NODE_BUILTIN:
-			printf("builtin %p", n->dat.func);
+		case NODE_FOREIGN:
+			printf("foreign %p", n->dat.func);
 			break;
 		case NODE_QUOTE:
 			printf("quote %p", n->dat.quote.val);
@@ -403,8 +403,8 @@ void node_print_pretty(node_t *n)
 		case NODE_VALUE:
 			printf("%llu", (unsigned long long) n->dat.value);
 			break;
-		case NODE_BUILTIN:
-			printf("builtin:%p", n->dat.func);
+		case NODE_FOREIGN:
+			printf("foreign:%p", n->dat.func);
 			break;
 		case NODE_QUOTE:
 			printf("'");

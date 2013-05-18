@@ -12,7 +12,7 @@ X(NODE_LIST) \
 X(NODE_LAMBDA) \
 X(NODE_SYMBOL) \
 X(NODE_VALUE) \
-X(NODE_BUILTIN) \
+X(NODE_FOREIGN) \
 X(NODE_QUOTE) \
 X(NODE_IF_FUNC) \
 X(NODE_LAMBDA_FUNC)
@@ -28,19 +28,19 @@ extern char *node_type_names[];
 struct node;
 typedef struct node node_t;
 
-typedef eval_err_t (*builtin_t)(struct node *args,
-                                struct node **env,
-                                struct node **result);
+typedef eval_err_t (*foreign_t)(node_t *args,
+                                node_t **env,
+                                node_t **result);
 
 struct node {
 	nodetype_t type;
 	union {
-		struct { struct node *child, *next; } list;
-		struct { struct node *env, *vars, *expr; } lambda;
-		builtin_t func;
+		struct { node_t *child, *next; } list;
+		struct { node_t *env, *vars, *expr; } lambda;
+		foreign_t func;
 		char name[MAX_SYM_LEN];
 		uint64_t value;
-		struct { struct node *val; } quote;
+		struct { node_t *val; } quote;
 	} dat;
 };
 
@@ -71,8 +71,8 @@ uint64_t node_value(node_t *n);
 node_t *node_new_symbol(char *name);
 char *node_name(node_t *n);
 
-node_t *node_new_builtin(builtin_t func);
-builtin_t node_func(node_t *n);
+node_t *node_new_foreign(foreign_t func);
+foreign_t node_foreign(node_t *n);
 
 node_t *node_new_quote(node_t *val);
 node_t *node_quote_val_noref(node_t *n);

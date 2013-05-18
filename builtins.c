@@ -6,7 +6,7 @@
 #include "builtins.h"
 #include "eval.h"
 
-eval_err_t builtin_quote(node_t *args, node_t **env, node_t **result)
+eval_err_t foreign_quote(node_t *args, node_t **env, node_t **result)
 {
 	(void) env;
 	*result = args;
@@ -29,7 +29,7 @@ static bool check_atom(node_t* arg)
 	return (!arg || arg->type == NODE_VALUE || arg->type == NODE_SYMBOL);
 }
 
-eval_err_t builtin_atom(node_t *args, node_t **env, node_t **result)
+eval_err_t foreign_atom(node_t *args, node_t **env, node_t **result)
 {
 	node_t *temp = NULL;
 	eval_err_t status = EVAL_OK;
@@ -63,7 +63,7 @@ finish:
 	return status;
 }
 
-eval_err_t builtin_car(node_t *args, node_t **env, node_t **result)
+eval_err_t foreign_car(node_t *args, node_t **env, node_t **result)
 {
 	node_t *temp = NULL;
 	eval_err_t status = EVAL_OK;
@@ -97,7 +97,7 @@ finish:
 	return status;
 }
 
-eval_err_t builtin_cdr(node_t *args, node_t **env, node_t **result)
+eval_err_t foreign_cdr(node_t *args, node_t **env, node_t **result)
 {
 	node_t *temp = NULL;
 	eval_err_t status = EVAL_OK;
@@ -133,7 +133,7 @@ finish:
 	return status;
 }
 
-eval_err_t builtin_cons(node_t *args, node_t **env, node_t **result)
+eval_err_t foreign_cons(node_t *args, node_t **env, node_t **result)
 {
 	node_t *child = NULL, *next = NULL;
 	eval_err_t status = EVAL_OK;
@@ -175,7 +175,7 @@ finish:
 	return status;
 }
 
-eval_err_t builtin_eq(node_t *args, node_t **env, node_t **result)
+eval_err_t foreign_eq(node_t *args, node_t **env, node_t **result)
 {
 	node_t *temp = NULL, *temp2 = NULL;
 	eval_err_t status = EVAL_OK;
@@ -228,7 +228,7 @@ finish:
 	return status;
 }
 
-eval_err_t builtin_defbang(node_t *args, node_t **env, node_t **result)
+eval_err_t foreign_defbang(node_t *args, node_t **env, node_t **result)
 {
 	node_t *val, *newval, *name;
 	eval_err_t status = EVAL_OK;
@@ -260,7 +260,7 @@ eval_err_t builtin_defbang(node_t *args, node_t **env, node_t **result)
 	return status;
 }
 
-eval_err_t builtin_setbang(node_t *args, node_t **env, node_t **result)
+eval_err_t foreign_setbang(node_t *args, node_t **env, node_t **result)
 {
 	node_t *name = NULL, *val = NULL, *newval = NULL, *keyval = NULL;
 	eval_err_t status = EVAL_OK;

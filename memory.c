@@ -30,7 +30,6 @@ void memory_state_init(
 	s->dl_cb = dl_cb;
 	s->p_cb = p_cb;
 	s->total_alloc = 0;
-	s->total_free = 0;
 	s->iter_count = 0;
 }
 
@@ -41,7 +40,6 @@ void *memory_request(memory_state_t *s)
 		mc = (memcell_t *) dlnode_remove(dlist_first(&(s->free_list)));
 		assert(! mc->locked);
 		assert(! mc->refcount);
-		s->total_free--;
 #if defined(ALLOC_DEBUG)
 		printf("gc (%llu): reuse node %p (%p)\n", s->iter_count, mc, mc->data);
 #endif
@@ -245,7 +243,6 @@ bool memory_gc_iterate(memory_state_t *s)
 		assert(!mc->refcount); // free_pending nodees should not be linked to
 		s->dl_cb(dl_cb_decref_free_pending_z, &(mc->data), s);
 		dlist_insertlast(&(s->free_list), dlnode_remove(&(mc->hdr)));
-		s->total_free++;
 		goto finish;
 	}
 
@@ -294,7 +291,6 @@ bool memory_gc_iterate(memory_state_t *s)
 		// NB: unreachable can be referenced if e.g. lambda points back to it.
 		s->dl_cb(dl_cb_decref_free_pending_z, &(mc->data), s);
 		dlist_insertlast(&(s->free_list), dlnode_remove(&(mc->hdr)));
-		s->total_free++;
 		goto finish;
 	}
 
@@ -325,9 +321,9 @@ void memory_gc_print_state(memory_state_t *s)
 	dlnode_t *cursor;
 	memcell_t *mc;
 
-	printf("gc (%llu) state %p (%lu alloc %lu free %lu bytes total):\n",
+	printf("gc (%llu) state %p (%lu alloc, %lu bytes):\n",
 	       s->iter_count, s,
-	       (unsigned long) s->total_alloc, (unsigned long) s->total_free,
+	       (unsigned long) s->total_alloc, 
 	       (unsigned long) ((sizeof(memcell_t)+s->datasize)*s->total_alloc));
 
 	DLIST_FOR_FWD(&(s->free_pending_list), cursor) {

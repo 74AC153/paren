@@ -7,28 +7,28 @@
 #include "environ_utils.h"
 #include "builtins.h"
 
-#define DEFINE_BUILTIN_MAKER(FUNC) \
+#define DEFINE_FOREIGN_MAKER(FUNC) \
 node_t *make_ ## FUNC (void) \
 { \
-	return node_new_builtin(FUNC); \
+	return node_new_foreign(FUNC); \
 }
 
-DEFINE_BUILTIN_MAKER(builtin_quote)
-DEFINE_BUILTIN_MAKER(builtin_defbang)
-DEFINE_BUILTIN_MAKER(builtin_setbang)
-DEFINE_BUILTIN_MAKER(builtin_atom)
-DEFINE_BUILTIN_MAKER(builtin_car)
-DEFINE_BUILTIN_MAKER(builtin_cdr)
+DEFINE_FOREIGN_MAKER(foreign_quote)
+DEFINE_FOREIGN_MAKER(foreign_defbang)
+DEFINE_FOREIGN_MAKER(foreign_setbang)
+DEFINE_FOREIGN_MAKER(foreign_atom)
+DEFINE_FOREIGN_MAKER(foreign_car)
+DEFINE_FOREIGN_MAKER(foreign_cdr)
 
-node_t *make_builtin_if(void)
+node_t *make_foreign_if(void)
 {
 	return node_new_if_func();
 }
 
-DEFINE_BUILTIN_MAKER(builtin_cons)
-DEFINE_BUILTIN_MAKER(builtin_eq)
+DEFINE_FOREIGN_MAKER(foreign_cons)
+DEFINE_FOREIGN_MAKER(foreign_eq)
 
-node_t *make_builtin_lambda(void)
+node_t *make_foreign_lambda(void)
 {
 	return node_new_lambda_func();
 }
@@ -36,17 +36,17 @@ node_t *make_builtin_lambda(void)
 #define ARR_LEN(ARR) (sizeof(ARR) / sizeof((ARR)[0]))
 
 /* rewrite these... */
-builtin_assoc_t builtins[] = {
-	{ "quote",  make_builtin_quote },
-	{ "def!",   make_builtin_defbang },
-	{ "set!",   make_builtin_setbang },
-	{ "atom",   make_builtin_atom },
-	{ "car",    make_builtin_car },
-	{ "cdr",    make_builtin_cdr },
-	{ "if",     make_builtin_if },
-	{ "cons",   make_builtin_cons },
-	{ "eq",     make_builtin_eq },
-	{ "lambda", make_builtin_lambda },
+foreign_assoc_t foreigns[] = {
+	{ "quote",  make_foreign_quote },
+	{ "def!",   make_foreign_defbang },
+	{ "set!",   make_foreign_setbang },
+	{ "atom",   make_foreign_atom },
+	{ "car",    make_foreign_car },
+	{ "cdr",    make_foreign_cdr },
+	{ "if",     make_foreign_if },
+	{ "cons",   make_foreign_cons },
+	{ "eq",     make_foreign_eq },
+	{ "lambda", make_foreign_lambda },
 };
 
 int main(int argc, char *argv[])
@@ -63,9 +63,9 @@ int main(int argc, char *argv[])
 	printf("*** initialize environment ***\n");
 	{
 		node_t *key, *value;
-		for (i = 0; i < ARR_LEN(builtins); i++) {
-			key = node_new_symbol(builtins[i].name);
-			value = builtins[i].func();
+		for (i = 0; i < ARR_LEN(foreigns); i++) {
+			key = node_new_symbol(foreigns[i].name);
+			value = foreigns[i].func();
 
 			environ_add(&env, key, value);
 		}
