@@ -44,14 +44,15 @@ eval_err_t lambda_bind(node_t **environ, node_t *vars, node_t *args)
 	var_curs = vars;
 	arg_curs = args;
 	while(true) {
-		/* ( ) */
 		if(! var_curs) {
+			/* ( ) */
 			if(arg_curs) {
+				/* still have vars to bind but no more args to bind them to */
 				return EVAL_ERR_TOO_MANY_ARGS;
 			}
 			break;
-		/* ( sym ... ) */
 		} else if(node_type(var_curs) == NODE_CONS) {
+			/* ( sym ... ) */
 			if(node_type(arg_curs) != NODE_CONS) {
 				return EVAL_ERR_MISSING_ARG;
 			}
@@ -60,17 +61,20 @@ eval_err_t lambda_bind(node_t **environ, node_t *vars, node_t *args)
 			if(node_type(name) != NODE_SYMBOL) {
 				return EVAL_ERR_EXPECTED_SYMBOL;
 			}
-		/* ( ... . sym ) */
 		} else if(node_type(var_curs) == NODE_SYMBOL) {
+			/* ( ... . sym ) */
 			value = arg_curs;
 			name = var_curs;
+			/* the last symbol is bound to the rest of the arg list, we can
+			   stop walking the arg list */
 			early_term = true;
 		} else {
+			/* should only be given a list of symbols */
 			return EVAL_ERR_EXPECTED_CONS_SYM;
 		}
 
 		/* if the symbol already exists in the current frame, update its
-		   value, otherwise, add the value to the frame*/
+		   value, otherwise, add the value to the frame */
 		if(environ_keyvalue_frame(*environ, name, &kv)) {
 			node_cons_patch_cdr(kv, value);
 		} else {
@@ -90,7 +94,7 @@ eval_err_t lambda_bind(node_t **environ, node_t *vars, node_t *args)
 
 eval_err_t eval(node_t *input, node_t **environ, node_t **output)
 {
-	node_t *expr_curs, *temp, *func, *args, *newargs;
+	node_t *expr_curs, *temp, *func, *args, *newargs, *lambda_environ;
 	eval_err_t status;
 	bool tailcall = false;
 	bool frameadded = false;
@@ -133,7 +137,7 @@ eval_tailcall_restart:
 
 		switch(node_type(func)) {
 		case NODE_LAMBDA: {
-			/* eval passed arguments */
+			/* eval passed arguments in caller's environment */
 			status = map_eval(args, environ, &newargs);
 			if(status != EVAL_OK) {
 				*output = newargs;
@@ -141,11 +145,16 @@ eval_tailcall_restart:
 			}
 			args = newargs;
 
-			/* bind variables to passed eval'd arguments */
+			/* NB: when invoking a lambda call, the stackframe is a child to
+			   the the environment that the lambda was defined in, not a child
+			   to the environment that the lambda was called from */
 			if(! tailcall) {
+				lambda_environ = node_lambda_env(func);
+				environ = &lambda_environ;
 				environ_pushframe(environ);
 				frameadded = true;
 			}
+			/* bind / update variables to passed eval'd arguments */
 			status = lambda_bind(environ, node_lambda_vars(func), args);
 			node_droproot(args);
 			if(status != EVAL_OK) {
