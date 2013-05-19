@@ -23,13 +23,13 @@ static void links_cb(void (*cb)(void *link, void *p), void *data, void *p)
 	node_t *n = (node_t *) data;
 
 	switch(node_type(n)) {
-	case NODE_LIST:
+	case NODE_CONS:
 #if defined(NODE_GC_TRACING)
-		printf("node links_cb: lst %p links to c=%p n=%p\n",
-		       n, n->dat.list.child, n->dat.list.next);
+		printf("node links_cb: cons %p links to c=%p n=%p\n",
+		       n, n->dat.cons.car, n->dat.cons.cdr);
 #endif
-		cb(n->dat.list.child, p);
-		cb(n->dat.list.next, p);
+		cb(n->dat.cons.car, p);
+		cb(n->dat.cons.cdr, p);
 		break;
 	case NODE_LAMBDA:
 #if defined(NODE_GC_TRACING)
@@ -99,7 +99,7 @@ static void node_release(node_t *n)
 	}
 }
 
-void node_forget(node_t *n)
+void node_droproot(node_t *n)
 {
 #if defined(NODE_INCREMENTAL_GC)
 	memory_gc_iterate(&g_memstate);
@@ -109,7 +109,7 @@ void node_forget(node_t *n)
 	}
 }
 
-void node_remember(node_t *n)
+void node_makeroot(node_t *n)
 {
 #if defined(NODE_INCREMENTAL_GC)
 	memory_gc_iterate(&g_memstate);
@@ -119,67 +119,71 @@ void node_remember(node_t *n)
 	}
 }
 
-bool node_is_remembered(node_t *n)
+bool node_isroot(node_t *n)
 {
 	return memory_gc_isroot(&g_memstate, n);
 }
 
-node_t *node_new_list(node_t *c, node_t *n)
+node_t *node_cons_new(node_t *car, node_t *cdr)
 {
 	node_t *ret;
 	assert(ret = node_new());
-	ret->dat.list.child = node_retain(c);
-	ret->dat.list.next = node_retain(n);
-	ret->type = NODE_LIST;
+	ret->dat.cons.car = node_retain(car);
+	ret->dat.cons.cdr = node_retain(cdr);
+	ret->type = NODE_CONS;
 #if defined(NODE_INIT_TRACING)
-	printf("node init list %p (%p, %p)\n", ret, c, n);
+	printf("node init cons %p (%p, %p)\n", ret, car, cdr);
 #endif
 	return ret;
 }
 
-void node_patch_list_next(node_t *n, node_t *newnext)
+void node_cons_patch_car(node_t *n, node_t *newcar)
 {
 #if defined(NODE_INCREMENTAL_GC)
 	memory_gc_iterate(&g_memstate);
 #endif
-	node_release(n->dat.list.next);
-	n->dat.list.next = node_retain(newnext);
+	assert(n);
+	assert(n->type == NODE_CONS);
+	node_release(n->dat.cons.car);
+	n->dat.cons.car = node_retain(newcar);
 }
 
-void node_patch_list_child(node_t *n, node_t *newchld)
+void node_cons_patch_cdr(node_t *n, node_t *newcdr)
 {
 #if defined(NODE_INCREMENTAL_GC)
 	memory_gc_iterate(&g_memstate);
 #endif
-	node_release(n->dat.list.child);
-	n->dat.list.child = node_retain(newchld);
+	assert(n);
+	assert(n->type == NODE_CONS);
+	node_release(n->dat.cons.cdr);
+	n->dat.cons.cdr = node_retain(newcdr);
 }
 
-node_t *node_child_noref(node_t *n)
-{
-#if defined(NODE_INCREMENTAL_GC)
-	memory_gc_iterate(&g_memstate);
-#endif
-	if(n) {
-		assert(n->type == NODE_LIST);
-		return n->dat.list.child;
-	}
-	return NULL;
-}
-
-node_t *node_next_noref(node_t *n)
+node_t *node_cons_car(node_t *n)
 {
 #if defined(NODE_INCREMENTAL_GC)
 	memory_gc_iterate(&g_memstate);
 #endif
 	if(n) {
-		assert(n->type == NODE_LIST);
-		return n->dat.list.next;
+		assert(n->type == NODE_CONS);
+		return n->dat.cons.car;
 	}
 	return NULL;
 }
 
-node_t *node_new_lambda(node_t *env, node_t *vars, node_t *expr)
+node_t *node_cons_cdr(node_t *n)
+{
+#if defined(NODE_INCREMENTAL_GC)
+	memory_gc_iterate(&g_memstate);
+#endif
+	if(n) {
+		assert(n->type == NODE_CONS);
+		return n->dat.cons.cdr;
+	}
+	return NULL;
+}
+
+node_t *node_lambda_new(node_t *env, node_t *vars, node_t *expr)
 {
 	node_t *ret;
 	assert(ret = node_new());
@@ -193,7 +197,7 @@ node_t *node_new_lambda(node_t *env, node_t *vars, node_t *expr)
 	return ret;
 }
 
-node_t *node_lambda_env_noref(node_t *n)
+node_t *node_lambda_env(node_t *n)
 {
 #if defined(NODE_INCREMENTAL_GC)
 	memory_gc_iterate(&g_memstate);
@@ -202,7 +206,7 @@ node_t *node_lambda_env_noref(node_t *n)
 	return n->dat.lambda.env;
 }
 
-node_t *node_lambda_vars_noref(node_t *n)
+node_t *node_lambda_vars(node_t *n)
 {
 #if defined(NODE_INCREMENTAL_GC)
 	memory_gc_iterate(&g_memstate);
@@ -211,7 +215,7 @@ node_t *node_lambda_vars_noref(node_t *n)
 	return n->dat.lambda.vars;
 }
 
-node_t *node_lambda_expr_noref(node_t *n)
+node_t *node_lambda_expr(node_t *n)
 {
 #if defined(NODE_INCREMENTAL_GC)
 	memory_gc_iterate(&g_memstate);
@@ -220,7 +224,7 @@ node_t *node_lambda_expr_noref(node_t *n)
 	return n->dat.lambda.expr;
 }
 
-node_t *node_new_value(uint64_t val)
+node_t *node_value_new(uint64_t val)
 {
 	node_t *ret;
 	assert(ret = node_new());
@@ -241,7 +245,7 @@ uint64_t node_value(node_t *n)
 	return n->dat.value;
 }
 
-node_t *node_new_symbol(char *name)
+node_t *node_symbol_new(char *name)
 {
 	node_t *ret;
 	assert(ret = node_new());
@@ -253,7 +257,7 @@ node_t *node_new_symbol(char *name)
 	return ret;
 }
 
-char *node_name(node_t *n)
+char *node_symbol_name(node_t *n)
 {
 #if defined(NODE_INCREMENTAL_GC)
 	memory_gc_iterate(&g_memstate);
@@ -262,7 +266,7 @@ char *node_name(node_t *n)
 	return n->dat.name;
 }
 
-node_t *node_new_foreign(foreign_t func)
+node_t *node_foreign_new(foreign_t func)
 {
 	node_t *ret;
 	assert(ret = node_new());
@@ -274,7 +278,7 @@ node_t *node_new_foreign(foreign_t func)
 	return ret;
 }
 
-foreign_t node_foreign(node_t *n)
+foreign_t node_foreign_func(node_t *n)
 {
 #if defined(NODE_INCREMENTAL_GC)
 	memory_gc_iterate(&g_memstate);
@@ -283,7 +287,7 @@ foreign_t node_foreign(node_t *n)
 	return n->dat.func;
 }
 
-node_t *node_new_quote(node_t *val)
+node_t *node_quote_new(node_t *val)
 {
 	node_t *ret;
 	assert(ret = node_new());
@@ -295,7 +299,7 @@ node_t *node_new_quote(node_t *val)
 	return ret;
 }
 
-node_t *node_quote_val_noref(node_t *n)
+node_t *node_quote_val(node_t *n)
 {
 #if defined(NODE_INCREMENTAL_GC)
 	memory_gc_iterate(&g_memstate);
@@ -304,7 +308,7 @@ node_t *node_quote_val_noref(node_t *n)
 	return n->dat.quote.val;
 }
 
-node_t *node_new_if_func(void)
+node_t *node_if_func_new(void)
 {
 	node_t *ret;
 	assert(ret = node_new());
@@ -315,7 +319,7 @@ node_t *node_new_if_func(void)
 	return ret;
 }
 
-node_t *node_new_lambda_func(void)
+node_t *node_lambda_func_new(void)
 {
 	node_t *ret;
 	assert(ret = node_new());
@@ -334,9 +338,9 @@ void node_print(node_t *n)
 		printf("node@%p: ", n);
 
 		switch(n->type) {
-		case NODE_LIST:
-			printf("list child=%p next=%p",
-			       n->dat.list.child, n->dat.list.next);
+		case NODE_CONS:
+			printf("cons car=%p cdr=%p",
+			       n->dat.cons.car, n->dat.cons.cdr);
 			break;
 		case NODE_LAMBDA:
 			printf("lam env=%p vars=%p expr=%p",
@@ -364,9 +368,9 @@ void node_print_recursive(node_t *n )
 {
 	node_print(n);
 	printf("\n");
-	if(n->type == NODE_LIST) {
-		if(n->dat.list.child) node_print_recursive(n->dat.list.child);
-		if(n->dat.list.next) node_print_recursive(n->dat.list.next);
+	if(n->type == NODE_CONS) {
+		if(n->dat.cons.car) node_print_recursive(n->dat.cons.car);
+		if(n->dat.cons.cdr) node_print_recursive(n->dat.cons.cdr);
 	} else if(n->type == NODE_LAMBDA) {
     	if(n->dat.lambda.env) node_print_recursive(n->dat.lambda.env);
 		if(n->dat.lambda.vars) node_print_recursive(n->dat.lambda.vars);
@@ -383,11 +387,11 @@ void node_print_pretty(node_t *n)
 		case NODE_NIL:
 			printf("()");
 			break;
-		case NODE_LIST:
+		case NODE_CONS:
 			printf("(");
-			node_print_pretty(n->dat.list.child);
+			node_print_pretty(n->dat.cons.car);
 			printf(" . ");
-			node_print_pretty(n->dat.list.next);
+			node_print_pretty(n->dat.cons.cdr);
 			printf(")");
 			break;
 		case NODE_LAMBDA:

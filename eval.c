@@ -16,20 +16,20 @@ eval_err_t map_eval(node_t *args, node_t **environ, node_t **result)
 		return EVAL_OK;
 	}
 
-	status = eval(node_child_noref(args), environ, &newarg);
+	status = eval(node_cons_car(args), environ, &newarg);
 	if(status != EVAL_OK) {
 		*result = newarg;
 		return status;
 	}
 
-	status = map_eval(node_next_noref(args), environ, &rest);
+	status = map_eval(node_cons_cdr(args), environ, &rest);
 	if(status != EVAL_OK) {
 		*result = rest;
-		node_forget(newarg);
+		node_droproot(newarg);
 		return status;
 	}
 
-	*result = node_new_list(newarg, rest);
+	*result = node_cons_new(newarg, rest);
 
 	return EVAL_OK;
 }
@@ -51,12 +51,12 @@ eval_err_t lambda_bind(node_t **environ, node_t *vars, node_t *args)
 			}
 			break;
 		/* ( sym ... ) */
-		} else if(node_type(var_curs) == NODE_LIST) {
-			if(node_type(arg_curs) != NODE_LIST) {
+		} else if(node_type(var_curs) == NODE_CONS) {
+			if(node_type(arg_curs) != NODE_CONS) {
 				return EVAL_ERR_MISSING_ARG;
 			}
-			value = node_child_noref(arg_curs);
-			name = node_child_noref(var_curs);
+			value = node_cons_car(arg_curs);
+			name = node_cons_car(var_curs);
 			if(node_type(name) != NODE_SYMBOL) {
 				return EVAL_ERR_EXPECTED_SYMBOL;
 			}
@@ -66,13 +66,13 @@ eval_err_t lambda_bind(node_t **environ, node_t *vars, node_t *args)
 			name = var_curs;
 			early_term = true;
 		} else {
-			return EVAL_ERR_EXPECTED_LIST_SYM;
+			return EVAL_ERR_EXPECTED_CONS_SYM;
 		}
 
 		/* if the symbol already exists in the current frame, update its
 		   value, otherwise, add the value to the frame*/
 		if(environ_keyvalue_frame(*environ, name, &kv)) {
-			node_patch_list_next(kv, value);
+			node_cons_patch_cdr(kv, value);
 		} else {
 			environ_add(&env, name, value);
 		}
@@ -80,8 +80,8 @@ eval_err_t lambda_bind(node_t **environ, node_t *vars, node_t *args)
 		if(early_term) {
 			break;
 		}
-		var_curs = node_next_noref(var_curs);
-		arg_curs = node_next_noref(arg_curs);
+		var_curs = node_cons_cdr(var_curs);
+		arg_curs = node_cons_cdr(arg_curs);
 	}   
 
 	*environ = env;
@@ -117,16 +117,16 @@ eval_tailcall_restart:
 		*output = NULL;
 		break;
 
-	case NODE_LIST: {
+	case NODE_CONS: {
 		/* (symbol args...) */
-		args = node_next_noref(input);
-		if(node_type(args) != NODE_LIST) {
+		args = node_cons_cdr(input);
+		if(node_type(args) != NODE_CONS) {
 			*output = args;
-			status = EVAL_ERR_EXPECTED_LIST;
+			status = EVAL_ERR_EXPECTED_CONS;
 			break;
 		}
 
-		status = eval(node_child_noref(input), environ, &func);
+		status = eval(node_cons_car(input), environ, &func);
 		if(status != EVAL_OK) {
 			goto node_list_cleanup;
 		}
@@ -146,26 +146,26 @@ eval_tailcall_restart:
 				environ_pushframe(environ);
 				frameadded = true;
 			}
-			status = lambda_bind(environ, node_lambda_vars_noref(func), args);
-			node_forget(args);
+			status = lambda_bind(environ, node_lambda_vars(func), args);
+			node_droproot(args);
 			if(status != EVAL_OK) {
 				*output = func;
 				goto node_lambda_cleanup;
 			}
 
 			/* eval expr list in new environment */
-			expr_curs = node_lambda_expr_noref(func);
+			expr_curs = node_lambda_expr(func);
 			for(temp = NULL;
 			    expr_curs;
-			    expr_curs = node_next_noref(expr_curs)) {
-				node_forget(temp);
-				if(node_next_noref(expr_curs) == NULL) {
+			    expr_curs = node_cons_cdr(expr_curs)) {
+				node_droproot(temp);
+				if(node_cons_cdr(expr_curs) == NULL) {
 					/* tail call: clean up and setup to restart */
-					input = node_child_noref(expr_curs);
+					input = node_cons_car(expr_curs);
 					tailcall = true;
 					goto eval_tailcall_restart;
 				} else {
-					status = eval(node_child_noref(expr_curs), environ, &temp);
+					status = eval(node_cons_car(expr_curs), environ, &temp);
 					if(status != EVAL_OK) {
 						break;
 					}
@@ -179,28 +179,28 @@ eval_tailcall_restart:
 		}
 
 		case NODE_LAMBDA_FUNC:
-			*output = node_new_lambda(*environ,
-			                          node_child_noref(args), /* vars */
-			                          node_next_noref(args)); /* expr list */
+			*output = node_lambda_new(*environ,
+			                          node_cons_car(args), /* vars */
+			                          node_cons_cdr(args)); /* expr list */
 			break;
 
 		case NODE_IF_FUNC: {
 			node_t *test = NULL, *pass = NULL, *fail = NULL, *test_res = NULL;
-			test = node_child_noref(args);
+			test = node_cons_car(args);
 	
-			*output = pass = node_next_noref(args);
-			if(node_type(pass) != NODE_LIST) {
-				status = EVAL_ERR_EXPECTED_LIST;
+			*output = pass = node_cons_cdr(args);
+			if(node_type(pass) != NODE_CONS) {
+				status = EVAL_ERR_EXPECTED_CONS;
 				break;
 			}
-			pass = node_child_noref(pass);
+			pass = node_cons_car(pass);
 
-			*output = fail = node_next_noref(node_next_noref(args));
-			if(node_type(fail) != NODE_LIST) {
-				status = EVAL_ERR_EXPECTED_LIST;
+			*output = fail = node_cons_cdr(node_cons_cdr(args));
+			if(node_type(fail) != NODE_CONS) {
+				status = EVAL_ERR_EXPECTED_CONS;
 				break;
 			}
-			fail = node_child_noref(fail);
+			fail = node_cons_car(fail);
 
 			status = eval(test, environ, &test_res);
 			if(status != EVAL_OK) {
@@ -213,14 +213,14 @@ eval_tailcall_restart:
 			} else {
 				input = fail;
 			}
-			node_forget(test_res);
+			node_droproot(test_res);
 
 			goto eval_tailcall_restart;
 			break;
 		}
 
 		case NODE_FOREIGN:
-			status = node_foreign(func)(args, environ, output);
+			status = node_foreign_func(func)(args, environ, output);
 			break;
 
 		default:
@@ -241,7 +241,7 @@ eval_tailcall_restart:
 	}
 
 	case NODE_QUOTE:
-		*output = node_quote_val_noref(input);
+		*output = node_quote_val(input);
 		break;
 
 	case NODE_LAMBDA:

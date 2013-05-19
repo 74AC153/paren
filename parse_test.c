@@ -26,7 +26,7 @@ int main(int argc, char *argv[])
 	printf("\n");
 	node_print_recursive(result);
 
-	node_forget(result);
+	node_droproot(result);
 
 	printf("*** cleanup ***\n");
 	node_gc();

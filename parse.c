@@ -24,9 +24,9 @@ parse_err_t parse_atom(char **input, token_t **tok_list, node_t **result)
 	val = strtoll(tok_sym(tok), &end, 0);
 	if(! *end) {
 		/* entire string consumed doing the conversion: number */
-		ret = node_new_value(val);
+		ret = node_value_new(val);
 	} else {
-		ret = node_new_symbol(tok_sym(tok));
+		ret = node_symbol_new(tok_sym(tok));
 	}
 
 	next_tok(input, tok_list);
@@ -77,9 +77,9 @@ parse_err_t parse_list(char **input, token_t **tok_list, node_t **result)
 			status = parse_list(input, tok_list, &next);
 
 			if(status == PARSE_OK) {
-				*result = node_new_list(child, next);
+				*result = node_cons_new(child, next);
 			} else {
-				node_forget(next);
+				node_droproot(next);
 			}
 		}
 	}
@@ -110,9 +110,9 @@ parse_err_t parse_sexpr(char **input, token_t **tok_list, node_t **result)
 		tok = next_tok(input, tok_list);
 		status = parse_sexpr(input, tok_list, &val);
 		if(status == PARSE_OK) {
-			ret = node_new_quote(val);
+			ret = node_quote_new(val);
 		} else {
-			node_forget(val);
+			node_droproot(val);
 		}
 		break;
 	}
@@ -161,7 +161,7 @@ parse_err_t parse_sexpr(char **input, token_t **tok_list, node_t **result)
 	return status;
 
 error:
-	node_forget(ret);
+	node_droproot(ret);
 	return status;
 }
 
@@ -172,7 +172,7 @@ parse_err_t parse(char *input, char **remain, node_t **result)
 
 	status = parse_sexpr(&input, &tok_list, result);
 	if(status != PARSE_OK) {
-		node_forget(*result);
+		node_droproot(*result);
 	}
 
 	*remain = input;

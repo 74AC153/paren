@@ -10,7 +10,7 @@
 #define DEFINE_FOREIGN_MAKER(FUNC) \
 node_t *make_ ## FUNC (void) \
 { \
-	return node_new_foreign(FUNC); \
+	return node_foreign_new(FUNC); \
 }
 
 DEFINE_FOREIGN_MAKER(foreign_quote)
@@ -22,7 +22,7 @@ DEFINE_FOREIGN_MAKER(foreign_cdr)
 
 node_t *make_foreign_if(void)
 {
-	return node_new_if_func();
+	return node_if_func_new();
 }
 
 DEFINE_FOREIGN_MAKER(foreign_cons)
@@ -30,7 +30,7 @@ DEFINE_FOREIGN_MAKER(foreign_eq)
 
 node_t *make_foreign_lambda(void)
 {
-	return node_new_lambda_func();
+	return node_lambda_func_new();
 }
 
 #define ARR_LEN(ARR) (sizeof(ARR) / sizeof((ARR)[0]))
@@ -64,17 +64,17 @@ int main(int argc, char *argv[])
 	{
 		node_t *key, *value;
 		for (i = 0; i < ARR_LEN(foreigns); i++) {
-			key = node_new_symbol(foreigns[i].name);
+			key = node_symbol_new(foreigns[i].name);
 			value = foreigns[i].func();
 
 			environ_add(&env, key, value);
 		}
 	}
-	assert(! env || node_is_remembered(env));
+	assert(! env || node_isroot(env));
 
 	/* parse + eval argv */
 	for(i = 1; i < (unsigned) argc; i++) {
-		assert(! env || node_is_remembered(env));
+		assert(! env || node_isroot(env));
 
 		printf("*** parse %s ***\n", argv[i]);
 		parse_stat = parse(argv[i], &remain, &parse_result);
@@ -84,13 +84,13 @@ int main(int argc, char *argv[])
 			continue;
 		}
 
-		assert(! env || node_is_remembered(env));
+		assert(! env || node_isroot(env));
 
 		printf("parse result:\n");
 		node_print_pretty(parse_result);
 		printf("\n");
 
-		assert(! env || node_is_remembered(env));
+		assert(! env || node_isroot(env));
 
 		printf("start environment:\n");
 		environ_print(env);
@@ -114,22 +114,22 @@ int main(int argc, char *argv[])
 		//printf("*** gc state following eval ***\n");
 		//node_gc_state();
 
-		assert(! env || node_is_remembered(env));
+		assert(! env || node_isroot(env));
 
 		printf("*** releasing parse result %p ***\n", parse_result);
-		node_forget(parse_result);
+		node_droproot(parse_result);
 
 		printf("*** releasing eval result %p ***\n", eval_result);
-		node_forget(eval_result);
+		node_droproot(eval_result);
 
-		assert(! env || node_is_remembered(env));
+		assert(! env || node_isroot(env));
 	}
 
 	printf("*** result environment %p ***\n", env);
 	environ_print(env);
 
 	printf("*** release toplevel environment %p ***\n", env);
-	node_forget(env);
+	node_droproot(env);
 
 	
 	printf("*** cleanup ***\n");

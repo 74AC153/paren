@@ -9,9 +9,9 @@ X(EVAL_ERR_MISSING_ARG, "missing argument") \
 X(EVAL_ERR_FUNC_IS_NOT_LAMBDA, "expected lambda") \
 X(EVAL_ERR_NONLAMBDA_FUNCALL, "function with non lambda symbol") \
 X(EVAL_ERR_UNKNOWN_FUNCALL, "invalid function call") \
-X(EVAL_ERR_EXPECTED_LIST, "expected list") \
+X(EVAL_ERR_EXPECTED_CONS, "expected cons") \
 X(EVAL_ERR_EXPECTED_SYMBOL, "expected symbol") \
-X(EVAL_ERR_EXPECTED_LIST_SYM, "expected list or symbol")
+X(EVAL_ERR_EXPECTED_CONS_SYM, "expected cons or symbol")
 
 typedef enum {
 #define X(A, B) A,

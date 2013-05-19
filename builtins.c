@@ -11,15 +11,15 @@ eval_err_t foreign_quote(node_t *args, node_t **env, node_t **result)
 	(void) env;
 	*result = args;
 
-	if(node_type(args) != NODE_LIST) {
-		return EVAL_ERR_EXPECTED_LIST;
+	if(node_type(args) != NODE_CONS) {
+		return EVAL_ERR_EXPECTED_CONS;
 	}
 
-	if(node_next_noref(args)) {
+	if(node_cons_cdr(args)) {
 		return EVAL_ERR_TOO_MANY_ARGS;
 	}
 
-	*result = node_child_noref(args);
+	*result = node_cons_car(args);
 
 	return EVAL_OK;
 }
@@ -36,16 +36,16 @@ eval_err_t foreign_atom(node_t *args, node_t **env, node_t **result)
 
 	*result = args;
 
-	if(node_type(args) != NODE_LIST) {
-		return EVAL_ERR_EXPECTED_LIST;
+	if(node_type(args) != NODE_CONS) {
+		return EVAL_ERR_EXPECTED_CONS;
 	}
 
-	if(node_next_noref(args)) {
+	if(node_cons_cdr(args)) {
 		return EVAL_ERR_TOO_MANY_ARGS;
 	}
 
 	/* eval arg */
-	status = eval(node_child_noref(args), env, &temp);
+	status = eval(node_cons_car(args), env, &temp);
 	if(status != EVAL_OK) {
 		*result = temp;
 		goto finish;
@@ -53,13 +53,13 @@ eval_err_t foreign_atom(node_t *args, node_t **env, node_t **result)
 	
 	/* temp must be NULL, a value, or a symbol to be an atom */
 	if(check_atom(temp)) {
-		*result = node_new_value(1);
+		*result = node_value_new(1);
 	} else {
 		*result = NULL;
 	}
 
 finish:
-	node_forget(temp);
+	node_droproot(temp);
 	return status;
 }
 
@@ -70,30 +70,30 @@ eval_err_t foreign_car(node_t *args, node_t **env, node_t **result)
 
 	*result = args;
 
-	if(node_type(args) != NODE_LIST) {
-		return EVAL_ERR_EXPECTED_LIST;
+	if(node_type(args) != NODE_CONS) {
+		return EVAL_ERR_EXPECTED_CONS;
 	}
 
-	if(node_next_noref(args)) {
+	if(node_cons_cdr(args)) {
 		return EVAL_ERR_TOO_MANY_ARGS;
 	}
 
 	/* evai arg */
-	status = eval(node_child_noref(args), env, &temp);
+	status = eval(node_cons_car(args), env, &temp);
 	if(status != EVAL_OK) {
 		goto finish;
 	}
 
-	/* temp must be a list */
-	if(node_type(temp) != NODE_LIST) {
-		status = EVAL_ERR_EXPECTED_LIST;
+	/* temp must be a cons */
+	if(node_type(temp) != NODE_CONS) {
+		status = EVAL_ERR_EXPECTED_CONS;
 		goto finish;
 	}
 	
-	*result = node_child_noref(temp);
+	*result = node_cons_car(temp);
 
 finish:
-	node_forget(temp);
+	node_droproot(temp);
 	return status;
 }
 
@@ -104,32 +104,32 @@ eval_err_t foreign_cdr(node_t *args, node_t **env, node_t **result)
 
 	*result = args;
 
-	if(node_type(args) != NODE_LIST) {
-		return EVAL_ERR_EXPECTED_LIST;
+	if(node_type(args) != NODE_CONS) {
+		return EVAL_ERR_EXPECTED_CONS;
 	}
 
-	if(node_next_noref(args)) {
+	if(node_cons_cdr(args)) {
 		return EVAL_ERR_TOO_MANY_ARGS;
 	}
 
 	/* evai arg */
-	status = eval(node_child_noref(args), env, &temp);
+	status = eval(node_cons_car(args), env, &temp);
 	if(status != EVAL_OK) {
 		*result = temp;
 		goto finish;
 	}
 
-	/* temp must be a list */
-	if(node_type(temp) != NODE_LIST) {
-		status = EVAL_ERR_EXPECTED_LIST;
+	/* temp must be a cons */
+	if(node_type(temp) != NODE_CONS) {
+		status = EVAL_ERR_EXPECTED_CONS;
 		*result = temp;
 		goto finish;
 	}
 	
-	*result = node_next_noref(temp);
+	*result = node_cons_cdr(temp);
 
 finish:
-	node_forget(temp);
+	node_droproot(temp);
 	return status;
 }
 
@@ -140,36 +140,36 @@ eval_err_t foreign_cons(node_t *args, node_t **env, node_t **result)
 
 	*result = args;
 
-	if(node_type(args) != NODE_LIST) {
-		return EVAL_ERR_EXPECTED_LIST;
+	if(node_type(args) != NODE_CONS) {
+		return EVAL_ERR_EXPECTED_CONS;
 	}
 
-	if(!node_next_noref(args)) {
+	if(!node_cons_cdr(args)) {
 		return EVAL_ERR_MISSING_ARG;
 	}
 
-	if(node_type(node_next_noref(args)) != NODE_LIST) {
-		return EVAL_ERR_EXPECTED_LIST;
+	if(node_type(node_cons_cdr(args)) != NODE_CONS) {
+		return EVAL_ERR_EXPECTED_CONS;
 	}
 
-	if(node_next_noref(node_next_noref(args))) {
+	if(node_cons_cdr(node_cons_cdr(args))) {
 		return EVAL_ERR_TOO_MANY_ARGS;
 	}
 
 	/* eval args */
-	status = eval(node_child_noref(args), env, &child);
+	status = eval(node_cons_car(args), env, &child);
 	if(status != EVAL_OK) {
 		*result = child;
 		goto finish;
 	}
 
-	status = eval(node_child_noref(node_next_noref(args)), env, &next);
+	status = eval(node_cons_car(node_cons_cdr(args)), env, &next);
 	if(status != EVAL_OK) {
 		*result = next;
 		goto finish;
 	}
 
-	*result = node_new_list(child, next);
+	*result = node_cons_new(child, next);
 
 finish:
 	return status;
@@ -182,29 +182,29 @@ eval_err_t foreign_eq(node_t *args, node_t **env, node_t **result)
 
 	*result = args;
 
-	if(node_type(args) != NODE_LIST) {
-		return EVAL_ERR_EXPECTED_LIST;
+	if(node_type(args) != NODE_CONS) {
+		return EVAL_ERR_EXPECTED_CONS;
 	}
 
-	if(! node_next_noref(args)) {
+	if(! node_cons_cdr(args)) {
 		return EVAL_ERR_MISSING_ARG;
 	}
 
-	if(node_type(node_next_noref(args)) != NODE_LIST) {
-		return EVAL_ERR_EXPECTED_LIST;
+	if(node_type(node_cons_cdr(args)) != NODE_CONS) {
+		return EVAL_ERR_EXPECTED_CONS;
 	}
 
-	if(node_next_noref(node_next_noref(args))) {
+	if(node_cons_cdr(node_cons_cdr(args))) {
 		return EVAL_ERR_TOO_MANY_ARGS;
 	}
 
 	/* eval args */
-	status = eval(node_child_noref(args), env, &temp);
+	status = eval(node_cons_car(args), env, &temp);
 	if(status != EVAL_OK) {
 		*result = temp;
 		goto finish;
 	}
-	status = eval(node_child_noref(node_next_noref(args)), env, &temp2);
+	status = eval(node_cons_car(node_cons_cdr(args)), env, &temp2);
 	if(status != EVAL_OK) {
 		*result = temp2;
 		goto finish;
@@ -216,15 +216,15 @@ eval_err_t foreign_eq(node_t *args, node_t **env, node_t **result)
 	   (node_type(temp) == NODE_VALUE &&
 	    node_value(temp) != node_value(temp2)) ||
 	   (node_type(temp) == NODE_SYMBOL && node_type(temp2) == NODE_SYMBOL &&
-	    strcmp(node_name(temp), node_name(temp2)))) {
+	    strcmp(node_symbol_name(temp), node_symbol_name(temp2)))) {
 		*result = NULL;
 	} else {
-		*result = node_new_value(1);
+		*result = node_value_new(1);
 	}
 
 finish:
-	node_forget(temp);
-	node_forget(temp2);
+	node_droproot(temp);
+	node_droproot(temp2);
 	return status;
 }
 
@@ -234,21 +234,21 @@ eval_err_t foreign_defbang(node_t *args, node_t **env, node_t **result)
 	eval_err_t status = EVAL_OK;
 	*result = args;
 
-	if(node_type(args) != NODE_LIST) {
-		return EVAL_ERR_EXPECTED_LIST;
+	if(node_type(args) != NODE_CONS) {
+		return EVAL_ERR_EXPECTED_CONS;
 	}
 
 	/* note: we return the symbol that was added to environment */
-	*result = name = node_child_noref(args);
+	*result = name = node_cons_car(args);
 	if(node_type(name) != NODE_SYMBOL) {
 		return EVAL_ERR_EXPECTED_SYMBOL;
 	}
 
 	/* eval passed value */
-	if(node_type(node_next_noref(args)) != NODE_LIST) {
-		return EVAL_ERR_EXPECTED_LIST;
+	if(node_type(node_cons_cdr(args)) != NODE_CONS) {
+		return EVAL_ERR_EXPECTED_CONS;
 	}
-	val = node_child_noref(node_next_noref(args));
+	val = node_cons_car(node_cons_cdr(args));
 
 	status = eval(val, env, &newval);
 	if(status != EVAL_OK) {
@@ -267,19 +267,19 @@ eval_err_t foreign_setbang(node_t *args, node_t **env, node_t **result)
 
 	*result = args;
 
-	if(node_type(args) != NODE_LIST) {
-		return EVAL_ERR_EXPECTED_LIST;
+	if(node_type(args) != NODE_CONS) {
+		return EVAL_ERR_EXPECTED_CONS;
 	}
 
-	name = node_child_noref(args);
+	name = node_cons_car(args);
 	if(node_type(name) != NODE_SYMBOL) {
 		return EVAL_ERR_EXPECTED_SYMBOL;
 	}
 
-	if(node_type(node_next_noref(args)) != NODE_LIST) {
-		return EVAL_ERR_EXPECTED_LIST;
+	if(node_type(node_cons_cdr(args)) != NODE_CONS) {
+		return EVAL_ERR_EXPECTED_CONS;
 	}
-	val = node_child_noref(node_next_noref(args));
+	val = node_cons_car(node_cons_cdr(args));
 
 	status = eval(val, env, &newval);
 	if(status != EVAL_OK) {
@@ -287,11 +287,11 @@ eval_err_t foreign_setbang(node_t *args, node_t **env, node_t **result)
 	}
 
 	if(! environ_keyvalue(*env, name, &keyval)) {
-		node_forget(newval);
+		node_droproot(newval);
 		status = EVAL_ERR_UNRESOLVED_SYMBOL;
 	}
 
-	node_patch_list_next(keyval, newval);
+	node_cons_patch_cdr(keyval, newval);
 	*result = newval;
 
 	return EVAL_OK;

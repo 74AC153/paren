@@ -8,7 +8,7 @@
 
 #define NODE_TYPES \
 X(NODE_NIL) \
-X(NODE_LIST) \
+X(NODE_CONS) \
 X(NODE_LAMBDA) \
 X(NODE_SYMBOL) \
 X(NODE_VALUE) \
@@ -35,7 +35,7 @@ typedef eval_err_t (*foreign_t)(node_t *args,
 struct node {
 	nodetype_t type;
 	union {
-		struct { node_t *child, *next; } list;
+		struct { node_t *car, *cdr; } cons;
 		struct { node_t *env, *vars, *expr; } lambda;
 		foreign_t func;
 		char name[MAX_SYM_LEN];
@@ -47,58 +47,43 @@ struct node {
 void nodes_initialize();
 
 nodetype_t node_type(node_t *n);
-//node_t *node_retain(node_t *n);
-//void node_release(node_t *n);
-//void node_retrel(node_t *n);
-void node_forget(node_t *n);
-void node_remember(node_t *n);
-bool node_is_remembered(node_t *n);
+void node_makeroot(node_t *n);
+void node_droproot(node_t *n);
+bool node_isroot(node_t *n);
 
-node_t *node_new_list(node_t *c, node_t *n);
-node_t *node_child_noref(node_t *n);
-node_t *node_next_noref(node_t *n);
-void node_patch_list_next(node_t *n, node_t *newnext);
-void node_patch_list_child(node_t *n, node_t *newchld);
+node_t *node_cons_new(node_t *car, node_t *cdr);
+node_t *node_cons_car(node_t *n);
+node_t *node_cons_cdr(node_t *n);
+void node_cons_patch_car(node_t *n, node_t *newcar);
+void node_cons_patch_cdr(node_t *n, node_t *newcdr);
 
-node_t *node_new_lambda(node_t *env, node_t *vars, node_t *expr);
-node_t *node_lambda_env_noref(node_t *n);
-node_t *node_lambda_vars_noref(node_t *n);
-node_t *node_lambda_expr_noref(node_t *n);
+node_t *node_lambda_new(node_t *env, node_t *vars, node_t *expr);
+node_t *node_lambda_env(node_t *n);
+node_t *node_lambda_vars(node_t *n);
+node_t *node_lambda_expr(node_t *n);
 
-node_t *node_new_value(uint64_t val);
+node_t *node_value_new(uint64_t val);
 uint64_t node_value(node_t *n);
 
-node_t *node_new_symbol(char *name);
-char *node_name(node_t *n);
+node_t *node_symbol_new(char *name);
+char *node_symbol_name(node_t *n);
 
-node_t *node_new_foreign(foreign_t func);
-foreign_t node_foreign(node_t *n);
+node_t *node_foreign_new(foreign_t func);
+foreign_t node_foreign_func(node_t *n);
 
-node_t *node_new_quote(node_t *val);
-node_t *node_quote_val_noref(node_t *n);
+node_t *node_quote_new(node_t *val);
+node_t *node_quote_val(node_t *n);
 
-node_t *node_new_if_func(void);
+node_t *node_if_func_new(void);
 
-node_t *node_new_lambda_func(void);
+node_t *node_lambda_func_new(void);
 
 void node_print(node_t *n);
 void node_print_recursive(node_t *n);
 void node_print_pretty(node_t *n);
 
-bool node_reachable_from(node_t *src, node_t *dst);
-
-/* call cb on all live nodes */
-typedef int (*find_cb_t)(node_t *n, void *p);
-int node_find_live(find_cb_t cb, void *p);
-int node_find_free(find_cb_t cb, void *p);
-int node_find_roots(find_cb_t cb, void *p);
-int node_find_unproc(find_cb_t cb, void *p);
-int node_find_reachable(find_cb_t cb, void *p);
-int node_find_boundary(find_cb_t cb, void *p);
-
-/* free unused nodes, returns # nodes freed */
+/* run garbage collector one full cycle */
 void node_gc(void);
-//void node_sanity(void);
-void node_gc_state(void);
+void node_gc_print_state(void);
 
 #endif
