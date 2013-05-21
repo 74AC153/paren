@@ -47,7 +47,7 @@ eval_err_t lambda_bind(node_t **environ, node_t *vars, node_t *args)
 		if(! var_curs) {
 			/* ( ) */
 			if(arg_curs) {
-				/* still have vars to bind but no more args to bind them to */
+				/* still have args to bind but no more vars to bind them to */
 				return EVAL_ERR_TOO_MANY_ARGS;
 			}
 			break;
