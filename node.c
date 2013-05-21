@@ -368,6 +368,9 @@ void node_print_recursive(node_t *n )
 {
 	node_print(n);
 	printf("\n");
+	if(!n) {
+		return;
+	}
 	if(n->type == NODE_CONS) {
 		if(n->dat.cons.car) node_print_recursive(n->dat.cons.car);
 		if(n->dat.cons.cdr) node_print_recursive(n->dat.cons.cdr);
