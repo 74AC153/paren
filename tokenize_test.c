@@ -4,15 +4,15 @@
 int main(int argc, char *argv[])
 {
 	char *start;
-	token_t *tok, *tok_list;
+	tok_state_t state;
 	if(argc != 2) {
 		printf("usage: %s 'string'\n", argv[0]);
 		return -1;
 	}
-	for(start = argv[1], tok = first_tok(&start, &tok_list);
-	    tok;
-	    tok = next_tok(&start, &tok_list)) {
-		print_tok(tok);
+	for(start = argv[1], token_chomp(&start, &state);
+	    token_type(&state) != TOK_NONE;
+	    token_chomp(&start, &state)) {
+		token_print(&state);
 	}
 	return 0;
 }

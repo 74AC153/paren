@@ -18,114 +18,104 @@ static bool is_atom_char(char c)
 	return !isspace(c) && c != '(' && c != ')' && c != '.' && c != '\'';
 }
 
-static size_t read_tok(char *input, token_t *tok_out)
+static size_t read_tok(char *input, tok_state_t *state)
 {
-	char *start, *end;
+	char *start, *end, *test_end;
 	size_t len;
+	int64_t lit;
 
+	/* skip leading whitespace */
 	for(start = input; isspace(start[0]); start++);
 
 	switch(start[0]) {
 	case 0: /* end of input */
-		tok_out->type = TOK_NONE;
+		state->type = TOK_NONE;
 		end = start;
 		break;
 	case '(':
-		tok_out->type = TOK_LPAREN;
+		state->type = TOK_LPAREN;
 		end = start + 1;
 		break;
 	case ')':
-		tok_out->type = TOK_RPAREN;
+		state->type = TOK_RPAREN;
 		end = start + 1;
 		break;
 	case '.':
-		tok_out->type = TOK_DOT;
+		state->type = TOK_DOT;
 		end = start + 1;
 		break;
 	case '\'':
-		tok_out->type = TOK_QUOTE;
+		state->type = TOK_QUOTE;
 		end = start + 1;
 		break;
 	default:
-		tok_out->type = TOK_ATOM;
+		/* determine where token ends */
 		for(end = start; *end && is_atom_char(*end); end++);
-		len = end - start;
-		if(len > sizeof(tok_out->sym)) {
-			len = sizeof(tok_out->sym) -1;
+
+		/* try to convert to a numeric literal */
+		lit = strtoll(start, &test_end, 0);
+
+		if(test_end == end) {
+			/* whole string consumed -> numeric literal */
+			state->type = TOK_LIT;
+			state->u.lit = lit;
+		} else {
+			/* not numeric -> symbol */
+			state->type = TOK_SYM;
+			len = end - start;
+			/* capture as many characters as we have space for, dispose rest */
+			if(len > sizeof(state->u.sym)-1) {
+				len = sizeof(state->u.sym)-1;
+			}
+			strncpy(state->u.sym, start, len);
+			state->u.sym[len] = 0;
 		}
-		strncpy(tok_out->sym, start, len);
-		tok_out->sym[len] = 0;
 		break;
 	}
 	return end - input;
 }
 
-/* like strdup */
-void *memdup(void *src, size_t len)
+void token_chomp(char **input, tok_state_t *state)
 {
-	void *ret = malloc(len);
-	if(ret) {
-		memcpy(ret, src, len);
-	}
-	return ret;
-}
-
-token_t *first_tok(char **input, token_t **tok_list)
-{
-	token_t temp = { 0, TOK_NONE, { 0 } }, *ret = NULL;
 	size_t n;
-	if(*tok_list) {
-		ret = (*tok_list);
-	} else {
-		if((n = read_tok((*input), &temp))) {
-			if((ret = memdup(&temp, sizeof(temp)))) {
-				*tok_list = ret;
-			}
-		}
-		(*input) += n;
-	}
-	return ret;
+
+	n = read_tok(*input, state);
+	*input += n;
 }
 
-token_t *next_tok(char **input, token_t **tok_list)
+toktype_t token_type(tok_state_t *state)
 {
-	token_t *del = *tok_list;
-	if(del) {
-		*tok_list = (*tok_list)->next;
-		free(del);
-	}
-	return first_tok(input, tok_list);
+	return state->type;
 }
 
-toktype_t tok_type(token_t *tok)
+char *token_sym(tok_state_t *state)
 {
-	if(tok) {
-		return tok->type;
-	}
-	return TOK_NONE;
+	assert(state->type == TOK_SYM);
+	return state->u.sym;
 }
 
-char *tok_type_str(token_t *tok)
+int64_t token_lit(tok_state_t *state)
 {
-	return token_type_names[tok->type];
+	assert(state->type == TOK_LIT);
+	return state->u.lit;
 }
 
-char *tok_sym(token_t *tok)
+char *token_type_str(tok_state_t *state)
 {
-	return tok->sym;
+	return token_type_names[state->type];
 }
 
-void push_tok(token_t *tok, token_t **tok_list)
+void token_print(tok_state_t *state)
 {
-	tok->next = (*tok_list);
-	(*tok_list) = tok;
-	return;
-}
-
-void print_tok(token_t *token)
-{
-	switch(token->type) {
-	case TOK_ATOM: printf("ATOM(%s)\n", token->sym); break;
-	default: printf("%s\n", token_type_names[token->type]); break;
+	switch(state->type) {
+	case TOK_SYM:
+		printf("TOK_SYM(%s)\n", state->u.sym);
+		break;
+	case TOK_LIT:
+		printf("TOK_LIT(0x%llx)\n", (unsigned long long) state->u.lit);
+		break;
+	default:
+		printf("%s\n", token_type_names[state->type]);
+		break;
 	}
 }

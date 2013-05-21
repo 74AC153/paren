@@ -39,7 +39,7 @@ struct node {
 		struct { node_t *env, *vars, *expr; } lambda;
 		foreign_t func;
 		char name[MAX_SYM_LEN];
-		uint64_t value;
+		int64_t value;
 		struct { node_t *val; } quote;
 	} dat;
 };

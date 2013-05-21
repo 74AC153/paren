@@ -7,108 +7,106 @@
 #include "token.h"
 #include "parse.h"
 
+
 static
-parse_err_t parse_atom(char **input, token_t **tok_list, node_t **result)
+parse_err_t parse_atom(char **input, tok_state_t *state, node_t **result)
 {
-	node_t *ret = NULL;
-	token_t *tok;
-	char *end;
-	uint64_t val;
+	switch(token_type(state)) {
+	case TOK_SYM:
+		*result = node_symbol_new(token_sym(state));
+		break;
 
-	tok = first_tok(input, tok_list);
+	case TOK_LIT:
+		*result = node_value_new(token_lit(state));
+		break;
 
-	if(tok_type(tok) != TOK_ATOM) {
+	default:
 		return PARSE_EXPECTED_ATOM;
 	}
+	assert(*result);
 
-	val = strtoll(tok_sym(tok), &end, 0);
-	if(! *end) {
-		/* entire string consumed doing the conversion: number */
-		ret = node_value_new(val);
-	} else {
-		ret = node_symbol_new(tok_sym(tok));
-	}
-
-	next_tok(input, tok_list);
-
-	assert(ret);
-
-	*result = ret;
+	token_chomp(input, state);
 
 	return PARSE_OK;
 }
 
 static
-parse_err_t parse_sexpr(char **input, token_t **tok_list, node_t **result);
+parse_err_t parse_sexpr(char **input, tok_state_t *state, node_t **result);
 
 static
-parse_err_t parse_list(char **input, token_t **tok_list, node_t **result)
+parse_err_t parse_list(char **input, tok_state_t *state, node_t **result)
 {
-	token_t *tok = first_tok(input, tok_list);
 	parse_err_t status = PARSE_OK;
+	node_t *child = NULL, *next = NULL;
 
-	if(tok_type(tok) == TOK_NONE) {
+	switch(token_type(state)) {
+	case TOK_NONE:
 		status = PARSE_TOKEN_UNDERFLOW;
 		*result = NULL;
-	} else if(tok_type(tok) == TOK_RPAREN) {
+		break;
+
+	case TOK_RPAREN:
 		/* ... ) */
 		/* check but don't consume this RPAREN because the parse_sexpr
 		   that calls this function will check for it when this function
 		   returns */
 		*result = NULL;
-	} else if(tok_type(tok) == TOK_DOT) {
-		tok = next_tok(input, tok_list);
-		if(! tok) {
+		break;
+
+	case TOK_DOT:
+		token_chomp(input, state);
+		switch(token_type(state)) {
+		case TOK_NONE:
 			status = PARSE_TOKEN_UNDERFLOW;
-		} else if(tok_type(tok) == TOK_RPAREN) {
+			break;
+		case TOK_RPAREN:
 			status = PARSE_UNEXPECTED_RPAREN;
-		} else if(tok_type(tok) == TOK_DOT) {
+			break;
+		case TOK_DOT:
 			status = PARSE_UNEXPECTED_DOT;
-		} else {
-			status = parse_sexpr(input, tok_list, result);
+			break;
+		default:
+			status = parse_sexpr(input, state, result);
+			break;
 		}
-	} else {
-		node_t *child = NULL;
-
-		status = parse_sexpr(input, tok_list, &child);
+		break;
+	default:
+		status = parse_sexpr(input, state, &child);
 		if(status == PARSE_OK) {
-			node_t *next = NULL;
-
-			status = parse_list(input, tok_list, &next);
-
+			status = parse_list(input, state, &next);
 			if(status == PARSE_OK) {
 				*result = node_cons_new(child, next);
 			} else {
 				node_droproot(next);
 			}
 		}
+
 	}
 
 	return status;
 }
 
 static
-parse_err_t parse_sexpr(char **input, token_t **tok_list, node_t **result)
+parse_err_t parse_sexpr(char **input, tok_state_t *state, node_t **result)
 {
 	node_t *ret = NULL;
-	token_t *tok;
 
 	parse_err_t status = PARSE_OK;
 
-	if(! (tok = first_tok(input, tok_list))) {
+	switch(token_type(state)) {
+	case TOK_NONE:
 		return PARSE_TOKEN_UNDERFLOW;
-	}
 
-	switch(tok_type(tok)) {
-	case TOK_ATOM:
-		status = parse_atom(input, tok_list, &ret);
+	case TOK_SYM:
+	case TOK_LIT:
+		status = parse_atom(input, state, &ret);
 		break;
 
 	case TOK_QUOTE: {
 		node_t *val = NULL;
 		/* consume quote and parse remaining */
-		tok = next_tok(input, tok_list);
-		status = parse_sexpr(input, tok_list, &val);
+		token_chomp(input, state);
+		status = parse_sexpr(input, state, &val);
 		if(status == PARSE_OK) {
 			ret = node_quote_new(val);
 		} else {
@@ -119,37 +117,47 @@ parse_err_t parse_sexpr(char **input, token_t **tok_list, node_t **result)
 	case TOK_LPAREN:
 		/* ( ... */
 
-		tok = next_tok(input, tok_list);
-		if(! tok) {
+		token_chomp(input, state);
+		
+		switch(token_type(state)) {
+		case TOK_NONE:
 			status = PARSE_TOKEN_UNDERFLOW;
 			goto error;
-		}
-		if(tok_type(tok) == TOK_RPAREN) {
+
+		case TOK_RPAREN:
 			/* ( ) */
 			/* consume closing rparen */
-			next_tok(input, tok_list);
+			token_chomp(input, state);
 			*result = NULL;
-			break;
-		} else if(tok_type(tok) == TOK_DOT) {
+			goto tok_lparen_finish;
+
+		case TOK_DOT:
 			/* ( .  */
 			status = PARSE_UNEXPECTED_DOT;
 			goto error;
+
+		default:
+			break;
 		}
+
 		/* ( ... */
-		status = parse_list(input, tok_list, &ret);
+		status = parse_list(input, state, &ret);
 
 		/* ... ) */
-		tok = first_tok(input, tok_list);
-		if(! tok) {
+		switch(token_type(state)) {
+		case TOK_NONE:
 			status = PARSE_TOKEN_UNDERFLOW;
 			goto error;
-		}
-		if(tok_type(tok) != TOK_RPAREN) {
+		case TOK_RPAREN:
+			/* consume closing rparen */
+			token_chomp(input, state);
+			break;
+		default:
 			status = PARSE_EXPECTED_RPAREN;
 			goto error;
 		}
-		/* consume closing rparen */
-		next_tok(input, tok_list);
+
+tok_lparen_finish:
 		break;
 
 	default:
@@ -168,9 +176,12 @@ error:
 parse_err_t parse(char *input, char **remain, node_t **result)
 {
 	parse_err_t status = PARSE_OK;
-	token_t *tok_list = NULL;
+	tok_state_t state;
 
-	status = parse_sexpr(&input, &tok_list, result);
+	/* prime tokenizer to have first token ready */
+	token_chomp(&input, &state);
+
+	status = parse_sexpr(&input, &state, result);
 	if(status != PARSE_OK) {
 		node_droproot(*result);
 	}

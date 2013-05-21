@@ -1,6 +1,8 @@
 #ifndef TOKEN_H
 #define TOKEN_H
 
+#include <stdint.h>
+
 #define MAX_SYM_LEN 32
 
 #define TOK_TYPES \
@@ -9,12 +11,8 @@ X(TOK_LPAREN) \
 X(TOK_RPAREN) \
 X(TOK_DOT) \
 X(TOK_QUOTE) \
-X(TOK_ATOM)
-
-/*
-TOK_SYM
-TOK_LIT
-*/
+X(TOK_SYM) \
+X(TOK_LIT)
 
 typedef enum {
 #define X(name) name,
@@ -23,23 +21,19 @@ TOK_TYPES
 } toktype_t;
 
 struct token {
-	struct token *next;
 	toktype_t type;
-	char sym[MAX_SYM_LEN];
+	union {
+		char sym[MAX_SYM_LEN+1]; // include space for tailing null
+		int64_t lit;
+	} u;
 };
-typedef struct token token_t;
+typedef struct token tok_state_t;
 
-/* return first token */
-token_t *first_tok(char **input, token_t **tok_list);
-/* free first token and return following one */
-token_t *next_tok(char **input, token_t **tok_list);
-toktype_t tok_type(token_t *tok);
-char *tok_sym(token_t *tok);
-
-char *tok_type_str(token_t *tok);
-void print_tok(token_t *token);
-
-/* add token to front of list (not used?) */
-void push_tok(token_t *token, token_t **tok_list);
+void token_chomp(char **input, tok_state_t *state);
+toktype_t token_type(tok_state_t *state);
+char *token_sym(tok_state_t *state);
+int64_t token_lit(tok_state_t *state);
+char *token_type_str(tok_state_t *state);
+void token_print(tok_state_t *state);
 
 #endif

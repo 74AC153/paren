@@ -1,13 +1,13 @@
-lambda eval doesn't actually use lambda_env.... ???
-
+switch token.c to be static allocation for current token
 shorthand list notation for node_print_pretty
+makesym/splitsym to create new symbols
+defined? cons? symbol? value? foreign
+remove single quote shorthand?
 move existing 'builtins' into eval, i.e. create special node types, etc
 add theory of operation in various source files
-switch token.c to node-based allocator
 quoted string shorthand in tokenizer
-makesym/splitsym to create new symbols
 write a REPL and test harness
-continuations -- make eval totally non-recursive laying breadcrumbs
+continuations -- make eval totally non-recursive laying breadcrumbs?
 macros -- rewrite parser in scheme
 remote eval -- pending
 
