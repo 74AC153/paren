@@ -4,6 +4,10 @@ remove single quote shorthand?
 move existing 'builtins' into eval, i.e. create special node types, etc
 add theory of operation in various source files
 quoted string shorthand in tokenizer
+find ways to reduce memory use:
+- split lambda into two nodes
+- move locked flag into high bit of refcount
+- reduce MAX_SYM_LEN
 
 write a REPL and test harness
 continuations -- make eval totally non-recursive laying breadcrumbs?
@@ -159,7 +163,7 @@ test lexical scope:
 (set! last-item (lambda (l) (last-item-rec (car l) (cdr l))))
 (last-item '(a b c))
 
-(def! reverse)
+(def! reverse ())
 (set! reverse (lambda (fwd rev) (if (eq fwd ()) rev (reverse (cdr fwd) (cons (car fwd) rev)))))
 (reverse (quote (1 2 3)) ())
 
