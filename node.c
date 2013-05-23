@@ -375,7 +375,7 @@ void node_print_recursive(node_t *n )
 		if(n->dat.cons.car) node_print_recursive(n->dat.cons.car);
 		if(n->dat.cons.cdr) node_print_recursive(n->dat.cons.cdr);
 	} else if(n->type == NODE_LAMBDA) {
-    	if(n->dat.lambda.env) node_print_recursive(n->dat.lambda.env);
+    	if(n->dat.lambda.env) node_print(n->dat.lambda.env);
 		if(n->dat.lambda.vars) node_print_recursive(n->dat.lambda.vars);
 		if(n->dat.lambda.expr) node_print_recursive(n->dat.lambda.expr);
 	} else if(n->type == NODE_QUOTE) {
@@ -383,45 +383,74 @@ void node_print_recursive(node_t *n )
 	}
 }
 
+void node_print_list_shorthand(node_t *n)
+{
+	if(node_type(n) == NODE_CONS) {
+		node_print_pretty(node_cons_car(n), false);
+		node_print_list_shorthand(node_cons_cdr(n));
+	} else if(n == NULL) {
 
-void node_print_pretty(node_t *n)
+	} else {
+		printf(". ");
+		node_print_pretty(n, false);
+	}
+}
+
+void node_print_pretty(node_t *n, bool isverbose)
 {
 		switch(node_type(n)) {
 		case NODE_NIL:
-			printf("()");
+			printf("() ");
 			break;
 		case NODE_CONS:
-			printf("(");
-			node_print_pretty(n->dat.cons.car);
-			printf(" . ");
-			node_print_pretty(n->dat.cons.cdr);
-			printf(")");
+			printf("( ");
+			node_print_pretty(node_cons_car(n), isverbose);
+			if(isverbose) {
+				printf(". ");
+				node_print_pretty(node_cons_cdr(n), true);
+			} else if(node_type(node_cons_cdr(n)) == NODE_CONS ||
+			          node_type(node_cons_cdr(n)) == NODE_NIL ||
+			          node_type(node_cons_cdr(n)) == NODE_LAMBDA){
+				node_print_list_shorthand(node_cons_cdr(n));
+			} else {
+				printf(". ");
+				node_print_pretty(node_cons_cdr(n), false);
+			}
+			printf(") ");
 			break;
 		case NODE_LAMBDA:
-			printf("(lambda . (");
-			node_print_pretty(n->dat.lambda.vars);
-			printf(" . ");
-			node_print_pretty(n->dat.lambda.expr);
-			printf("))");
+			if(isverbose) {
+				printf("( lambda . ( ");
+				node_print_pretty(node_lambda_vars(n), true);
+				printf(" . ");
+				node_print_pretty(node_lambda_expr(n), true);
+				printf(") ) ");
+			} else {
+				printf("( lambda  ( ");
+				node_print_list_shorthand(node_lambda_vars(n));
+				printf(") ");
+				node_print_list_shorthand(node_lambda_expr(n));
+				printf(") ");
+			}
 			break;
 		case NODE_SYMBOL:
-			printf("%s", n->dat.name);
+			printf("%s ", node_symbol_name(n));
 			break;
 		case NODE_VALUE:
-			printf("%llu", (unsigned long long) n->dat.value);
+			printf("%llu ", (unsigned long long) node_value(n));
 			break;
 		case NODE_FOREIGN:
-			printf("foreign:%p", n->dat.func);
+			printf("foreign:%p ", node_foreign_func(n));
 			break;
 		case NODE_QUOTE:
 			printf("'");
-			node_print_pretty(n->dat.quote.val);
+			node_print_pretty(node_quote_val(n), isverbose);
 			break;
 		case NODE_IF_FUNC:
-			printf("if");
+			printf("if ");
 			break;
 		case NODE_LAMBDA_FUNC:
-			printf("lambda");
+			printf("lambda ");
 			break;
 		}
 }

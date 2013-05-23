@@ -80,7 +80,7 @@ node_t *node_lambda_func_new(void);
 
 void node_print(node_t *n);
 void node_print_recursive(node_t *n);
-void node_print_pretty(node_t *n);
+void node_print_pretty(node_t *n, bool verbose);
 
 /* run garbage collector one full cycle */
 void node_gc(void);
