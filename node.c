@@ -426,7 +426,7 @@ void node_print_pretty(node_t *n, bool isverbose)
 				node_print_pretty(node_lambda_expr(n), true);
 				printf(") ) ");
 			} else {
-				printf("( lambda  ( ");
+				printf("( lambda ( ");
 				node_print_list_shorthand(node_lambda_vars(n));
 				printf(") ");
 				node_print_list_shorthand(node_lambda_expr(n));
@@ -460,7 +460,7 @@ void node_gc(void)
 	while(! memory_gc_iterate(&g_memstate));
 }
 
-void node_gc_state(void)
+void node_gc_print_state(void)
 {
 	memory_gc_print_state(&g_memstate);
 }

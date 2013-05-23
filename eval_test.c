@@ -87,7 +87,7 @@ int main(int argc, char *argv[])
 		assert(! env || node_isroot(env));
 
 		printf("parse result:\n");
-		node_print_pretty(parse_result);
+		node_print_pretty(parse_result, false);
 		printf("\n");
 
 		assert(! env || node_isroot(env));
@@ -100,13 +100,13 @@ int main(int argc, char *argv[])
 
 		if(eval_stat) {
 			printf("eval error for: \n");
-			node_print_pretty(eval_result);
+			node_print_pretty(eval_result, false);
 			printf("\n");
 			printf("%s\n", eval_err_str(eval_stat));
 			return -1;
 		}
 		printf("eval result:\n");
-		node_print_pretty(eval_result);
+		node_print_pretty(eval_result, false);
 		printf("\n");
 		//node_print_recursive(eval_result);
 
@@ -134,7 +134,7 @@ int main(int argc, char *argv[])
 	
 	printf("*** cleanup ***\n");
 
-	node_gc_state();
+	node_gc_print_state();
 
 	printf("*** run gc ***\n");
 	node_gc();
@@ -143,7 +143,7 @@ int main(int argc, char *argv[])
 
 	printf("*** final state ***\n");
 
-	node_gc_state();
+	node_gc_print_state();
 
 	return 0;
 }

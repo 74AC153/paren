@@ -22,7 +22,7 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	node_print_pretty(result);
+	node_print_pretty(result, false);
 	printf("\n");
 	node_print_recursive(result);
 
@@ -32,7 +32,7 @@ int main(int argc, char *argv[])
 	node_gc();
 	node_gc();
 
-	node_gc_state();
+	node_gc_print_state();
 
 	return 0;
 }

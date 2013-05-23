@@ -102,9 +102,9 @@ void environ_print(node_t *environ)
 		     entry_curs = node_cons_cdr(entry_curs)) {
 
 			keyval = node_cons_car(entry_curs);
-			node_print_pretty(node_cons_car(keyval));
+			node_print_pretty(node_cons_car(keyval), false);
 			printf(" -> ");
-			node_print_pretty(node_cons_cdr(keyval));
+			node_print_pretty(node_cons_cdr(keyval), false);
 			printf("\n");
 
 		}
