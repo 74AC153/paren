@@ -15,11 +15,11 @@ clean:
 tokenize_test: tokenize_test.o token.o
 	gcc -o tokenize_test tokenize_test.o token.o
 
-parse_test: parse_test.o parse.o token.o node.o memory.o
-	gcc -o parse_test parse_test.o parse.o token.o node.o memory.o
+parse_test: parse_test.o parse.o token.o node.o memory.o dlist.o
+	gcc -o parse_test parse_test.o parse.o token.o node.o memory.o dlist.o
 
-eval_test: eval_test.o builtins.o eval.o parse.o token.o node.o environ.o environ_utils.o eval_err.o memory.o
-	gcc -o eval_test eval_test.o builtins.o eval.o parse.o token.o node.o environ.o environ_utils.o eval_err.o memory.o
+eval_test: eval_test.o builtins.o eval.o parse.o token.o node.o environ.o environ_utils.o eval_err.o memory.o dlist.o
+	gcc -o eval_test eval_test.o builtins.o eval.o parse.o token.o node.o environ.o environ_utils.o eval_err.o memory.o dlist.o
 
 builtins.o: builtins.c builtins.h
 	gcc ${CFLAGS} -c builtins.c
@@ -53,6 +53,9 @@ environ_utils.o: environ_utils.c environ_utils.h
 
 eval_err.o: eval_err.c eval_err.h
 	gcc ${CFLAGS} -c eval_err.c
+
+dlist.o: dlist.c dlist.h
+	gcc ${CFLAGS} -c dlist.c
 
 memory.o: memory.c memory.h
 	gcc ${CFLAGS} -c memory.c
