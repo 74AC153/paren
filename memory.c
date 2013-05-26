@@ -300,8 +300,7 @@ bool memory_gc_iterate(memory_state_t *s)
 		assert(!memcell_locked(mc)); // locked nodes should stay in root list
 		assert(memcell_refcount(mc)); // referenced nodes should have refcount
 		s->dl_cb(dl_cb_try_move_boundary, &(mc->data), s);
-		dlnode_remove(&(mc->hdr));
-		dlist_insertlast(s->reachable_listref, &(mc->hdr));
+		dlist_insertlast(s->reachable_listref, dlnode_remove(&(mc->hdr)));
 		goto finish;
 	}
 

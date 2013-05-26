@@ -1,9 +1,9 @@
+quoted string shorthand in tokenizer
 makesym/splitsym to create new symbols
-defined? cons? symbol? value? foreign
+defined? cons? symbol? value? foreign?
 remove single quote shorthand?
 move existing 'builtins' into eval, i.e. create special node types, etc
 add theory of operation in various source files
-quoted string shorthand in tokenizer
 find ways to reduce memory use:
 - split lambda into two nodes
 - move locked flag into high bit of refcount

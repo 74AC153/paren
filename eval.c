@@ -167,7 +167,7 @@ eval_tailcall_restart:
 			for(temp = NULL;
 			    expr_curs;
 			    expr_curs = node_cons_cdr(expr_curs)) {
-				node_droproot(temp);
+				node_droproot(temp); // release temp so we don't leak mem
 				if(node_cons_cdr(expr_curs) == NULL) {
 					/* tail call: clean up and setup to restart */
 					input = node_cons_car(expr_curs);
