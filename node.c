@@ -126,8 +126,8 @@ bool node_isroot(node_t *n)
 
 node_t *node_cons_new(node_t *car, node_t *cdr)
 {
-	node_t *ret;
-	assert(ret = node_new());
+	node_t *ret = node_new();
+	assert(ret);
 	ret->dat.cons.car = node_retain(car);
 	ret->dat.cons.cdr = node_retain(cdr);
 	ret->type = NODE_CONS;
@@ -185,8 +185,8 @@ node_t *node_cons_cdr(node_t *n)
 
 node_t *node_lambda_new(node_t *env, node_t *vars, node_t *expr)
 {
-	node_t *ret;
-	assert(ret = node_new());
+	node_t *ret = node_new();
+	assert(ret);
 	ret->dat.lambda.env = node_retain(env);
 	ret->dat.lambda.vars = node_retain(vars);
 	ret->dat.lambda.expr = node_retain(expr);
@@ -226,8 +226,8 @@ node_t *node_lambda_expr(node_t *n)
 
 node_t *node_value_new(uint64_t val)
 {
-	node_t *ret;
-	assert(ret = node_new());
+	node_t *ret = node_new();
+	assert(ret);
 	ret->dat.value = val;
 	ret->type = NODE_VALUE;
 #if defined(NODE_INIT_TRACING)
@@ -247,8 +247,8 @@ uint64_t node_value(node_t *n)
 
 node_t *node_symbol_new(char *name)
 {
-	node_t *ret;
-	assert(ret = node_new());
+	node_t *ret = node_new();
+	assert(ret);
 	strncpy(ret->dat.name, name, sizeof(ret->dat.name));
 	ret->type = NODE_SYMBOL;
 #if defined(NODE_INIT_TRACING)
@@ -268,8 +268,8 @@ char *node_symbol_name(node_t *n)
 
 node_t *node_foreign_new(foreign_t func)
 {
-	node_t *ret;
-	assert(ret = node_new());
+	node_t *ret = node_new();
+	assert(ret);
 	ret->dat.func = func;
 	ret->type = NODE_FOREIGN;
 #if defined(NODE_INIT_TRACING)
@@ -289,8 +289,8 @@ foreign_t node_foreign_func(node_t *n)
 
 node_t *node_quote_new(node_t *val)
 {
-	node_t *ret;
-	assert(ret = node_new());
+	node_t *ret = node_new();
+	assert(ret);
 	ret->dat.quote.val = node_retain(val);
 	ret->type = NODE_QUOTE;
 #if defined(NODE_INIT_TRACING)
@@ -310,8 +310,8 @@ node_t *node_quote_val(node_t *n)
 
 node_t *node_if_func_new(void)
 {
-	node_t *ret;
-	assert(ret = node_new());
+	node_t *ret = node_new();
+	assert(ret);
 	ret->type = NODE_IF_FUNC;
 #if defined(NODE_INIT_TRACING)
 	printf("node init if_func\n");
@@ -321,8 +321,8 @@ node_t *node_if_func_new(void)
 
 node_t *node_lambda_func_new(void)
 {
-	node_t *ret;
-	assert(ret = node_new());
+	node_t *ret = node_new();
+	assert(ret);
 	ret->type = NODE_LAMBDA_FUNC;
 #if defined(NODE_INIT_TRACING)
 	printf("node init lambda_func\n");
