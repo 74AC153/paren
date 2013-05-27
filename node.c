@@ -64,7 +64,7 @@ void nodes_initialize()
 static node_t *node_new(void)
 {
 	node_t *n;
-#if defined(NODE_INCREMENTAL_GC)
+#if ! defined(NODE_NO_INCREMENTAL_GC)
 	memory_gc_iterate(&g_memstate);
 #endif
 	n = memory_request(&g_memstate);
@@ -79,7 +79,7 @@ nodetype_t node_type(node_t *n)
 
 static node_t *node_retain(node_t *n)
 {
-#if defined(NODE_INCREMENTAL_GC)
+#if ! defined(NODE_NO_INCREMENTAL_GC)
 	memory_gc_iterate(&g_memstate);
 #endif
 	if(n) {
@@ -91,7 +91,7 @@ static node_t *node_retain(node_t *n)
 static void node_release(node_t *n)
 {
 	(void) n;
-#if defined(NODE_INCREMENTAL_GC)
+#if ! defined(NODE_NO_INCREMENTAL_GC)
 	memory_gc_iterate(&g_memstate);
 #endif
 	if(n) {
@@ -101,7 +101,7 @@ static void node_release(node_t *n)
 
 void node_droproot(node_t *n)
 {
-#if defined(NODE_INCREMENTAL_GC)
+#if ! defined(NODE_NO_INCREMENTAL_GC)
 	memory_gc_iterate(&g_memstate);
 #endif
 	if(n && memory_gc_isroot(&g_memstate, n)) {
@@ -111,7 +111,7 @@ void node_droproot(node_t *n)
 
 void node_makeroot(node_t *n)
 {
-#if defined(NODE_INCREMENTAL_GC)
+#if ! defined(NODE_NO_INCREMENTAL_GC)
 	memory_gc_iterate(&g_memstate);
 #endif
 	if(n) {
@@ -139,7 +139,7 @@ node_t *node_cons_new(node_t *car, node_t *cdr)
 
 void node_cons_patch_car(node_t *n, node_t *newcar)
 {
-#if defined(NODE_INCREMENTAL_GC)
+#if ! defined(NODE_NO_INCREMENTAL_GC)
 	memory_gc_iterate(&g_memstate);
 #endif
 	assert(n);
@@ -150,7 +150,7 @@ void node_cons_patch_car(node_t *n, node_t *newcar)
 
 void node_cons_patch_cdr(node_t *n, node_t *newcdr)
 {
-#if defined(NODE_INCREMENTAL_GC)
+#if ! defined(NODE_NO_INCREMENTAL_GC)
 	memory_gc_iterate(&g_memstate);
 #endif
 	assert(n);
@@ -161,7 +161,7 @@ void node_cons_patch_cdr(node_t *n, node_t *newcdr)
 
 node_t *node_cons_car(node_t *n)
 {
-#if defined(NODE_INCREMENTAL_GC)
+#if ! defined(NODE_NO_INCREMENTAL_GC)
 	memory_gc_iterate(&g_memstate);
 #endif
 	if(n) {
@@ -173,7 +173,7 @@ node_t *node_cons_car(node_t *n)
 
 node_t *node_cons_cdr(node_t *n)
 {
-#if defined(NODE_INCREMENTAL_GC)
+#if ! defined(NODE_NO_INCREMENTAL_GC)
 	memory_gc_iterate(&g_memstate);
 #endif
 	if(n) {
@@ -199,7 +199,7 @@ node_t *node_lambda_new(node_t *env, node_t *vars, node_t *expr)
 
 node_t *node_lambda_env(node_t *n)
 {
-#if defined(NODE_INCREMENTAL_GC)
+#if ! defined(NODE_NO_INCREMENTAL_GC)
 	memory_gc_iterate(&g_memstate);
 #endif
 	assert(n->type = NODE_LAMBDA);
@@ -208,7 +208,7 @@ node_t *node_lambda_env(node_t *n)
 
 node_t *node_lambda_vars(node_t *n)
 {
-#if defined(NODE_INCREMENTAL_GC)
+#if ! defined(NODE_NO_INCREMENTAL_GC)
 	memory_gc_iterate(&g_memstate);
 #endif
 	assert(n->type = NODE_LAMBDA);
@@ -217,7 +217,7 @@ node_t *node_lambda_vars(node_t *n)
 
 node_t *node_lambda_expr(node_t *n)
 {
-#if defined(NODE_INCREMENTAL_GC)
+#if ! defined(NODE_NO_INCREMENTAL_GC)
 	memory_gc_iterate(&g_memstate);
 #endif
 	assert(n->type = NODE_LAMBDA);
@@ -238,7 +238,7 @@ node_t *node_value_new(uint64_t val)
 
 uint64_t node_value(node_t *n)
 {
-#if defined(NODE_INCREMENTAL_GC)
+#if ! defined(NODE_NO_INCREMENTAL_GC)
 	memory_gc_iterate(&g_memstate);
 #endif
 	assert(n->type == NODE_VALUE);
@@ -259,7 +259,7 @@ node_t *node_symbol_new(char *name)
 
 char *node_symbol_name(node_t *n)
 {
-#if defined(NODE_INCREMENTAL_GC)
+#if ! defined(NODE_NO_INCREMENTAL_GC)
 	memory_gc_iterate(&g_memstate);
 #endif
 	assert(n->type == NODE_SYMBOL);
@@ -280,7 +280,7 @@ node_t *node_foreign_new(foreign_t func)
 
 foreign_t node_foreign_func(node_t *n)
 {
-#if defined(NODE_INCREMENTAL_GC)
+#if ! defined(NODE_NO_INCREMENTAL_GC)
 	memory_gc_iterate(&g_memstate);
 #endif
 	assert(n->type == NODE_FOREIGN);
@@ -301,7 +301,7 @@ node_t *node_quote_new(node_t *val)
 
 node_t *node_quote_val(node_t *n)
 {
-#if defined(NODE_INCREMENTAL_GC)
+#if ! defined(NODE_NO_INCREMENTAL_GC)
 	memory_gc_iterate(&g_memstate);
 #endif
 	assert(node_type(n) == NODE_QUOTE);
