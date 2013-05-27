@@ -8,7 +8,7 @@
 #include "builtins.h"
 
 #define DEFINE_FOREIGN_MAKER(FUNC) \
-node_t *make_ ## FUNC (void) \
+static node_t *make_ ## FUNC (void) \
 { \
 	return node_foreign_new(FUNC); \
 }
@@ -33,20 +33,25 @@ node_t *make_foreign_lambda(void)
 	return node_lambda_func_new();
 }
 
+DEFINE_FOREIGN_MAKER(foreign_makesym)
+DEFINE_FOREIGN_MAKER(foreign_splitsym)
+
 #define ARR_LEN(ARR) (sizeof(ARR) / sizeof((ARR)[0]))
 
 /* rewrite these... */
 foreign_assoc_t foreigns[] = {
-	{ "quote",  make_foreign_quote },
-	{ "def!",   make_foreign_defbang },
-	{ "set!",   make_foreign_setbang },
-	{ "atom",   make_foreign_atom },
-	{ "car",    make_foreign_car },
-	{ "cdr",    make_foreign_cdr },
-	{ "if",     make_foreign_if },
-	{ "cons",   make_foreign_cons },
-	{ "eq",     make_foreign_eq },
-	{ "lambda", make_foreign_lambda },
+	{ "quote",    make_foreign_quote },
+	{ "def!",     make_foreign_defbang },
+	{ "set!",     make_foreign_setbang },
+	{ "atom",     make_foreign_atom },
+	{ "car",      make_foreign_car },
+	{ "cdr",      make_foreign_cdr },
+	{ "if",       make_foreign_if },
+	{ "cons",     make_foreign_cons },
+	{ "eq",       make_foreign_eq },
+	{ "lambda",   make_foreign_lambda },
+	{ "makesym",  make_foreign_makesym },
+	{ "splitsym", make_foreign_splitsym },
 };
 
 int main(int argc, char *argv[])

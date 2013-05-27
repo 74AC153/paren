@@ -11,7 +11,9 @@ X(EVAL_ERR_NONLAMBDA_FUNCALL, "function with non lambda symbol") \
 X(EVAL_ERR_UNKNOWN_FUNCALL, "invalid function call") \
 X(EVAL_ERR_EXPECTED_CONS, "expected cons") \
 X(EVAL_ERR_EXPECTED_SYMBOL, "expected symbol") \
-X(EVAL_ERR_EXPECTED_CONS_SYM, "expected cons or symbol")
+X(EVAL_ERR_EXPECTED_VALUE, "expected value") \
+X(EVAL_ERR_EXPECTED_CONS_SYM, "expected cons or symbol") \
+X(EVAL_ERR_VALUE_BOUNDS, "given value out of bounds")
 
 typedef enum {
 #define X(A, B) A,

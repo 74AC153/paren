@@ -296,3 +296,104 @@ eval_err_t foreign_setbang(node_t *args, node_t **env, node_t **result)
 
 	return EVAL_OK;
 }
+
+eval_err_t foreign_makesym(node_t *args, node_t **env, node_t **result)
+{
+	char name[MAX_SYM_LEN], *cursor;;
+	node_t *val, *newval, *val_iter;
+	eval_err_t status;
+
+	(void) env;
+
+	if(node_type(args) != NODE_CONS) {
+		*result = args;
+		return EVAL_ERR_EXPECTED_CONS;
+	}
+
+	if(node_cons_cdr(args)) {
+		*result = node_cons_cdr(args);
+		return EVAL_ERR_TOO_MANY_ARGS;
+	}
+
+	val = node_cons_car(args);
+	status = eval(val, env, &newval);
+	if(status != EVAL_OK) {
+		*result = val;
+		return status;
+	}
+	
+	val_iter = newval;
+	if(node_type(val_iter) != NODE_CONS) {
+		*result = val_iter;
+		return EVAL_ERR_EXPECTED_CONS;
+	}
+
+	cursor = name;
+	while(val_iter) {
+		val = node_cons_car(val_iter);
+		if(node_type(val) != NODE_VALUE) {
+			*result = val;
+			return EVAL_ERR_EXPECTED_VALUE;
+		}
+		if(node_value(val) > 255 ) {
+			*result = val;
+			return EVAL_ERR_VALUE_BOUNDS;
+		}
+		*cursor++ = node_value(val);
+		val_iter = node_cons_cdr(val_iter);
+		if(cursor - name >= (ssize_t) sizeof(name)) {
+			break;
+		}
+		*cursor = 0;
+	}
+	*result = node_symbol_new(name);
+	node_droproot(newval);
+	return EVAL_OK;
+}
+
+eval_err_t foreign_splitsym(node_t *args, node_t **env, node_t **result)
+{
+	char *start, *end;
+	node_t *val, *newval, *sym;
+	eval_err_t status;
+
+	(void) env;
+
+	if(node_type(args) != NODE_CONS) {
+		*result = args;
+		return EVAL_ERR_EXPECTED_CONS;
+	}
+
+	if(node_cons_cdr(args)) {
+		*result = args;
+		return EVAL_ERR_TOO_MANY_ARGS;
+	}
+
+	val = node_cons_car(args);
+	status = eval(val, env, &newval);
+	if(status != EVAL_OK) {
+		*result = val;
+		return status;
+	}
+	sym = newval;
+
+	if(node_type(sym) != NODE_SYMBOL) {
+		*result = sym;
+		return EVAL_ERR_EXPECTED_SYMBOL;
+	}
+
+	start = node_symbol_name(sym);
+
+	for(end = start; *end; end++);
+	end--; // end now points to last nonzero char
+
+	for(*result = NULL; end >= start; end--) {
+		sym = node_value_new(*end);
+		*result = node_cons_new(sym, *result);
+	}
+
+	node_droproot(newval);
+
+	return EVAL_OK;
+}
+
