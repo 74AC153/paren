@@ -13,9 +13,58 @@ char *token_type_names[] = {
 	#undef X
 };
 
+tok_state_t *tok_state_init(void *p)
+{
+	tok_state_t *s = (tok_state_t *)p;
+	if(s) {
+		s->type = TOK_NONE;
+		s->in_string = false;
+	}
+	return s;
+}
+
 static bool is_atom_char(char c)
 {
 	return !isspace(c) && c != '(' && c != ')' && c != '.' && c != '\'';
+}
+
+static size_t string_mode(char *input, tok_state_t *state)
+{
+	if(input[0] == 0) {
+		state->type = TOK_NONE;
+		return 0;
+	}
+
+	if(input[0] == '"') {
+		state->type = TOK_RPAREN;
+		state->in_string = false;
+		return 1;
+	}
+
+	state->type = TOK_LIT;
+
+	if(input[0] != '\\' || input[1] == 0) {
+		state->u.lit = input[0];
+		return 1;
+	}
+	
+	/* \n   0x0A newline
+	   \r   0x0D carriage return
+	   \t   0x09 tab
+	   \x## 0x## 8 bit ASCII hex ##
+	   \"   0x22 double quote
+	   \\   0x5C backslash */
+	switch(input[1]) {
+	case 'n': state->u.lit = 0xA; return 2;
+	case 'r': state->u.lit = 0xD; return 2;
+	case 't': state->u.lit = 0x9; return 2;
+	case 'x': state->u.lit = strtol(input+2, NULL, 16); return 4;
+	case '"': state->u.lit = 0x22; return 2;
+	case '\\': state->u.lit = 0x5C; return 2;
+	default: state->u.lit = input[1]; break;
+	}
+
+	return 2;
 }
 
 static size_t read_tok(char *input, tok_state_t *state)
@@ -24,6 +73,11 @@ static size_t read_tok(char *input, tok_state_t *state)
 	size_t len;
 	int64_t lit;
 
+	/* string-mode shortcut */
+	if(state->in_string) {
+		return string_mode(input, state);
+	}
+
 	/* skip leading whitespace */
 	for(start = input; isspace(start[0]); start++);
 
@@ -31,6 +85,11 @@ static size_t read_tok(char *input, tok_state_t *state)
 	case 0: /* end of input */
 		state->type = TOK_NONE;
 		end = start;
+		break;
+	case '"':
+		state->type = TOK_LPAREN;
+		state->in_string = true;
+		end = start + 1;
 		break;
 	case '(':
 		state->type = TOK_LPAREN;
@@ -72,6 +131,7 @@ static size_t read_tok(char *input, tok_state_t *state)
 		}
 		break;
 	}
+
 	return end - input;
 }
 

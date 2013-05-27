@@ -178,6 +178,8 @@ parse_err_t parse(char *input, char **remain, node_t **result)
 	parse_err_t status = PARSE_OK;
 	tok_state_t state;
 
+	tok_state_init(&state);
+
 	/* prime tokenizer to have first token ready */
 	token_chomp(&input, &state);
 

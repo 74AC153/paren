@@ -1,4 +1,3 @@
-quoted string shorthand in tokenizer
 makesym/splitsym to create new symbols
 defined? cons? symbol? value? foreign?
 remove single quote shorthand?
@@ -8,6 +7,8 @@ find ways to reduce memory use:
 - split lambda into two nodes
 - move locked flag into high bit of refcount
 - reduce MAX_SYM_LEN
+add non-global memory state to node layer
+implement block allocator
 
 write a REPL and test harness
 continuations -- make eval totally non-recursive laying breadcrumbs?
