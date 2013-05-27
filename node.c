@@ -437,7 +437,7 @@ void node_print_pretty(node_t *n, bool isverbose)
 			printf("%s ", node_symbol_name(n));
 			break;
 		case NODE_VALUE:
-			printf("%llu ", (unsigned long long) node_value(n));
+			printf("%lld ", (long long) node_value(n));
 			break;
 		case NODE_FOREIGN:
 			printf("foreign:%p ", node_foreign_func(n));
