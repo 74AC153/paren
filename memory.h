@@ -46,6 +46,7 @@ void memory_state_init(
 /* request memory from the GC */
 void *memory_request(memory_state_t *s);
 
+bool memory_gc_is_locked(void *data);
 /* this memory should never be freed (not NULL) */
 void memory_gc_lock(memory_state_t *s, void *data);
 /* this memory can be freed if not linked to (not NULL) */

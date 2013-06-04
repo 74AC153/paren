@@ -11,7 +11,7 @@ void environ_pushframe(node_t **environ)
 	node_t *oldenv = *environ;
 	assert(! *environ || node_isroot(*environ));
 	*environ = node_cons_new(NULL, *environ);
-	node_makeroot(*environ);
+	node_lockroot(*environ);
 	node_droproot(oldenv);
 	assert(*environ && node_isroot(*environ));
 }
@@ -21,7 +21,7 @@ void environ_popframe(node_t **environ)
 	node_t *oldenv = *environ;
 	assert(! *environ || node_isroot(*environ));
 	*environ = node_cons_cdr(*environ);
-	node_makeroot(*environ);
+	node_lockroot(*environ);
 	node_droproot(oldenv);
 	assert(! *environ || node_isroot(*environ));
 }
@@ -36,7 +36,7 @@ void environ_add(node_t **environ, node_t *key, node_t *val)
 	node_t *newkv = node_cons_new(key, val);
 	node_t *newent = node_cons_new(newkv, nextent);
 	node_t *newfrm = node_cons_new(newent, nextfrm);
-	node_makeroot(newfrm);
+	node_lockroot(newfrm);
 	node_droproot(*environ);
 	*environ = newfrm;
 	assert(*environ && node_isroot(*environ));

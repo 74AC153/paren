@@ -98,6 +98,16 @@ void *memory_request(memory_state_t *s)
 	return mc->data;
 }
 
+bool memory_gc_is_locked(void *data)
+{
+	if(data) {
+		return memcell_locked(data_to_memcell(data));
+	} else {
+		return false;
+	}
+}
+
+
 void memory_gc_lock(memory_state_t *s, void *data)
 {
 	/* set locked state and make root */

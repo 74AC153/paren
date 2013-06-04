@@ -31,7 +31,6 @@ typedef struct node node_t;
 typedef eval_err_t (*foreign_t)(node_t *args,
                                 node_t **env,
                                 node_t **result);
-
 struct node {
 	nodetype_t type;
 	union {
@@ -47,9 +46,12 @@ struct node {
 void nodes_initialize();
 
 nodetype_t node_type(node_t *n);
-void node_makeroot(node_t *n);
-void node_droproot(node_t *n);
+/* (locked, root), (unlocked, root), (unlocked, not root) */
+/* NB: (unlocked, root) is only initial state for new nodes */
+void node_droproot(node_t *n); /* -> (unlocked, not root) */
 bool node_isroot(node_t *n);
+void node_lockroot(node_t *n); /* -> (locked, root) */
+bool node_islocked(node_t *n);
 
 node_t *node_cons_new(node_t *car, node_t *cdr);
 node_t *node_cons_car(node_t *n);
