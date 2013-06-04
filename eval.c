@@ -122,7 +122,7 @@ eval_tailcall_restart:
 		break;
 
 	case NODE_CONS: {
-		/* (symbol args...) */
+		/* (something args...) */
 		args = node_cons_cdr(input);
 		if(node_type(args) != NODE_CONS) {
 			*output = args;
@@ -267,5 +267,349 @@ eval_tailcall_restart:
 		environ_popframe(environ);
 	}
 
+	return status;
+}
+
+
+
+
+
+
+struct eval_frame_locals {
+	uint64_t tailcall;
+	node_t *lambda_ign; /* TODO: is this necessary? */
+	node_t *expr_curs;
+	node_t *lambda_environ;
+	node_t *newargs;
+	node_t *newargs_last;
+	node_t *args_curs;
+	void *restart;
+	node_t *args;
+	node_t *test;
+	node_t *pass;
+	node_t *fail;
+	node_t *test_res;
+	uint64_t frameadded;
+	node_t *in;
+	node_t *func;
+};
+
+void eval_push_state(node_t **bt, struct eval_frame_locals *locals)
+{
+	node_t *newframe, *oldframe, *temp;
+
+	oldframe = *bt;
+
+	newframe = node_cons_new(locals->func, NULL);
+	newframe = node_cons_new(locals->in, newframe);
+	temp = node_value_new(locals->frameadded);
+	newframe = node_cons_new(temp, newframe);
+	newframe = node_cons_new(locals->test_res, newframe);
+	newframe = node_cons_new(locals->fail, newframe);
+	newframe = node_cons_new(locals->pass, newframe);
+	newframe = node_cons_new(locals->test, newframe);
+	newframe = node_cons_new(locals->args, newframe);
+	temp = node_value_new((int64_t) locals->restart);
+	newframe = node_cons_new(temp, newframe);
+	newframe = node_cons_new(locals->args_curs, newframe);
+	newframe = node_cons_new(locals->newargs_last, newframe);
+	newframe = node_cons_new(locals->lambda_environ, newframe);
+	newframe = node_cons_new(locals->expr_curs, newframe);
+	newframe = node_cons_new(locals->lambda_ign, newframe);
+	temp = node_value_new((int64_t) locals->tailcall);
+	newframe = node_cons_new(temp, newframe);
+
+	newframe = node_cons_new(newframe, oldframe);
+	node_lockroot(newframe);
+	if(oldframe) {
+		node_droproot(oldframe);
+	}
+	*bt = newframe;
+}
+
+void eval_pop_state(node_t **bt, struct eval_frame_locals *locals)
+{
+	node_t *prevframe, *temp;
+
+	prevframe = *bt;
+
+	temp = node_cons_car(prevframe);
+
+	locals->tailcall = node_value(node_cons_car(temp));
+	temp = node_cons_cdr(temp);
+	locals->lambda_ign = node_cons_car(temp);
+	temp = node_cons_cdr(temp);
+	locals->expr_curs = node_cons_car(temp);
+	temp = node_cons_cdr(temp);
+	locals->lambda_environ = node_cons_car(temp);
+	temp = node_cons_cdr(temp);
+	locals->newargs_last = node_cons_car(temp);
+	temp = node_cons_cdr(temp);
+	locals->args_curs = node_cons_car(temp);
+	temp = node_cons_cdr(temp);
+	locals->restart = (void*) node_value(node_cons_car(temp));
+	temp = node_cons_cdr(temp);
+	locals->args = node_cons_car(temp);
+	temp = node_cons_cdr(temp);
+	locals->test= node_cons_car(temp);
+	temp = node_cons_cdr(temp);
+	locals->pass = node_cons_car(temp);
+	temp = node_cons_cdr(temp);
+	locals->fail = node_cons_car(temp);
+	temp = node_cons_cdr(temp);
+	locals->test_res = node_cons_car(temp);
+	temp = node_cons_cdr(temp);
+	locals->frameadded = node_value(node_cons_car(temp));
+	temp = node_cons_cdr(temp);
+	locals->in = node_cons_car(temp);
+	temp = node_cons_cdr(temp);
+	locals->func = node_cons_car(temp);
+	temp = node_cons_cdr(temp);
+
+	*bt = node_cons_cdr(*bt);
+	node_lockroot(*bt);
+	node_droproot(prevframe);
+}
+
+eval_err_t eval_norec(node_t *in, node_t **env, node_t **out)
+{
+	eval_err_t status = EVAL_OK;
+	struct eval_frame_locals locals = {
+		.tailcall = 0,
+		.lambda_ign = NULL,
+		.expr_curs = NULL,
+		.lambda_environ = NULL,
+		.newargs = NULL,
+		.newargs_last = NULL,
+		.args_curs = NULL,
+		.restart = NULL,
+		.args = NULL,
+		.test = NULL,
+		.pass = NULL,
+		.fail = NULL,
+		.test_res = NULL,
+		.frameadded = 0,
+		.in = in,
+		.func = NULL,
+	};
+	node_t *bt = NULL;
+	node_t *result = NULL;
+
+	/* if 'in' is not locked, calls to eval_push_state may cause memory
+	   to be made nonroot and likely to be freed before we want it to be */
+	/* TODO: enable this */
+	//assert(node_islocked(in));
+
+restart:
+
+	switch(node_type(locals.in)) {
+	case NODE_NIL:
+		result = NULL;
+		break;
+
+	case NODE_LAMBDA:
+	case NODE_VALUE:
+	case NODE_FOREIGN:
+	case NODE_LAMBDA_FUNC:
+	case NODE_IF_FUNC:
+		result = locals.in;
+		break;
+
+	case NODE_QUOTE:
+		result = node_quote_val(locals.in);
+		break;
+
+	case NODE_SYMBOL:
+		if(! environ_lookup(*env, locals.in, &result)) {
+			result = locals.in;
+			status = EVAL_ERR_UNRESOLVED_SYMBOL;
+		}
+		break;
+
+	case NODE_CONS: 
+		/* (symbol args...) */
+		locals.args = node_cons_cdr(locals.in);
+		if(node_type(locals.args) != NODE_CONS) {
+			result = locals.args;
+			status = EVAL_ERR_EXPECTED_CONS;
+			break;
+		}
+
+		/* 	status = eval(node_cons_car(input), environ, &func); */
+		locals.restart = &&node_cons_post_eval_func;
+		eval_push_state(&bt, &locals);
+		locals.in = node_cons_car(locals.in);
+		goto restart;
+		node_cons_post_eval_func:
+		if(status != EVAL_OK) {
+			goto node_cons_cleanup;
+		}
+		locals.func = result;
+
+
+		switch(node_type(locals.func)) {
+		case NODE_FOREIGN:
+			status = node_foreign_func(locals.func)(locals.args,
+			                                        env,
+			                                        &result);
+			break;
+
+		case NODE_LAMBDA_FUNC:
+			result = node_lambda_new(*env,
+			                         /* vars */
+			                         node_cons_car(locals.args), 
+			                         /* expr list */
+			                         node_cons_cdr(locals.args));
+			break;
+
+		case NODE_IF_FUNC:
+			locals.test = node_cons_car(locals.args);
+
+			result = locals.pass = node_cons_cdr(locals.args);
+			if(node_type(locals.pass) != NODE_CONS) {
+				status = EVAL_ERR_EXPECTED_CONS;
+				break;
+			}
+			locals.pass = node_cons_car(locals.pass);
+
+			result = locals.fail = node_cons_cdr(node_cons_cdr(locals.args));
+			if(node_type(locals.fail) != NODE_CONS) {
+				status = EVAL_ERR_EXPECTED_CONS;
+				break;
+			}
+			locals.fail = node_cons_car(locals.fail);
+
+
+			/* status = eval(test, environ, &test_res); */
+			locals.restart = &&node_if_post_eval_test;
+			eval_push_state(&bt, &locals);
+			locals.in = locals.test;
+			goto restart;
+			node_if_post_eval_test:
+			if(status != EVAL_OK) {
+				goto node_cons_cleanup;
+			}
+			locals.test_res = result;
+
+			if(locals.test_res != NULL) {
+				locals.in = locals.pass;
+			} else {
+				locals.in = locals.fail;
+			}
+			node_droproot(locals.test_res);
+			goto restart;
+
+			break;
+
+		case NODE_LAMBDA: 
+			/* eval passed arguments in caller's environment */
+			locals.newargs_last = NULL;
+			locals.newargs = NULL;
+			for(locals.args_curs = locals.args;
+			    locals.args_curs;
+			    locals.args_curs = node_cons_cdr(locals.args_curs)) {
+
+				locals.restart = &&node_lambda_post_args_eval;
+				eval_push_state(&bt, &locals);
+				locals.in = node_cons_car(locals.args_curs);
+				goto restart;
+				node_lambda_post_args_eval:
+				if(status != EVAL_OK) {
+					node_droproot(locals.newargs);
+					goto node_cons_cleanup;
+				}
+
+				if(locals.newargs == NULL) {
+					locals.newargs = node_cons_new(result, NULL);
+					locals.newargs_last = locals.newargs;
+				} else {
+					node_cons_patch_cdr(locals.newargs_last,
+					                    node_cons_new(result, NULL));
+					locals.newargs_last = node_cons_cdr(locals.newargs_last);
+				}
+			}
+			//node_droproot(locals.args); /* TODO: is this necessary? */
+			locals.args = NULL; /* TODO: is this necessary? */
+
+			/* NB: when invoking a lambda call, the stackframe is a child to
+			   the the environment that the lambda was defined in, not a child
+			   to the environment that the lambda was called from */
+			if(! locals.tailcall) {
+				/* TODO: will this get clobbered in recursive calls? */
+				locals.lambda_environ = node_lambda_env(locals.func);
+				env = &locals.lambda_environ;
+				environ_pushframe(env);
+				locals.frameadded = true;
+			}
+
+			/* bind / update variables to passed eval'd arguments */
+			/* TODO: think about this more... env is wierd... */
+			status = lambda_bind(env,
+			                     node_lambda_vars(locals.func),
+			                     locals.newargs);
+			node_droproot(locals.newargs);
+			locals.newargs = NULL;
+			if(status != EVAL_OK) {
+				result = locals.func;
+				goto node_lambda_cleanup;
+			}
+
+			/* eval expr list in new environment */
+			locals.expr_curs = node_lambda_expr(locals.func);
+			for(locals.lambda_ign = NULL;
+			    locals.expr_curs;
+			    locals.expr_curs = node_cons_cdr(locals.expr_curs)) {
+
+				node_droproot(locals.lambda_ign); // so we don't leak mem
+				locals.lambda_ign= NULL;
+
+				if(node_cons_cdr(locals.expr_curs) == NULL) {
+					/* tail call: clean up and setup to restart */
+					locals.in = node_cons_car(locals.expr_curs);
+					locals.tailcall = true;
+					goto restart;
+				} else {
+					/* status = eval(node_cons_car(expr_curs), env,
+					                 &lambda_ign); */
+					locals.restart = &&node_lambda_post_exprs_eval;
+					eval_push_state(&bt, &locals);
+					locals.in = node_cons_car(locals.expr_curs);
+					goto restart;
+					node_lambda_post_exprs_eval:
+					if(status != EVAL_OK) {
+						goto node_cons_cleanup;
+					}
+					locals.lambda_ign = result;
+				}
+			}
+
+			assert(0); /* not reached */
+
+		node_lambda_cleanup:
+			break;
+
+		default:
+			result = locals.func;
+			status = EVAL_ERR_UNKNOWN_FUNCALL;
+			break;
+		}
+		
+	node_cons_cleanup:
+		break;
+
+	default:
+		assert(false);
+	}
+
+	if(locals.frameadded) {
+		environ_popframe(env);
+	}
+
+	if(bt) {
+		eval_pop_state(&bt, &locals);
+		goto *locals.restart;
+	}
+
+	*out = result;
 	return status;
 }

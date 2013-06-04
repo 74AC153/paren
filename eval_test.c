@@ -38,7 +38,6 @@ DEFINE_FOREIGN_MAKER(foreign_splitsym)
 
 #define ARR_LEN(ARR) (sizeof(ARR) / sizeof((ARR)[0]))
 
-/* rewrite these... */
 foreign_assoc_t foreigns[] = {
 	{ "quote",    make_foreign_quote },
 	{ "def!",     make_foreign_defbang },
@@ -88,10 +87,11 @@ int main(int argc, char *argv[])
 			printf("-- %s\n", parse_err_str(parse_stat));
 			continue;
 		}
+		node_lockroot(parse_result); /* required before passing to eval() */
 
 		assert(! env || node_isroot(env));
 
-		printf("parse result:\n");
+		printf("parse result: %p\n", parse_result);
 		node_print_pretty(parse_result, false);
 		printf("\n");
 
@@ -101,7 +101,8 @@ int main(int argc, char *argv[])
 		environ_print(env);
 
 		printf("*** eval ***\n");
-		eval_stat = eval(parse_result, &env, &eval_result);
+		//eval_stat = eval(parse_result, &env, &eval_result);
+		eval_stat = eval_norec(parse_result, &env, &eval_result);
 
 		if(eval_stat) {
 			printf("eval error for: \n");
@@ -110,7 +111,7 @@ int main(int argc, char *argv[])
 			printf("%s\n", eval_err_str(eval_stat));
 			return -1;
 		}
-		printf("eval result:\n");
+		printf("eval result: %p\n", eval_result);
 		node_print_pretty(eval_result, false);
 		printf("\n");
 		//node_print_recursive(eval_result);

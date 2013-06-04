@@ -157,13 +157,13 @@ eval_err_t foreign_cons(node_t *args, node_t **env, node_t **result)
 	}
 
 	/* eval args */
-	status = eval(node_cons_car(args), env, &child);
+	status = eval_norec(node_cons_car(args), env, &child);
 	if(status != EVAL_OK) {
 		*result = child;
 		goto finish;
 	}
 
-	status = eval(node_cons_car(node_cons_cdr(args)), env, &next);
+	status = eval_norec(node_cons_car(node_cons_cdr(args)), env, &next);
 	if(status != EVAL_OK) {
 		*result = next;
 		goto finish;
@@ -250,7 +250,7 @@ eval_err_t foreign_defbang(node_t *args, node_t **env, node_t **result)
 	}
 	val = node_cons_car(node_cons_cdr(args));
 
-	status = eval(val, env, &newval);
+	status = eval_norec(val, env, &newval);
 	if(status != EVAL_OK) {
 		return status;
 	}
@@ -281,7 +281,7 @@ eval_err_t foreign_setbang(node_t *args, node_t **env, node_t **result)
 	}
 	val = node_cons_car(node_cons_cdr(args));
 
-	status = eval(val, env, &newval);
+	status = eval_norec(val, env, &newval);
 	if(status != EVAL_OK) {
 		return status;
 	}
