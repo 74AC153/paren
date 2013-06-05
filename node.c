@@ -313,6 +313,37 @@ node_t *node_quote_val(node_t *n)
 	return n->dat.quote.val;
 }
 
+node_t *node_handle_new(void)
+{
+	node_t *ret = node_new();
+	assert(ret);
+	ret->dat.handle.link = NULL;
+	ret->type = NODE_HANDLE;
+#if defined(NODE_INIT_TRACING)
+	printf("node init handle %p\n", ret);
+#endif
+	return ret;
+}
+
+node_t *node_handle(node_t *n)
+{
+#if ! defined(NODE_NO_INCREMENTAL_GC)
+	memory_gc_iterate(&g_memstate);
+#endif
+	assert(node_type(n) == NODE_HANDLE);
+	return n->dat.handle.link;
+}
+
+void node_handle_update(node_t *n, node_t *newlink)
+{
+#if ! defined(NODE_NO_INCREMENTAL_GC)
+	memory_gc_iterate(&g_memstate);
+#endif
+	assert(node_type(n) == NODE_HANDLE);
+	node_release(n->dat.handle.link);
+	n->dat.handle.link = node_retain(newlink);
+}
+
 node_t *node_if_func_new(void)
 {
 	node_t *ret = node_new();
@@ -363,16 +394,25 @@ void node_print(node_t *n)
 		case NODE_QUOTE:
 			printf("quote %p", n->dat.quote.val);
 			break;
+		case NODE_HANDLE:
+			printf("handle %p", n->dat.handle.link);
+			break;
+		case NODE_IF_FUNC:
+			printf("if func");
+			break;
+		case NODE_LAMBDA_FUNC:
+			printf("lambda func");
+			break;
 		default:
 			break;
 		}
 	}
+	printf("\n");
 }
 
 void node_print_recursive(node_t *n )
 {
 	node_print(n);
-	printf("\n");
 	if(!n) {
 		return;
 	}
@@ -385,6 +425,8 @@ void node_print_recursive(node_t *n )
 		if(n->dat.lambda.expr) node_print_recursive(n->dat.lambda.expr);
 	} else if(n->type == NODE_QUOTE) {
     	if(n->dat.quote.val) node_print_recursive(n->dat.quote.val);
+	} else if(n->type == NODE_HANDLE) {
+    	if(n->dat.handle.link) node_print_recursive(n->dat.handle.link);
 	}
 }
 
@@ -457,6 +499,9 @@ void node_print_pretty(node_t *n, bool isverbose)
 		case NODE_LAMBDA_FUNC:
 			printf("lambda ");
 			break;
+		case NODE_HANDLE:
+			printf("&");
+			node_print_pretty(n->dat.handle.link, isverbose);
 		}
 }
 

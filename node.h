@@ -14,6 +14,7 @@ X(NODE_SYMBOL) \
 X(NODE_VALUE) \
 X(NODE_FOREIGN) \
 X(NODE_QUOTE) \
+X(NODE_HANDLE) \
 X(NODE_IF_FUNC) \
 X(NODE_LAMBDA_FUNC)
 
@@ -40,6 +41,7 @@ struct node {
 		char name[MAX_SYM_LEN];
 		int64_t value;
 		struct { node_t *val; } quote;
+		struct { node_t *link; } handle;
 	} dat;
 };
 
@@ -75,6 +77,10 @@ foreign_t node_foreign_func(node_t *n);
 
 node_t *node_quote_new(node_t *val);
 node_t *node_quote_val(node_t *n);
+
+node_t *node_handle_new(void);
+node_t *node_handle(node_t *n);
+void node_handle_update(node_t *n, node_t *newlink);
 
 node_t *node_if_func_new(void);
 
