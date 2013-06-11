@@ -5,18 +5,21 @@
 
 /* Environ format:
 
-environ
+env handle
++---+
+|   |
++---+
   |
   |
   v
-frame        parent frame
+top frame    (parent frame)
 +---+---+    +---+---+
 |   | ------>|   | -----> ...
 +-|-+---+    +-|-+---+
   |            v
   |            ...
   v
-entry        next entry
+entry        (next entry)
 +---+---+    +---+---+
 |   | ------>|   | -----> ...
 +-|-+---+    +-|-+---+
@@ -35,17 +38,14 @@ keyval         ...
 +-------+  +-------+
 */
 
-void environ_pushframe(node_t **environ);
-void environ_popframe(node_t **environ);
+void environ_pushframe(node_t *env_handle);
+void environ_popframe(node_t *env_handle);
+void environ_add(node_t *env_handle, node_t *key, node_t *val);
 
-/* *environ released and replaced with new environ */
-void environ_add(node_t **environ, node_t *key, node_t *val);
+bool environ_keyval_frame(node_t *top_frame, node_t *key, node_t **keyval);
+bool environ_keyval(node_t *top_frame, node_t *key, node_t **keyval);
+bool environ_lookup(node_t *top_frame, node_t *key, node_t **val);
 
-/* *value and *keyvalue are retained before return */
-bool environ_keyvalue(node_t *environ, node_t *key, node_t **keyvalue);
-bool environ_keyvalue_frame(node_t *environ, node_t *key, node_t **keyvalue);
-bool environ_lookup(node_t *environ, node_t *key, node_t **value);
-
-void environ_print(node_t *environ);
+void environ_print(node_t *top_frame);
 
 #endif

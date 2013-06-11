@@ -1,4 +1,32 @@
-makesym/splitsym to create new symbols
+env:
+must be restored when re-starting a continuation, but not necessariiy clobber original calling environment
+but must also retain passed environment if eval modifies it.
+
+shallow call: no lambdas in call stack
+deep call: lambda in call stack inserting stack frame
+if "shallow" -- env may be updated
+if "deep" -- env may be retained?
+
+lambda form tracks parent environment
+lambda_bind then adds child environment
+recursive eval needs to track ref to "parent" environment
+in shallow calls, ref to parent env is just 'env' input arg
+in deeper calls, ref to parent env is ref to env returned from lambda_bind
+  --> ref to parent env is ref to location in parent bt frame
+at entry, save env into locals
+
+before restarting for recursive eval, save env_ref in bt and create env_ref in locals pointing to env returned from lambda_bind
+when restarting after recursive eval, restore env_ref from saved env bt frame
+
+env_ref must point to mem that won't get clobbered between restarts
+  --> need a handle node to hold env ptr?
+  --> handle allocated & locked when environ_push is called
+  --> handle unlocked when environ_popframe is called
+
+
+
+
+
 defined? cons? symbol? value? foreign?
 remove single quote shorthand?
 move existing 'builtins' into eval, i.e. create special node types, etc
@@ -9,9 +37,12 @@ find ways to reduce memory use:
 - reduce MAX_SYM_LEN
 add non-global memory state to node layer
 implement block allocator
+Use quote special form to your advantage to eval arguments before passing to foreign functions. Once this is done, assert that inputs to eval are locked instead of just hoping so.
 
-write a REPL and test harness
 continuations -- make eval totally non-recursive laying breadcrumbs?
+--> when executing call/cc, pass continuation object to function arg, and return value from function arg
+--> when executing continuation object, set returned value from that place in eval tree to passed value to continuation object
+write a REPL and test harness
 macros -- rewrite parser in scheme
 remote eval -- pending
 
@@ -33,7 +64,6 @@ still dispose "current" environment when (re)starting a function.
 
 When a subroutine is invoked, then, the environment stack is actually a mixture of 'definition environments' and 'function call stack' environments: at each node in the function call stack, there is a pointer to the definition environment, as well as a pointer to the variable binding environments.
 
-change node_next_noref to be default behavior
 
 tail call elimination
 -- requires rewrite of eval to be non-recursive

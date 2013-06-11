@@ -6,9 +6,9 @@
 #include "builtins.h"
 #include "eval.h"
 
-eval_err_t foreign_quote(node_t *args, node_t **env, node_t **result)
+eval_err_t foreign_quote(node_t *args, node_t *env_handle, node_t **result)
 {
-	(void) env;
+	(void) env_handle;
 	*result = args;
 
 	if(node_type(args) != NODE_CONS) {
@@ -29,7 +29,7 @@ static bool check_atom(node_t* arg)
 	return (!arg || arg->type == NODE_VALUE || arg->type == NODE_SYMBOL);
 }
 
-eval_err_t foreign_atom(node_t *args, node_t **env, node_t **result)
+eval_err_t foreign_atom(node_t *args, node_t *env_handle, node_t **result)
 {
 	node_t *temp = NULL;
 	eval_err_t status = EVAL_OK;
@@ -45,7 +45,7 @@ eval_err_t foreign_atom(node_t *args, node_t **env, node_t **result)
 	}
 
 	/* eval arg */
-	status = eval(node_cons_car(args), env, &temp);
+	status = eval_norec(node_cons_car(args), env_handle, &temp);
 	if(status != EVAL_OK) {
 		*result = temp;
 		goto finish;
@@ -63,7 +63,7 @@ finish:
 	return status;
 }
 
-eval_err_t foreign_car(node_t *args, node_t **env, node_t **result)
+eval_err_t foreign_car(node_t *args, node_t *env_handle, node_t **result)
 {
 	node_t *temp = NULL;
 	eval_err_t status = EVAL_OK;
@@ -79,7 +79,7 @@ eval_err_t foreign_car(node_t *args, node_t **env, node_t **result)
 	}
 
 	/* evai arg */
-	status = eval(node_cons_car(args), env, &temp);
+	status = eval_norec(node_cons_car(args), env_handle, &temp);
 	if(status != EVAL_OK) {
 		goto finish;
 	}
@@ -97,7 +97,7 @@ finish:
 	return status;
 }
 
-eval_err_t foreign_cdr(node_t *args, node_t **env, node_t **result)
+eval_err_t foreign_cdr(node_t *args, node_t *env_handle, node_t **result)
 {
 	node_t *temp = NULL;
 	eval_err_t status = EVAL_OK;
@@ -113,7 +113,7 @@ eval_err_t foreign_cdr(node_t *args, node_t **env, node_t **result)
 	}
 
 	/* evai arg */
-	status = eval(node_cons_car(args), env, &temp);
+	status = eval_norec(node_cons_car(args), env_handle, &temp);
 	if(status != EVAL_OK) {
 		*result = temp;
 		goto finish;
@@ -133,7 +133,7 @@ finish:
 	return status;
 }
 
-eval_err_t foreign_cons(node_t *args, node_t **env, node_t **result)
+eval_err_t foreign_cons(node_t *args, node_t *env_handle, node_t **result)
 {
 	node_t *child = NULL, *next = NULL;
 	eval_err_t status = EVAL_OK;
@@ -157,13 +157,13 @@ eval_err_t foreign_cons(node_t *args, node_t **env, node_t **result)
 	}
 
 	/* eval args */
-	status = eval_norec(node_cons_car(args), env, &child);
+	status = eval_norec(node_cons_car(args), env_handle, &child);
 	if(status != EVAL_OK) {
 		*result = child;
 		goto finish;
 	}
 
-	status = eval_norec(node_cons_car(node_cons_cdr(args)), env, &next);
+	status = eval_norec(node_cons_car(node_cons_cdr(args)), env_handle, &next);
 	if(status != EVAL_OK) {
 		*result = next;
 		goto finish;
@@ -175,7 +175,7 @@ finish:
 	return status;
 }
 
-eval_err_t foreign_eq(node_t *args, node_t **env, node_t **result)
+eval_err_t foreign_eq(node_t *args, node_t *env_handle, node_t **result)
 {
 	node_t *temp = NULL, *temp2 = NULL;
 	eval_err_t status = EVAL_OK;
@@ -199,12 +199,12 @@ eval_err_t foreign_eq(node_t *args, node_t **env, node_t **result)
 	}
 
 	/* eval args */
-	status = eval(node_cons_car(args), env, &temp);
+	status = eval_norec(node_cons_car(args), env_handle, &temp);
 	if(status != EVAL_OK) {
 		*result = temp;
 		goto finish;
 	}
-	status = eval(node_cons_car(node_cons_cdr(args)), env, &temp2);
+	status = eval_norec(node_cons_car(node_cons_cdr(args)), env_handle, &temp2);
 	if(status != EVAL_OK) {
 		*result = temp2;
 		goto finish;
@@ -228,7 +228,7 @@ finish:
 	return status;
 }
 
-eval_err_t foreign_defbang(node_t *args, node_t **env, node_t **result)
+eval_err_t foreign_defbang(node_t *args, node_t *env_handle, node_t **result)
 {
 	node_t *val, *newval, *name;
 	eval_err_t status = EVAL_OK;
@@ -250,17 +250,17 @@ eval_err_t foreign_defbang(node_t *args, node_t **env, node_t **result)
 	}
 	val = node_cons_car(node_cons_cdr(args));
 
-	status = eval_norec(val, env, &newval);
+	status = eval_norec(val, env_handle, &newval);
 	if(status != EVAL_OK) {
 		return status;
 	}
 
-	environ_add(env, name, newval);
+	environ_add(env_handle, name, newval);
 
 	return status;
 }
 
-eval_err_t foreign_setbang(node_t *args, node_t **env, node_t **result)
+eval_err_t foreign_setbang(node_t *args, node_t *env_handle, node_t **result)
 {
 	node_t *name = NULL, *val = NULL, *newval = NULL, *keyval = NULL;
 	eval_err_t status = EVAL_OK;
@@ -281,12 +281,12 @@ eval_err_t foreign_setbang(node_t *args, node_t **env, node_t **result)
 	}
 	val = node_cons_car(node_cons_cdr(args));
 
-	status = eval_norec(val, env, &newval);
+	status = eval_norec(val, env_handle, &newval);
 	if(status != EVAL_OK) {
 		return status;
 	}
 
-	if(! environ_keyvalue(*env, name, &keyval)) {
+	if(! environ_keyval(node_handle(env_handle), name, &keyval)) {
 		node_droproot(newval);
 		status = EVAL_ERR_UNRESOLVED_SYMBOL;
 	}
@@ -297,13 +297,11 @@ eval_err_t foreign_setbang(node_t *args, node_t **env, node_t **result)
 	return EVAL_OK;
 }
 
-eval_err_t foreign_makesym(node_t *args, node_t **env, node_t **result)
+eval_err_t foreign_makesym(node_t *args, node_t *env_handle, node_t **result)
 {
 	char name[MAX_SYM_LEN], *cursor;;
 	node_t *val, *newval, *val_iter;
 	eval_err_t status;
-
-	(void) env;
 
 	if(node_type(args) != NODE_CONS) {
 		*result = args;
@@ -316,7 +314,7 @@ eval_err_t foreign_makesym(node_t *args, node_t **env, node_t **result)
 	}
 
 	val = node_cons_car(args);
-	status = eval(val, env, &newval);
+	status = eval_norec(val, env_handle, &newval);
 	if(status != EVAL_OK) {
 		*result = val;
 		return status;
@@ -351,13 +349,11 @@ eval_err_t foreign_makesym(node_t *args, node_t **env, node_t **result)
 	return EVAL_OK;
 }
 
-eval_err_t foreign_splitsym(node_t *args, node_t **env, node_t **result)
+eval_err_t foreign_splitsym(node_t *args, node_t *env_handle, node_t **result)
 {
 	char *start, *end;
 	node_t *val, *newval, *sym;
 	eval_err_t status;
-
-	(void) env;
 
 	if(node_type(args) != NODE_CONS) {
 		*result = args;
@@ -370,7 +366,7 @@ eval_err_t foreign_splitsym(node_t *args, node_t **env, node_t **result)
 	}
 
 	val = node_cons_car(args);
-	status = eval(val, env, &newval);
+	status = eval_norec(val, env_handle, &newval);
 	if(status != EVAL_OK) {
 		*result = val;
 		return status;

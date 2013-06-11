@@ -6,6 +6,7 @@
 #include "node.h"
 #include "environ.h"
 
+#if 0
 void environ_pushframe(node_t **environ)
 {
 	node_t *oldenv = *environ;
@@ -41,12 +42,45 @@ void environ_add(node_t **environ, node_t *key, node_t *val)
 	*environ = newfrm;
 	assert(*environ && node_isroot(*environ));
 }
+#endif
 
-bool environ_keyvalue_frame(node_t *frame, node_t *key, node_t **keyvalue)
+void environ_pushframe(node_t *env_handle)
+{
+	node_t *oldenv, *newenv;
+	assert(env_handle);
+	oldenv = node_handle(env_handle);
+	newenv = node_cons_new(NULL, oldenv);
+	node_handle_update(env_handle, newenv);
+}
+
+void environ_popframe(node_t *env_handle)
+{
+	node_t *oldenv, *newenv;
+	assert(env_handle);
+	oldenv = node_handle(env_handle);
+	newenv = node_cons_cdr(oldenv);
+	node_handle_update(env_handle, newenv);
+}
+
+void environ_add(node_t *env_handle, node_t *key, node_t *val)
+{
+	node_t *oldenv = node_handle(env_handle);
+
+	node_t *nextent = node_cons_car(oldenv);
+	node_t *nextfrm = node_cons_cdr(oldenv);
+
+	node_t *newkv = node_cons_new(key, val);
+	node_t *newent = node_cons_new(newkv, nextent);
+	node_t *newenv = node_cons_new(newent, nextfrm);
+
+	node_handle_update(env_handle, newenv);
+}
+
+bool environ_keyval_frame(node_t *top_frame, node_t *key, node_t **keyval)
 {
 	node_t *entry_curs, *kv, *testkey;
 
-	for(entry_curs = node_cons_car(frame);
+	for(entry_curs = node_cons_car(top_frame);
 	    entry_curs;
 	    entry_curs = node_cons_cdr(entry_curs)) {
 
@@ -54,7 +88,7 @@ bool environ_keyvalue_frame(node_t *frame, node_t *key, node_t **keyvalue)
 		testkey = node_cons_car(kv);
 
 		if(!strcmp(node_symbol_name(testkey), node_symbol_name(key))) {
-			*keyvalue = kv;
+			*keyval = kv;
 			return true;
 		}
 		
@@ -62,38 +96,38 @@ bool environ_keyvalue_frame(node_t *frame, node_t *key, node_t **keyvalue)
 	return false;
 }
 
-bool environ_keyvalue(node_t *environ, node_t *key, node_t **keyvalue)
+bool environ_keyval(node_t *top_frame, node_t *key, node_t **keyval)
 {
 	node_t *frame_curs;
 
-	for (frame_curs = environ;
+	for (frame_curs = top_frame;
 	     frame_curs;
 	     frame_curs = node_cons_cdr(frame_curs)) {
 
-		if(environ_keyvalue_frame(frame_curs, key, keyvalue)) {
+		if(environ_keyval_frame(frame_curs, key, keyval)) {
 			return true;
 		}
 	}
 	return false;
 }
 
-bool environ_lookup(node_t *environ, node_t *key, node_t **value)
+bool environ_lookup(node_t *top_frame, node_t *key, node_t **value)
 {
-	node_t *keyvalue;
+	node_t *keyval;
 
-	if(! environ_keyvalue(environ, key, &keyvalue)) {
+	if(! environ_keyval(top_frame, key, &keyval)) {
 		return false;
 	}
-	*value = node_cons_cdr(keyvalue);
+	*value = node_cons_cdr(keyval);
 	return true;
 }
 
-void environ_print(node_t *environ)
+void environ_print(node_t *top_frame)
 {
 	node_t *frame_curs, *entry_curs, *keyval;
 
-	printf("environ %p:\n", environ);
-	for (frame_curs = environ;
+	printf("environ %p:\n", top_frame);
+	for (frame_curs = top_frame;
 	     frame_curs;
 	     frame_curs = node_cons_cdr(frame_curs)) {
 
@@ -112,3 +146,4 @@ void environ_print(node_t *environ)
 	}
 	printf("\n");
 }
+

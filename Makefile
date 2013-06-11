@@ -22,5 +22,5 @@ eval_test: eval_test.o builtins.o eval.o parse.o token.o node.o environ.o enviro
 	gcc -o eval_test eval_test.o builtins.o eval.o parse.o token.o node.o environ.o environ_utils.o eval_err.o memory.o dlist.o
 
 %.o: %.c
-	gcc ${CFLAGS} -S $<
+	#gcc ${CFLAGS} -S $<
 	gcc ${CFLAGS} -c $<

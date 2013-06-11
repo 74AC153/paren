@@ -11,7 +11,7 @@ typedef struct {
 	node_t *(*func)(void);
 } foreign_assoc_t;
 
-void environ_add_builtins(node_t **env,
+void environ_add_builtins(node_t *env_handle,
                           foreign_assoc_t *builtins,
                           size_t num);
 
