@@ -382,7 +382,6 @@ void memory_gc_print_state(memory_state_t *s)
 		mc = (memcell_t *) cursor;
 		printf("   free_pend: %p (%u) ", mc, (unsigned) memcell_refcount(mc));
 		s->p_cb(mc->data);
-		printf("\n");
 	}
 
 	DLIST_FOR_FWD(&(s->roots_list), cursor) {
@@ -394,36 +393,30 @@ void memory_gc_print_state(memory_state_t *s)
 			       mc, (unsigned) memcell_refcount(mc),
 			       memcell_locked(mc) ? "L ": "");
 			s->p_cb(mc->data);
-			printf("\n");
 		}
-
 	}
 
 	DLIST_FOR_FWD(&(s->boundary_list), cursor) {
 		mc = (memcell_t *) cursor;
 		printf("   boundary %p (%u) ", mc, (unsigned) memcell_refcount(mc));
 		s->p_cb(mc->data);
-		printf("\n");
 	}
 
 	DLIST_FOR_FWD(s->reachable_listref, cursor) {
 		mc = (memcell_t *) cursor;
 		printf("   reachable %p (%u) ", mc, (unsigned) memcell_refcount(mc));
 		s->p_cb(mc->data);
-		printf("\n");
 	}
 
 	DLIST_FOR_FWD(s->unproc_listref, cursor) {
 		mc = (memcell_t *) cursor;
 		printf("   unprocessed %p (%u) ", mc, (unsigned) memcell_refcount(mc));
 		s->p_cb(mc->data);
-		printf("\n");
 	}
 
 	DLIST_FOR_FWD(&(s->free_list), cursor) {
 		mc = (memcell_t *) cursor;
 		printf("   free: %p (%u) ", mc, (unsigned) memcell_refcount(mc));
 		s->p_cb(mc->data);
-		printf("\n");
 	}
 }
