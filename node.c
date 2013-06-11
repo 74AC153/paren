@@ -46,6 +46,12 @@ static void links_cb(void (*cb)(void *link, void *p), void *data, void *p)
 #endif
 		cb(n->dat.quote.val, p);
 		break;
+	case NODE_HANDLE:
+#if defined(NODE_GC_TRACING)
+		printf("node links_cb: hdl %p links to l=%p\n", n, n->dat.handle.link);
+#endif
+		cb(n->dat.handle.link, p);
+		break;
 	default:
 		break;
 	}
@@ -299,7 +305,7 @@ node_t *node_quote_new(node_t *val)
 	ret->dat.quote.val = node_retain(val);
 	ret->type = NODE_QUOTE;
 #if defined(NODE_INIT_TRACING)
-	printf("node init quote %p (%p)\n", ret, ret->dat.quote.val);
+	printf("node init quote %p (val=%p)\n", ret, ret->dat.quote.val);
 #endif
 	return ret;
 }
@@ -313,14 +319,14 @@ node_t *node_quote_val(node_t *n)
 	return n->dat.quote.val;
 }
 
-node_t *node_handle_new(void)
+node_t *node_handle_new(node_t *link)
 {
 	node_t *ret = node_new();
 	assert(ret);
-	ret->dat.handle.link = NULL;
 	ret->type = NODE_HANDLE;
+	ret->dat.handle.link = node_retain(link);
 #if defined(NODE_INIT_TRACING)
-	printf("node init handle %p\n", ret);
+	printf("node init handle %p (link=%p)\n", ret, ret->dat.handle.link);
 #endif
 	return ret;
 }
@@ -336,12 +342,14 @@ node_t *node_handle(node_t *n)
 
 void node_handle_update(node_t *n, node_t *newlink)
 {
+	node_t *oldlink;
 #if ! defined(NODE_NO_INCREMENTAL_GC)
 	memory_gc_iterate(&g_memstate);
 #endif
 	assert(node_type(n) == NODE_HANDLE);
-	node_release(n->dat.handle.link);
+	oldlink = n->dat.handle.link;
 	n->dat.handle.link = node_retain(newlink);
+	node_release(oldlink);
 }
 
 node_t *node_if_func_new(void)

@@ -30,7 +30,7 @@ struct node;
 typedef struct node node_t;
 
 typedef eval_err_t (*foreign_t)(node_t *args,
-                                node_t **env,
+                                node_t *env_handle,
                                 node_t **result);
 struct node {
 	nodetype_t type;
@@ -78,7 +78,7 @@ foreign_t node_foreign_func(node_t *n);
 node_t *node_quote_new(node_t *val);
 node_t *node_quote_val(node_t *n);
 
-node_t *node_handle_new(void);
+node_t *node_handle_new(node_t *link);
 node_t *node_handle(node_t *n);
 void node_handle_update(node_t *n, node_t *newlink);
 
