@@ -1,9 +1,12 @@
-#CFLAGS=-DREFCOUNT_DEBUG -DALLOC_DEBUG -DNODE_INIT_TRACING -DNODE_INCREMENTAL_GC -g -Wall -Wextra -Werror --std=c99
-#CFLAGS=-DREFCOUNT_DEBUG -DALLOC_DEBUG -DNODE_INIT_TRACING -DNODE_INCREMENTAL_GC -DNODE_GC_TRACING -DGC_TRACING -g -Wall -Wextra -Werror --std=c99
-#CFLAGS=-DREFCOUNT_DEBUG -DALLOC_DEBUG -DNODE_INIT_TRACING -DNODE_GC_TRACING -DGC_TRACING -g -Wall -Wextra -Werror --std=c99
-#CFLAGS=-DREFCOUNT_DEBUG -DALLOC_DEBUG -DGC_TRACING -g -Wall -Wextra -Werror --std=c99
-#CFLAGS=-DALLOC_DEBUG -DNODE_INCREMENTAL_GC -DGC_REFCOUNT_DEBUG -DALLOC_DEBUG -DNODE_INIT_TRACING -DNODE_GC_TRACING -DGC_TRACING -Wall -Wextra -Werror -g --std=c99 -O0
-CFLAGS=-Wall -Wextra -Werror -g --std=c99
+#CFLAGS=-DGC_REFCOUNT_DEBUG -DALLOC_DEBUG -DNODE_INIT_TRACING -g -Wall -Wextra -Werror --std=c99
+#CFLAGS=-DGC_REFCOUNT_DEBUG -DALLOC_DEBUG -DNODE_INIT_TRACING -DNODE_GC_TRACING -DGC_TRACING -g -Wall -Wextra -Werror --std=c99
+#CFLAGS=-DGC_REFCOUNT_DEBUG -DALLOC_DEBUG -DNODE_INIT_TRACING -DNODE_GC_TRACING -DGC_TRACING -g -Wall -Wextra -Werror --std=c99
+#CFLAGS=-DNODE_INIT_TRACING -g -Wall -Wextra -Werror --std=c99
+#CFLAGS=-DGC_REFCOUNT_DEBUG -DALLOC_DEBUG -DGC_TRACING -g -Wall -Wextra -Werror --std=c99
+#CFLAGS=-DALLOC_DEBUG -DGC_REFCOUNT_DEBUG -DALLOC_DEBUG -DNODE_INIT_TRACING -DNODE_GC_TRACING -DGC_TRACING -Wall -Wextra -Werror -g --std=c99 -O0
+#CFLAGS=-Wall -Wextra -Werror -g --std=c99 -DCLEAR_ON_FREE
+CFLAGS=-Wall -Wextra -Werror -g --std=c99 -DEVAL_TRACING -DNODE_INCREMENTAL_FULL_GC
+#CFLAGS=-Wall -Wextra -Werror -g --std=c99 -DEVAL_TRACING
 #CFLAGS=-Wall -Wextra -Werror -DNDEBUG -Os --std=c99
 
 
@@ -22,5 +25,4 @@ eval_test: eval_test.o builtins.o eval.o parse.o token.o node.o environ.o enviro
 	gcc -o eval_test eval_test.o builtins.o eval.o parse.o token.o node.o environ.o environ_utils.o eval_err.o memory.o dlist.o
 
 %.o: %.c
-	#gcc ${CFLAGS} -S $<
 	gcc ${CFLAGS} -c $<

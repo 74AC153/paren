@@ -1,3 +1,11 @@
+determine memory locking policy for:
+in
+env_handle
+result
+-- in and env_handle passed into function pre-locked, when do we know we can safely unlock?
+-- result -- should we always lock and leave it to returning function to determine what to do?
+
+
 env:
 must be restored when re-starting a continuation, but not necessariiy clobber original calling environment
 but must also retain passed environment if eval modifies it.

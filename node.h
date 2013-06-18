@@ -7,6 +7,7 @@
 #include "eval_err.h"
 
 #define NODE_TYPES \
+X(NODE_UNINITIALIZED) \
 X(NODE_NIL) \
 X(NODE_CONS) \
 X(NODE_LAMBDA) \
@@ -52,7 +53,7 @@ nodetype_t node_type(node_t *n);
 /* NB: (unlocked, root) is only initial state for new nodes */
 void node_droproot(node_t *n); /* -> (unlocked, not root) */
 bool node_isroot(node_t *n);
-void node_lockroot(node_t *n); /* -> (locked, root) */
+node_t *node_lockroot(node_t *n); /* -> (locked, root) */
 bool node_islocked(node_t *n);
 
 node_t *node_cons_new(node_t *car, node_t *cdr);

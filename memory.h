@@ -19,6 +19,8 @@ typedef void (*data_link_callback)(void (*cb)(void *link, void *p), void *data, 
 
 typedef void (*print_callback)(void *data);
 
+typedef void (*init_callback)(void *data);
+
 typedef struct
 {
 	size_t datasize;
@@ -32,6 +34,7 @@ typedef struct
 	dlist_t white_list, black_list;
 	dlist_t *reachable_listref;
 	dlist_t *unproc_listref;
+	init_callback i_cb;
 	data_link_callback dl_cb;
 	print_callback p_cb;
 } memory_state_t;
@@ -40,6 +43,7 @@ typedef struct
 void memory_state_init(
 	memory_state_t *s,
 	size_t datasize,
+	init_callback i_cb,
 	data_link_callback dl_cb,
 	print_callback p_cb);
 

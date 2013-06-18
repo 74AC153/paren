@@ -62,17 +62,35 @@ static void node_print_wrap(void *p)
 	node_print((node_t *) p);
 }
 
+static void node_init_cb(void *p)
+{
+	node_t *n = (node_t *) p;
+	memset(n, 0, sizeof(*n));
+	n->type = NODE_UNINITIALIZED;
+}
+
 void nodes_initialize()
 {
-	memory_state_init(&g_memstate, sizeof(node_t), links_cb, node_print_wrap);
+	memory_state_init(&g_memstate,
+	                  sizeof(node_t),
+	                  node_init_cb,
+	                  links_cb,
+	                  node_print_wrap);
 }
+
+#if defined(NODE_NO_INCREMENTAL_GC)
+	#define NODE_GC_ITERATE()
+#else
+	#if defined(NODE_INCREMENTAL_FULL_GC)
+	#define NODE_GC_ITERATE() do {node_gc();node_gc();} while(0)
+	#else
+	#define NODE_GC_ITERATE() memory_gc_iterate(&g_memstate)
+	#endif
+#endif
 
 static node_t *node_new(void)
 {
 	node_t *n;
-#if ! defined(NODE_NO_INCREMENTAL_GC)
-	memory_gc_iterate(&g_memstate);
-#endif
 	n = memory_request(&g_memstate);
 	return n;
 }
@@ -85,9 +103,6 @@ nodetype_t node_type(node_t *n)
 
 static node_t *node_retain(node_t *n)
 {
-#if ! defined(NODE_NO_INCREMENTAL_GC)
-	memory_gc_iterate(&g_memstate);
-#endif
 	if(n) {
 		memory_gc_advise_new_link(&g_memstate, n);
 	}
@@ -96,42 +111,42 @@ static node_t *node_retain(node_t *n)
 
 static void node_release(node_t *n)
 {
-	(void) n;
-#if ! defined(NODE_NO_INCREMENTAL_GC)
-	memory_gc_iterate(&g_memstate);
-#endif
 	if(n) {
 		memory_gc_advise_stale_link(&g_memstate, n);
 	}
 }
 
-void node_droproot(node_t *n)
+static void node_droproot_int(node_t *n)
 {
-#if ! defined(NODE_NO_INCREMENTAL_GC)
-	memory_gc_iterate(&g_memstate);
-#endif
 	if(n && memory_gc_isroot(&g_memstate, n)) {
 		memory_gc_unlock(&g_memstate, n);
 	}
 }
 
-void node_lockroot(node_t *n)
+void node_droproot(node_t *n)
 {
-#if ! defined(NODE_NO_INCREMENTAL_GC)
-	memory_gc_iterate(&g_memstate);
-#endif
+	node_droproot_int(n);
+	NODE_GC_ITERATE();
+}
+
+node_t *node_lockroot(node_t *n)
+{
 	if(n) {
 		memory_gc_lock(&g_memstate, n);
 	}
+	NODE_GC_ITERATE();
+	return n;
 }
 
 bool node_isroot(node_t *n)
 {
+	NODE_GC_ITERATE();
 	return memory_gc_isroot(&g_memstate, n);
 }
 
 bool node_islocked(node_t *n)
 {
+	NODE_GC_ITERATE();
 	return memory_gc_is_locked(n);
 }
 
@@ -145,53 +160,59 @@ node_t *node_cons_new(node_t *car, node_t *cdr)
 #if defined(NODE_INIT_TRACING)
 	printf("node init cons %p (%p, %p)\n", ret, car, cdr);
 #endif
+	NODE_GC_ITERATE();
+	NODE_GC_ITERATE();
 	return ret;
 }
 
 void node_cons_patch_car(node_t *n, node_t *newcar)
 {
-#if ! defined(NODE_NO_INCREMENTAL_GC)
-	memory_gc_iterate(&g_memstate);
-#endif
+	node_t *oldcar;
+
 	assert(n);
 	assert(n->type == NODE_CONS);
-	node_release(n->dat.cons.car);
+
+	oldcar = n->dat.cons.car;
 	n->dat.cons.car = node_retain(newcar);
+
+	node_release(oldcar);
+	NODE_GC_ITERATE();
 }
 
 void node_cons_patch_cdr(node_t *n, node_t *newcdr)
 {
-#if ! defined(NODE_NO_INCREMENTAL_GC)
-	memory_gc_iterate(&g_memstate);
-#endif
+	node_t *oldcdr;
+
 	assert(n);
 	assert(n->type == NODE_CONS);
-	node_release(n->dat.cons.cdr);
+
+	oldcdr = n->dat.cons.cdr;
 	n->dat.cons.cdr = node_retain(newcdr);
+
+	node_release(oldcdr);
+	NODE_GC_ITERATE();
 }
 
 node_t *node_cons_car(node_t *n)
 {
-#if ! defined(NODE_NO_INCREMENTAL_GC)
-	memory_gc_iterate(&g_memstate);
-#endif
+	node_t *ret = NULL;
 	if(n) {
 		assert(n->type == NODE_CONS);
-		return n->dat.cons.car;
+		ret = n->dat.cons.car;
 	}
-	return NULL;
+	NODE_GC_ITERATE();
+	return ret;
 }
 
 node_t *node_cons_cdr(node_t *n)
 {
-#if ! defined(NODE_NO_INCREMENTAL_GC)
-	memory_gc_iterate(&g_memstate);
-#endif
+	node_t *ret = NULL;
 	if(n) {
 		assert(n->type == NODE_CONS);
-		return n->dat.cons.cdr;
+		ret = n->dat.cons.cdr;
 	}
-	return NULL;
+	NODE_GC_ITERATE();
+	return ret;
 }
 
 node_t *node_lambda_new(node_t *env, node_t *vars, node_t *expr)
@@ -205,32 +226,29 @@ node_t *node_lambda_new(node_t *env, node_t *vars, node_t *expr)
 #if defined(NODE_INIT_TRACING)
 	printf("node init lambda %p (e=%p v=%p, x=%p)\n", ret, env, vars, expr);
 #endif
+	NODE_GC_ITERATE();
+	NODE_GC_ITERATE();
+	NODE_GC_ITERATE();
 	return ret;
 }
 
 node_t *node_lambda_env(node_t *n)
 {
-#if ! defined(NODE_NO_INCREMENTAL_GC)
-	memory_gc_iterate(&g_memstate);
-#endif
+	NODE_GC_ITERATE();
 	assert(n->type = NODE_LAMBDA);
 	return n->dat.lambda.env;
 }
 
 node_t *node_lambda_vars(node_t *n)
 {
-#if ! defined(NODE_NO_INCREMENTAL_GC)
-	memory_gc_iterate(&g_memstate);
-#endif
+	NODE_GC_ITERATE();
 	assert(n->type = NODE_LAMBDA);
 	return n->dat.lambda.vars;
 }
 
 node_t *node_lambda_expr(node_t *n)
 {
-#if ! defined(NODE_NO_INCREMENTAL_GC)
-	memory_gc_iterate(&g_memstate);
-#endif
+	NODE_GC_ITERATE();
 	assert(n->type = NODE_LAMBDA);
 	return n->dat.lambda.expr;
 }
@@ -244,14 +262,13 @@ node_t *node_value_new(uint64_t val)
 #if defined(NODE_INIT_TRACING)
 	printf("node init value %p (%llu)\n", ret, (unsigned long long) val);
 #endif
+	NODE_GC_ITERATE();
 	return ret;
 }
 
 uint64_t node_value(node_t *n)
 {
-#if ! defined(NODE_NO_INCREMENTAL_GC)
-	memory_gc_iterate(&g_memstate);
-#endif
+	NODE_GC_ITERATE();
 	assert(n->type == NODE_VALUE);
 	return n->dat.value;
 }
@@ -265,14 +282,13 @@ node_t *node_symbol_new(char *name)
 #if defined(NODE_INIT_TRACING)
 	printf("node init symbol %p (\"%s\")\n", ret, ret->dat.name);
 #endif
+	NODE_GC_ITERATE();
 	return ret;
 }
 
 char *node_symbol_name(node_t *n)
 {
-#if ! defined(NODE_NO_INCREMENTAL_GC)
-	memory_gc_iterate(&g_memstate);
-#endif
+	NODE_GC_ITERATE();
 	assert(n->type == NODE_SYMBOL);
 	return n->dat.name;
 }
@@ -286,14 +302,13 @@ node_t *node_foreign_new(foreign_t func)
 #if defined(NODE_INIT_TRACING)
 	printf("node init foreign %p (%p)\n", ret, ret->dat.func);
 #endif
+	NODE_GC_ITERATE();
 	return ret;
 }
 
 foreign_t node_foreign_func(node_t *n)
 {
-#if ! defined(NODE_NO_INCREMENTAL_GC)
-	memory_gc_iterate(&g_memstate);
-#endif
+	NODE_GC_ITERATE();
 	assert(n->type == NODE_FOREIGN);
 	return n->dat.func;
 }
@@ -307,14 +322,13 @@ node_t *node_quote_new(node_t *val)
 #if defined(NODE_INIT_TRACING)
 	printf("node init quote %p (val=%p)\n", ret, ret->dat.quote.val);
 #endif
+	NODE_GC_ITERATE();
 	return ret;
 }
 
 node_t *node_quote_val(node_t *n)
 {
-#if ! defined(NODE_NO_INCREMENTAL_GC)
-	memory_gc_iterate(&g_memstate);
-#endif
+	NODE_GC_ITERATE();
 	assert(node_type(n) == NODE_QUOTE);
 	return n->dat.quote.val;
 }
@@ -324,18 +338,18 @@ node_t *node_handle_new(node_t *link)
 	node_t *ret = node_new();
 	assert(ret);
 	ret->type = NODE_HANDLE;
-	ret->dat.handle.link = node_retain(link);
+	ret->dat.handle.link = link;
+	node_retain(link);
 #if defined(NODE_INIT_TRACING)
 	printf("node init handle %p (link=%p)\n", ret, ret->dat.handle.link);
 #endif
+	NODE_GC_ITERATE();
 	return ret;
 }
 
 node_t *node_handle(node_t *n)
 {
-#if ! defined(NODE_NO_INCREMENTAL_GC)
-	memory_gc_iterate(&g_memstate);
-#endif
+	NODE_GC_ITERATE();
 	assert(node_type(n) == NODE_HANDLE);
 	return n->dat.handle.link;
 }
@@ -343,13 +357,13 @@ node_t *node_handle(node_t *n)
 void node_handle_update(node_t *n, node_t *newlink)
 {
 	node_t *oldlink;
-#if ! defined(NODE_NO_INCREMENTAL_GC)
-	memory_gc_iterate(&g_memstate);
-#endif
 	assert(node_type(n) == NODE_HANDLE);
+
 	oldlink = n->dat.handle.link;
 	n->dat.handle.link = node_retain(newlink);
+
 	node_release(oldlink);
+	NODE_GC_ITERATE();
 }
 
 node_t *node_if_func_new(void)
@@ -360,6 +374,7 @@ node_t *node_if_func_new(void)
 #if defined(NODE_INIT_TRACING)
 	printf("node init if_func\n");
 #endif
+	NODE_GC_ITERATE();
 	return ret;
 }
 
@@ -371,6 +386,7 @@ node_t *node_lambda_func_new(void)
 #if defined(NODE_INIT_TRACING)
 	printf("node init lambda_func\n");
 #endif
+	NODE_GC_ITERATE();
 	return ret;
 }
 
@@ -382,6 +398,9 @@ void node_print(node_t *n)
 		printf("node@%p: ", n);
 
 		switch(n->type) {
+		case NODE_UNINITIALIZED:
+			printf("uninitialized");
+			break;
 		case NODE_CONS:
 			printf("cons car=%p cdr=%p",
 			       n->dat.cons.car, n->dat.cons.cdr);
@@ -454,6 +473,9 @@ void node_print_list_shorthand(node_t *n)
 void node_print_pretty(node_t *n, bool isverbose)
 {
 		switch(node_type(n)) {
+		case NODE_UNINITIALIZED:
+			printf("<uninitialized memory>");
+			break;
 		case NODE_NIL:
 			printf("() ");
 			break;
