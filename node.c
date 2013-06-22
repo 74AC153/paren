@@ -341,7 +341,7 @@ node_t *node_handle_new(node_t *link)
 	ret->dat.handle.link = link;
 	node_retain(link);
 #if defined(NODE_INIT_TRACING)
-	printf("node init handle %p (link=%p)\n", ret, ret->dat.handle.link);
+	printf("node init handle %p (link=%p)\n", ret, link);
 #endif
 	NODE_GC_ITERATE();
 	return ret;
@@ -366,6 +366,26 @@ void node_handle_update(node_t *n, node_t *newlink)
 	NODE_GC_ITERATE();
 }
 
+node_t *node_cont_new(node_t *bt)
+{
+	node_t *ret = node_new();
+	assert(ret);
+	ret->type = NODE_CONTINUATION;
+	ret->dat.cont.bt = bt;
+#if defined(NODE_INIT_TRACING)
+	printf("node init cont %p (bt=%p)\n", ret, bt);
+#endif
+	NODE_GC_ITERATE();
+	return ret;
+}
+
+node_t *node_cont(node_t *n)
+{
+	NODE_GC_ITERATE();
+	assert(node_type(n) == NODE_CONTINUATION);
+	return n->dat.cont.bt;
+}
+
 node_t *node_if_func_new(void)
 {
 	node_t *ret = node_new();
@@ -385,6 +405,18 @@ node_t *node_lambda_func_new(void)
 	ret->type = NODE_LAMBDA_FUNC;
 #if defined(NODE_INIT_TRACING)
 	printf("node init lambda_func\n");
+#endif
+	NODE_GC_ITERATE();
+	return ret;
+}
+
+node_t *node_mk_cont_func_new(void)
+{
+	node_t *ret = node_new();
+	assert(ret);
+	ret->type = NODE_MK_CONT_FUNC;
+#if defined(NODE_INIT_TRACING)
+	printf("node init mk_cont_func\n");
 #endif
 	NODE_GC_ITERATE();
 	return ret;
@@ -532,6 +564,14 @@ void node_print_pretty(node_t *n, bool isverbose)
 		case NODE_HANDLE:
 			printf("&");
 			node_print_pretty(n->dat.handle.link, isverbose);
+			break;
+		case NODE_CONTINUATION:
+			printf("@");
+			node_print_pretty(n->dat.handle.link, isverbose);
+			break;
+		case NODE_MK_CONT_FUNC:
+			printf("call/cc");
+			break;
 		}
 }
 

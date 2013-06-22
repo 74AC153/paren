@@ -255,6 +255,22 @@ restart:
 			                         node_cons_cdr(_args));
 			goto node_cons_cleanup;
 
+		case NODE_MK_CONT_FUNC:
+			/* generate new cons with first arg as passed func, second arg as
+			   result of node_cont_new(), then do a tail call. */
+			/* figure out what to do when we want to clean up this new cons */
+			locals.in = node_cons_new(node_cons_car(_args),
+			                          node_cons_new(node_cont_new(bt),
+			                                        NULL));
+			node_droproot(locals.func); 
+			locals.func = NULL;
+			goto restart;
+
+		case NODE_CONTINUATION:
+			bt = node_cont(locals.func);
+			result = node_cons_car(_args);
+			goto node_cons_cleanup;
+
 		case NODE_IF_FUNC:
 			/* (if args),  args -> (test pass fail) */
 			/* status = eval(test, locals.env_handle, &result); */

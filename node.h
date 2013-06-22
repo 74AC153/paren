@@ -17,7 +17,9 @@ X(NODE_FOREIGN) \
 X(NODE_QUOTE) \
 X(NODE_HANDLE) \
 X(NODE_IF_FUNC) \
-X(NODE_LAMBDA_FUNC)
+X(NODE_LAMBDA_FUNC) \
+X(NODE_CONTINUATION) \
+X(NODE_MK_CONT_FUNC)
 
 typedef enum {
 #define X(name) name,
@@ -43,6 +45,7 @@ struct node {
 		int64_t value;
 		struct { node_t *val; } quote;
 		struct { node_t *link; } handle;
+		struct { node_t *bt; } cont;
 	} dat;
 };
 
@@ -83,9 +86,13 @@ node_t *node_handle_new(node_t *link);
 node_t *node_handle(node_t *n);
 void node_handle_update(node_t *n, node_t *newlink);
 
-node_t *node_if_func_new(void);
+node_t *node_cont_new(node_t *bt);
+node_t *node_cont(node_t *n);
 
+node_t *node_if_func_new(void);
 node_t *node_lambda_func_new(void);
+node_t *node_mk_cont_func(void);
+
 
 void node_print(node_t *n);
 void node_print_recursive(node_t *n);
