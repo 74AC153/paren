@@ -36,6 +36,11 @@ node_t *make_foreign_lambda(void)
 DEFINE_FOREIGN_MAKER(foreign_makesym)
 DEFINE_FOREIGN_MAKER(foreign_splitsym)
 
+node_t *make_foreign_cont(void)
+{
+	return node_mk_cont_func_new();
+}
+
 #define ARR_LEN(ARR) (sizeof(ARR) / sizeof((ARR)[0]))
 
 foreign_assoc_t foreigns[] = {
@@ -51,6 +56,7 @@ foreign_assoc_t foreigns[] = {
 	{ "lambda",   make_foreign_lambda },
 	{ "makesym",  make_foreign_makesym },
 	{ "splitsym", make_foreign_splitsym },
+	{ "call/cc",  make_foreign_cont },
 };
 
 int main(int argc, char *argv[])

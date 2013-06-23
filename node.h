@@ -91,7 +91,7 @@ node_t *node_cont(node_t *n);
 
 node_t *node_if_func_new(void);
 node_t *node_lambda_func_new(void);
-node_t *node_mk_cont_func(void);
+node_t *node_mk_cont_func_new(void);
 
 
 void node_print(node_t *n);
