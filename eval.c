@@ -202,6 +202,8 @@ restart:
 	case NODE_FOREIGN:
 	case NODE_LAMBDA_FUNC:
 	case NODE_IF_FUNC:
+	case NODE_CONTINUATION:
+	case NODE_MK_CONT_FUNC:
 		result = locals.in;
 		break;
 
@@ -259,9 +261,11 @@ restart:
 			/* generate new cons with first arg as passed func, second arg as
 			   result of node_cont_new(), then do a tail call. */
 			/* figure out what to do when we want to clean up this new cons */
+			//eval_push_state(&bt, &locals, NULL, NULL);
 			locals.in = node_cons_new(node_cons_car(_args),
 			                          node_cons_new(node_cont_new(bt),
 			                                        NULL));
+			node_lockroot(locals.in);
 			node_droproot(locals.func); 
 			locals.func = NULL;
 			goto restart;
@@ -309,7 +313,7 @@ restart:
 			/* eval passed arguments in caller's environment */
 			locals.newargs_last = NULL;
 			locals.newargs = NULL;
-			for(locals.cursor = _args;
+			for(locals.cursor = node_cons_cdr(locals.in);
 			    locals.cursor;
 			    locals.cursor= node_cons_cdr(locals.cursor)) {
 

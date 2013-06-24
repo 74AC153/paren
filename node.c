@@ -462,7 +462,14 @@ void node_print(node_t *n)
 		case NODE_LAMBDA_FUNC:
 			printf("lambda func");
 			break;
+		case NODE_CONTINUATION:
+			printf("continuation %p", n->dat.cont.bt);
+			break;
+		case NODE_MK_CONT_FUNC:
+			printf("cont func");
+			break;
 		default:
+			printf("unknown node type %d", n->type);
 			break;
 		}
 	}
@@ -567,7 +574,6 @@ void node_print_pretty(node_t *n, bool isverbose)
 			break;
 		case NODE_CONTINUATION:
 			printf("@");
-			node_print_pretty(n->dat.handle.link, isverbose);
 			break;
 		case NODE_MK_CONT_FUNC:
 			printf("call/cc");
