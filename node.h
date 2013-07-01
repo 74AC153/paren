@@ -16,10 +16,8 @@ X(NODE_VALUE) \
 X(NODE_FOREIGN) \
 X(NODE_QUOTE) \
 X(NODE_HANDLE) \
-X(NODE_IF_FUNC) \
-X(NODE_LAMBDA_FUNC) \
 X(NODE_CONTINUATION) \
-X(NODE_MK_CONT_FUNC)
+X(NODE_SPECIAL_FUNC)
 
 typedef enum {
 #define X(name) name,
@@ -27,13 +25,27 @@ NODE_TYPES
 #undef X
 } nodetype_t;
 
+#define NODE_SPECIALS \
+X(SPECIAL_IF)\
+X(SPECIAL_LAMBDA)\
+X(SPECIAL_QUOTE)\
+X(SPECIAL_MK_CONT)\
+X(SPECIAL_DEF)\
+X(SPECIAL_SET)
+
+typedef enum {
+#define X(name) name,
+NODE_SPECIALS
+#undef X
+} special_func_t;
+
 extern char *node_type_names[];
+extern char *node_special_names[];
 
 struct node;
 typedef struct node node_t;
 
 typedef eval_err_t (*foreign_t)(node_t *args,
-                                node_t *env_handle,
                                 node_t **result);
 struct node {
 	nodetype_t type;
@@ -46,6 +58,7 @@ struct node {
 		struct { node_t *val; } quote;
 		struct { node_t *link; } handle;
 		struct { node_t *bt; } cont;
+		special_func_t special;
 	} dat;
 };
 
@@ -89,10 +102,8 @@ void node_handle_update(node_t *n, node_t *newlink);
 node_t *node_cont_new(node_t *bt);
 node_t *node_cont(node_t *n);
 
-node_t *node_if_func_new(void);
-node_t *node_lambda_func_new(void);
-node_t *node_mk_cont_func_new(void);
-
+node_t *node_special_func_new(special_func_t func);
+special_func_t node_special_func(node_t *n);
 
 void node_print(node_t *n);
 void node_print_recursive(node_t *n);

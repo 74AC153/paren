@@ -6,44 +6,6 @@
 #include "node.h"
 #include "environ.h"
 
-#if 0
-void environ_pushframe(node_t **environ)
-{
-	node_t *oldenv = *environ;
-	assert(! *environ || node_isroot(*environ));
-	*environ = node_cons_new(NULL, *environ);
-	node_lockroot(*environ);
-	node_droproot(oldenv);
-	assert(*environ && node_isroot(*environ));
-}
-
-void environ_popframe(node_t **environ)
-{
-	node_t *oldenv = *environ;
-	assert(! *environ || node_isroot(*environ));
-	*environ = node_cons_cdr(*environ);
-	node_lockroot(*environ);
-	node_droproot(oldenv);
-	assert(! *environ || node_isroot(*environ));
-}
-
-void environ_add(node_t **environ, node_t *key, node_t *val)
-{
-	assert(! *environ || node_isroot(*environ));
-
-	node_t *nextent = node_cons_car(*environ);
-	node_t *nextfrm = node_cons_cdr(*environ);
-
-	node_t *newkv = node_cons_new(key, val);
-	node_t *newent = node_cons_new(newkv, nextent);
-	node_t *newfrm = node_cons_new(newent, nextfrm);
-	node_lockroot(newfrm);
-	node_droproot(*environ);
-	*environ = newfrm;
-	assert(*environ && node_isroot(*environ));
-}
-#endif
-
 void environ_pushframe(node_t *env_handle)
 {
 	node_t *oldenv, *newenv;

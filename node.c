@@ -16,6 +16,13 @@ char *node_type_names[] = {
 	NULL
 };
 
+char *node_special_names[] = {
+	#define X(name) #name,
+	NODE_SPECIALS
+	#undef X
+	NULL
+};
+
 memory_state_t g_memstate;
 
 static void links_cb(void (*cb)(void *link, void *p), void *data, void *p)
@@ -386,40 +393,24 @@ node_t *node_cont(node_t *n)
 	return n->dat.cont.bt;
 }
 
-node_t *node_if_func_new(void)
+node_t *node_special_func_new(special_func_t func)
 {
 	node_t *ret = node_new();
 	assert(ret);
-	ret->type = NODE_IF_FUNC;
+	ret->type = NODE_SPECIAL_FUNC;
+	ret->dat.special = func; 
 #if defined(NODE_INIT_TRACING)
-	printf("node init if_func\n");
+	printf("node init special %p (fun=%d)\n", ret, func);
 #endif
 	NODE_GC_ITERATE();
 	return ret;
+
 }
 
-node_t *node_lambda_func_new(void)
+special_func_t node_special_func(node_t *n)
 {
-	node_t *ret = node_new();
-	assert(ret);
-	ret->type = NODE_LAMBDA_FUNC;
-#if defined(NODE_INIT_TRACING)
-	printf("node init lambda_func\n");
-#endif
-	NODE_GC_ITERATE();
-	return ret;
-}
-
-node_t *node_mk_cont_func_new(void)
-{
-	node_t *ret = node_new();
-	assert(ret);
-	ret->type = NODE_MK_CONT_FUNC;
-#if defined(NODE_INIT_TRACING)
-	printf("node init mk_cont_func\n");
-#endif
-	NODE_GC_ITERATE();
-	return ret;
+	assert(node_type(n) == NODE_SPECIAL_FUNC);
+	return n->dat.special;
 }
 
 void node_print(node_t *n)
@@ -430,6 +421,9 @@ void node_print(node_t *n)
 		printf("node@%p: ", n);
 
 		switch(n->type) {
+		case NODE_NIL:
+			printf("null");
+			break;
 		case NODE_UNINITIALIZED:
 			printf("uninitialized");
 			break;
@@ -456,20 +450,11 @@ void node_print(node_t *n)
 		case NODE_HANDLE:
 			printf("handle %p", n->dat.handle.link);
 			break;
-		case NODE_IF_FUNC:
-			printf("if func");
-			break;
-		case NODE_LAMBDA_FUNC:
-			printf("lambda func");
-			break;
 		case NODE_CONTINUATION:
 			printf("continuation %p", n->dat.cont.bt);
 			break;
-		case NODE_MK_CONT_FUNC:
-			printf("cont func");
-			break;
-		default:
-			printf("unknown node type %d", n->type);
+		case NODE_SPECIAL_FUNC:
+			printf("special %d", n->dat.special);
 			break;
 		}
 	}
@@ -541,6 +526,11 @@ void node_print_pretty(node_t *n, bool isverbose)
 				printf(" . ");
 				node_print_pretty(n->dat.lambda.expr, true);
 				printf(") ) ");
+			} else if(node_type(n->dat.lambda.vars) == NODE_SYMBOL){
+				printf("( lambda ");
+				node_print_pretty(n->dat.lambda.vars, false);
+				node_print_list_shorthand(n->dat.lambda.expr);
+				printf(") ");
 			} else {
 				printf("( lambda ( ");
 				node_print_list_shorthand(n->dat.lambda.vars);
@@ -562,12 +552,6 @@ void node_print_pretty(node_t *n, bool isverbose)
 			printf("'");
 			node_print_pretty(n->dat.quote.val, isverbose);
 			break;
-		case NODE_IF_FUNC:
-			printf("if ");
-			break;
-		case NODE_LAMBDA_FUNC:
-			printf("lambda ");
-			break;
 		case NODE_HANDLE:
 			printf("&");
 			node_print_pretty(n->dat.handle.link, isverbose);
@@ -575,9 +559,27 @@ void node_print_pretty(node_t *n, bool isverbose)
 		case NODE_CONTINUATION:
 			printf("@");
 			break;
-		case NODE_MK_CONT_FUNC:
-			printf("call/cc");
-			break;
+		case NODE_SPECIAL_FUNC:
+			switch(node_special_func(n)) {
+			case SPECIAL_IF:
+				printf("if ");
+				break;
+			case SPECIAL_LAMBDA:
+				printf("lambda ");
+				break;
+			case SPECIAL_QUOTE:
+				printf("quote ");
+				break;
+			case SPECIAL_MK_CONT:
+				printf("call/cc ");
+				break;
+			case SPECIAL_DEF:
+				printf("def! ");
+				break;
+			case SPECIAL_SET:
+				printf("set! ");
+				break;
+			}
 		}
 }
 

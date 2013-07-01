@@ -13,50 +13,56 @@ static node_t *make_ ## FUNC (void) \
 	return node_foreign_new(FUNC); \
 }
 
-DEFINE_FOREIGN_MAKER(foreign_quote)
-DEFINE_FOREIGN_MAKER(foreign_defbang)
-DEFINE_FOREIGN_MAKER(foreign_setbang)
 DEFINE_FOREIGN_MAKER(foreign_atom)
 DEFINE_FOREIGN_MAKER(foreign_car)
 DEFINE_FOREIGN_MAKER(foreign_cdr)
-
-node_t *make_foreign_if(void)
-{
-	return node_if_func_new();
-}
-
 DEFINE_FOREIGN_MAKER(foreign_cons)
 DEFINE_FOREIGN_MAKER(foreign_eq)
-
-node_t *make_foreign_lambda(void)
-{
-	return node_lambda_func_new();
-}
-
 DEFINE_FOREIGN_MAKER(foreign_makesym)
 DEFINE_FOREIGN_MAKER(foreign_splitsym)
 
-node_t *make_foreign_cont(void)
+node_t *make_special_if(void)
 {
-	return node_mk_cont_func_new();
+	return node_special_func_new(SPECIAL_IF);
+}
+node_t *make_special_lambda(void)
+{
+	return node_special_func_new(SPECIAL_LAMBDA);
+}
+node_t *make_special_cont(void)
+{
+	return node_special_func_new(SPECIAL_MK_CONT);
+}
+node_t *make_special_quote(void)
+{
+	return node_special_func_new(SPECIAL_QUOTE);
+}
+node_t *make_special_defbang(void)
+{
+	return node_special_func_new(SPECIAL_DEF);
+}
+node_t *make_special_setbang(void)
+{
+	return node_special_func_new(SPECIAL_SET);
 }
 
 #define ARR_LEN(ARR) (sizeof(ARR) / sizeof((ARR)[0]))
 
 foreign_assoc_t foreigns[] = {
-	{ "quote",    make_foreign_quote },
-	{ "def!",     make_foreign_defbang },
-	{ "set!",     make_foreign_setbang },
+	{ "quote",    make_special_quote },
+	{ "if",       make_special_if },
+	{ "lambda",   make_special_lambda },
+	{ "call/cc",  make_special_cont },
+	{ "def!",     make_special_defbang },
+	{ "set!",     make_special_setbang },
+
 	{ "atom",     make_foreign_atom },
 	{ "car",      make_foreign_car },
 	{ "cdr",      make_foreign_cdr },
-	{ "if",       make_foreign_if },
 	{ "cons",     make_foreign_cons },
 	{ "eq",       make_foreign_eq },
-	{ "lambda",   make_foreign_lambda },
 	{ "makesym",  make_foreign_makesym },
 	{ "splitsym", make_foreign_splitsym },
-	{ "call/cc",  make_foreign_cont },
 };
 
 int main(int argc, char *argv[])

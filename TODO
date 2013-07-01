@@ -1,3 +1,25 @@
+restrict node dat field to be sizeof(void *arr[2])
+define foreign function calling convention
+
+specials:
+if_func
+lambda_func
+quote_func
+mk_cont_func
+defbang_func
+setbang_func
+
+builtins:
+atom?
+car
+cdr
+cons
+eq?
+makesym
+splitsym
+
+
+
 determine memory locking policy for:
 in
 env_handle
