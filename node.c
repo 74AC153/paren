@@ -553,11 +553,11 @@ void node_print_pretty(node_t *n, bool isverbose)
 			node_print_pretty(n->dat.quote.val, isverbose);
 			break;
 		case NODE_HANDLE:
-			printf("&");
+			printf("& ");
 			node_print_pretty(n->dat.handle.link, isverbose);
 			break;
 		case NODE_CONTINUATION:
-			printf("@");
+			printf("@ ");
 			break;
 		case NODE_SPECIAL_FUNC:
 			switch(node_special_func(n)) {

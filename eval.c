@@ -180,6 +180,7 @@ eval_err_t eval_norec(node_t *in, node_t *env_handle, node_t **out)
 	/* temps -- must be restored after recursive calls */
 	node_t *_args = NULL;
 	node_t *keyval = NULL;
+	node_t *temp = NULL;
 
 	/* if 'in' is not locked, calls to eval_push_state may cause memory
 	   to be made nonroot and likely to be freed before we want it to be */
@@ -297,10 +298,13 @@ restart:
 				/* generate new cons with first arg as passed func, second arg
 				   as result of node_cont_new(), then do a tail call. */
 				/* figure out what to do when we want to clean up this cons */
-				//eval_push_state(&bt, &locals, NULL, NULL);
-				locals.in = node_cons_new(node_cons_car(_args),
+				eval_push_state(&bt, &locals, NULL, NULL);
+				/* TODO: node_cons_car(_args) should be eval'd */
+				temp = node_cons_new(node_cons_car(_args),
 				                          node_cons_new(node_cont_new(bt),
 				                                        NULL));
+				eval_pop_state(&bt, &locals);
+				locals.in = temp;
 				node_lockroot(locals.in);
 				node_droproot(locals.func); 
 				locals.func = NULL;
