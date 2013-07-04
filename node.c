@@ -59,6 +59,12 @@ static void links_cb(void (*cb)(void *link, void *p), void *data, void *p)
 #endif
 		cb(n->dat.handle.link, p);
 		break;
+	case NODE_CONTINUATION:
+#if defined(NODE_GC_TRACING)
+		printf("node links_cb: cont %p links to l=%p\n", n, n->dat.cont.bt);
+#endif
+		cb(n->dat.handle.link, p);
+		break;
 	default:
 		break;
 	}
@@ -345,8 +351,7 @@ node_t *node_handle_new(node_t *link)
 	node_t *ret = node_new();
 	assert(ret);
 	ret->type = NODE_HANDLE;
-	ret->dat.handle.link = link;
-	node_retain(link);
+	ret->dat.handle.link = node_retain(link);
 #if defined(NODE_INIT_TRACING)
 	printf("node init handle %p (link=%p)\n", ret, link);
 #endif
@@ -378,7 +383,7 @@ node_t *node_cont_new(node_t *bt)
 	node_t *ret = node_new();
 	assert(ret);
 	ret->type = NODE_CONTINUATION;
-	ret->dat.cont.bt = bt;
+	ret->dat.cont.bt = node_retain(bt);
 #if defined(NODE_INIT_TRACING)
 	printf("node init cont %p (bt=%p)\n", ret, bt);
 #endif

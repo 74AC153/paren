@@ -76,14 +76,14 @@ struct eval_frame_locals {
 };
 
 void eval_push_state(
-	node_t **bt,
+	node_t *bt_hdl,
 	struct eval_frame_locals *locals,
 	node_t *in,
 	node_t *env_handle)
 {
 	node_t *newframe, *oldframe, *temp;
 
-	oldframe = *bt;
+	oldframe = node_handle(bt_hdl);
 
 	newframe = node_cons_new(locals->func, NULL);
 	newframe = node_cons_new(locals->in, newframe);
@@ -99,22 +99,18 @@ void eval_push_state(
 	newframe = node_cons_new(temp, newframe);
 
 	newframe = node_cons_new(newframe, oldframe);
-	node_lockroot(newframe);
-	if(oldframe) {
-		node_droproot(oldframe);
-	}
-	*bt = newframe;
+	node_handle_update(bt_hdl, newframe);
 
 	memset(locals, 0, sizeof(*locals));
 	locals->in = in;
 	locals->env_handle = env_handle;
 }
 
-void eval_pop_state(node_t **bt, struct eval_frame_locals *locals)
+void eval_pop_state(node_t *bt_hdl, struct eval_frame_locals *locals)
 {
 	node_t *prevframe, *temp;
 
-	prevframe = *bt;
+	prevframe = node_handle(bt_hdl);
 
 	temp = node_cons_car(prevframe);
 
@@ -150,10 +146,7 @@ void eval_pop_state(node_t **bt, struct eval_frame_locals *locals)
 	node_lockroot(locals->func);
 	node_lockroot(locals->env_handle);
 
-
-	*bt = node_cons_cdr(*bt);
-	node_lockroot(*bt);
-	node_droproot(prevframe);
+	node_handle_update(bt_hdl, node_cons_cdr(node_handle(bt_hdl)));
 }
 
 eval_err_t eval_norec(node_t *in, node_t *env_handle, node_t **out)
@@ -174,7 +167,7 @@ eval_err_t eval_norec(node_t *in, node_t *env_handle, node_t **out)
 	};
 
 	/* long-lived local variables */
-	node_t *bt = NULL;
+	node_t *bt_hdl = node_handle_new(NULL);
 	node_t *result = NULL;
 
 	/* temps -- must be restored after recursive calls */
@@ -232,7 +225,7 @@ restart:
 
 		/* 	status = eval(node_cons_car(input), environ, &func); */
 		locals.restart = &&node_cons_post_eval_func;
-		eval_push_state(&bt, &locals,
+		eval_push_state(bt_hdl, &locals,
 		                node_cons_car(locals.in),
 		                locals.env_handle);
 		goto restart;
@@ -249,7 +242,7 @@ restart:
 				/* (if args),  args -> (test pass fail) */
 				/* status = eval(test, locals.env_handle, &result); */
 				locals.restart = &&node_if_post_eval_test;
-				eval_push_state(&bt, &locals,
+				eval_push_state(bt_hdl, &locals,
 				                node_cons_car(_args), locals.env_handle);
 				goto restart;
 				node_if_post_eval_test:
@@ -298,12 +291,10 @@ restart:
 				/* generate new cons with first arg as passed func, second arg
 				   as result of node_cont_new(), then do a tail call. */
 				/* figure out what to do when we want to clean up this cons */
-				eval_push_state(&bt, &locals, NULL, NULL);
 				/* TODO: node_cons_car(_args) should be eval'd */
-				temp = node_cons_new(node_cons_car(_args),
-				                          node_cons_new(node_cont_new(bt),
-				                                        NULL));
-				eval_pop_state(&bt, &locals);
+				temp = node_cons_new(node_cont_new(node_handle(bt_hdl)),
+				                     NULL);
+				temp = node_cons_new(node_cons_car(_args), temp);
 				locals.in = temp;
 				node_lockroot(locals.in);
 				node_droproot(locals.func); 
@@ -326,7 +317,7 @@ restart:
 
 				/* status = eval_norec(val, env_handle, &newval); */
 				locals.restart = &&node_special_def_set_post_eval_func;
-				eval_push_state(&bt, &locals,
+				eval_push_state(bt_hdl, &locals,
 								node_cons_car(node_cons_cdr(_args)),
 		                		locals.env_handle);
 				goto restart;
@@ -360,7 +351,7 @@ restart:
 		    locals.cursor= node_cons_cdr(locals.cursor)) {
 
 			locals.restart = &&node_cons_post_args_eval;
-			eval_push_state(&bt, &locals,
+			eval_push_state(bt_hdl, &locals,
 			                node_cons_car(locals.cursor),
 			                locals.env_handle);
 			goto restart;
@@ -390,7 +381,7 @@ restart:
 			goto node_cons_cleanup;
 
 		case NODE_CONTINUATION:
-			bt = node_cont(locals.func);
+			node_handle_update(bt_hdl, node_cont(locals.func));
 			result = node_cons_car(locals.newargs);
 			goto node_cons_cleanup;
 
@@ -436,7 +427,7 @@ restart:
 					/* status = eval(node_cons_car(cursor), env,
 					                 [ignored]); */
 					locals.restart = &&node_lambda_post_exprs_eval;
-					eval_push_state(&bt, &locals,
+					eval_push_state(bt_hdl, &locals,
 					                node_cons_car(locals.cursor),
 					                locals.env_handle);
 					goto restart;
@@ -477,14 +468,15 @@ restart:
 		locals.env_handle = NULL;
 	}
 
-	if(bt) {
+	if(node_handle(bt_hdl)) {
 		node_droproot(locals.newargs);
 		locals.newargs = NULL;
 		locals.newargs_last = NULL;
-		eval_pop_state(&bt, &locals);
+		eval_pop_state(bt_hdl, &locals);
 		goto *locals.restart;
 	}
 
 	*out = result;
+	node_droproot(bt_hdl);
 	return status;
 }

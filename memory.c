@@ -87,7 +87,7 @@ void *memory_request(memory_state_t *s)
 	if(! dlist_is_empty(&(s->free_list))) {
 		mc = (memcell_t *) dlnode_remove(dlist_first(&(s->free_list)));
 		assert(! memcell_locked(mc));
-		assert(! memcell_refcount(mc));
+		//assert(! memcell_refcount(mc));
 #if defined(ALLOC_DEBUG)
 		printf("gc (%llu): reuse node %p (%p)\n", s->iter_count, mc, mc->data);
 #endif
@@ -298,6 +298,7 @@ bool memory_gc_iterate(memory_state_t *s)
 		printf("gc (%llu): free node (pending) %p\n", s->iter_count, mc);
 #endif
 		assert(!memcell_locked(mc)); // locked nodes must stay in root list
+		/* TODO: what about loops here? should they still be unlinked? */
 		assert(!memcell_refcount(mc)); // free_pending nodees must be unlinked
 		s->dl_cb(dl_cb_decref_free_pending_z, &(mc->data), s);
 		dlist_insertlast(&(s->free_list), dlnode_remove(&(mc->hdr)));
