@@ -62,9 +62,12 @@ eval_err_t lambda_bind(node_t *env_handle, node_t *vars, node_t *args)
 	return EVAL_OK;
 }
 
+#define TAILCALL   0x1
+#define FRAMEADDED 0x2
+#define NEW_INPUT  0x4
+
 struct eval_frame_locals {
-	uint64_t tailcall;
-	uint64_t frameadded;
+	uint64_t state;
 	void *restart;
 	node_t *cursor;
 	node_t *newargs_last;
@@ -87,15 +90,13 @@ void eval_push_state(
 
 	newframe = node_cons_new(locals->func, NULL);
 	newframe = node_cons_new(locals->in, newframe);
-	temp = node_value_new(locals->frameadded);
-	newframe = node_cons_new(temp, newframe);
 	temp = node_value_new((int64_t) locals->restart);
 	newframe = node_cons_new(temp, newframe);
 	newframe = node_cons_new(locals->newargs, newframe);
 	newframe = node_cons_new(locals->newargs_last, newframe);
 	newframe = node_cons_new(locals->env_handle, newframe);
 	newframe = node_cons_new(locals->cursor, newframe);
-	temp = node_value_new((int64_t) locals->tailcall);
+	temp = node_value_new((int64_t) locals->state);
 	newframe = node_cons_new(temp, newframe);
 
 	newframe = node_cons_new(newframe, oldframe);
@@ -110,11 +111,9 @@ void eval_pop_state(node_t *bt_hdl, struct eval_frame_locals *locals)
 {
 	node_t *prevframe, *temp;
 
-	prevframe = node_handle(bt_hdl);
+	temp = node_cons_car(node_handle(bt_hdl));
 
-	temp = node_cons_car(prevframe);
-
-	locals->tailcall = node_value(node_cons_car(temp));
+	locals->state = node_value(node_cons_car(temp));
 	temp = node_cons_cdr(temp);
 
 	locals->cursor = node_cons_car(temp);
@@ -132,9 +131,6 @@ void eval_pop_state(node_t *bt_hdl, struct eval_frame_locals *locals)
 	locals->restart = (void*) node_value(node_cons_car(temp));
 	temp = node_cons_cdr(temp);
 
-	locals->frameadded = node_value(node_cons_car(temp));
-	temp = node_cons_cdr(temp);
-
 	locals->in = node_cons_car(temp);
 	temp = node_cons_cdr(temp);
 
@@ -145,8 +141,12 @@ void eval_pop_state(node_t *bt_hdl, struct eval_frame_locals *locals)
 	node_lockroot(locals->newargs);
 	node_lockroot(locals->func);
 	node_lockroot(locals->env_handle);
+	if(locals->state & NEW_INPUT) {
+		node_lockroot(locals->in);
+	}
 
-	node_handle_update(bt_hdl, node_cons_cdr(node_handle(bt_hdl)));
+	prevframe = node_cons_cdr(node_handle(bt_hdl));
+	node_handle_update(bt_hdl, prevframe);
 }
 
 eval_err_t eval_norec(node_t *in, node_t *env_handle, node_t **out)
@@ -155,13 +155,12 @@ eval_err_t eval_norec(node_t *in, node_t *env_handle, node_t **out)
 
 	/* saved local variables */
 	struct eval_frame_locals locals = {
-		.tailcall = 0,
+		.state = 0,
 		.env_handle = env_handle,
 		.cursor = NULL,
 		.newargs = NULL,
 		.newargs_last = NULL,
 		.restart = NULL,
-		.frameadded = 0,
 		.in = in,
 		.func = NULL,
 	};
@@ -182,7 +181,7 @@ eval_err_t eval_norec(node_t *in, node_t *env_handle, node_t **out)
 
 restart:
 #if defined(EVAL_TRACING)
-	printf("eval of:");
+	printf("eval enter %p: ", locals.in);
 	node_print_pretty(locals.in, false);
 	printf("\n");
 #endif
@@ -252,6 +251,7 @@ restart:
 
 				_args =	node_cons_cdr(locals.in); /* restore */
 
+				/* select which expr to eval based on result */
 				if(result != NULL) {
 					node_droproot(result);
 					locals.in = node_cons_cdr(_args);
@@ -267,6 +267,14 @@ restart:
 					status = EVAL_ERR_EXPECTED_CONS;
 					goto node_cons_cleanup;
 				}
+
+				if(locals.state & NEW_INPUT) {
+					/* we'll never return to this stack frame, so we must
+					   do this here */
+					node_droproot(locals.in);
+					locals.state &= ~NEW_INPUT;
+				}
+
 				locals.in = node_cons_car(locals.in);
 				node_droproot(locals.func); /* b/c cons_cleanup not done */
 				goto restart;
@@ -295,8 +303,9 @@ restart:
 				temp = node_cons_new(node_cont_new(node_handle(bt_hdl)),
 				                     NULL);
 				temp = node_cons_new(node_cons_car(_args), temp);
+				node_lockroot(temp);
 				locals.in = temp;
-				node_lockroot(locals.in);
+				locals.state |= NEW_INPUT;
 				node_droproot(locals.func); 
 				locals.func = NULL;
 				goto restart;
@@ -389,13 +398,13 @@ restart:
 			/* NB: when invoking a lambda call, the stackframe is a child to
 			   the the environment that the lambda was defined in, not a child
 			   to the environment that the lambda was called from */
-			if(! locals.tailcall) {
+			if(! (locals.state & TAILCALL)) {
 				node_t *lambda_env = node_lambda_env(locals.func);
 				node_t *newhandle = node_handle_new(lambda_env);
 				locals.env_handle = newhandle;
 				node_lockroot(locals.env_handle);
 				environ_pushframe(locals.env_handle);
-				locals.frameadded = true;
+				locals.state |= FRAMEADDED;
 			}
 
 			/* bind / update variables to passed eval'd arguments */
@@ -414,8 +423,14 @@ restart:
 
 				if(node_cons_cdr(locals.cursor) == NULL) {
 					/* tail call: clean up and setup to restart */
+					if(locals.state & NEW_INPUT) {
+						/* we'll never return to this stack frame, so we must
+						   do this here */
+						node_droproot(locals.in);
+						locals.state &= ~NEW_INPUT;
+					}
 					locals.in = node_cons_car(locals.cursor);
-					locals.tailcall = true;
+					locals.state |= TAILCALL;
 					/* b/c cons_cleanup not done */
 					node_droproot(locals.newargs);
 					locals.newargs = NULL;
@@ -462,7 +477,7 @@ restart:
 		break;
 	}
 
-	if(locals.frameadded) {
+	if(locals.state & FRAMEADDED) {
 		environ_popframe(locals.env_handle);
 		node_droproot(locals.env_handle);
 		locals.env_handle = NULL;
@@ -472,9 +487,23 @@ restart:
 		node_droproot(locals.newargs);
 		locals.newargs = NULL;
 		locals.newargs_last = NULL;
+		if(locals.state & NEW_INPUT) {
+			node_droproot(locals.in);
+		}
+#if defined(EVAL_TRACING)
+		printf("eval leave %p: ", locals.in);
+		node_print_pretty(locals.in, false);
+		printf("\n");
+#endif
 		eval_pop_state(bt_hdl, &locals);
 		goto *locals.restart;
 	}
+
+#if defined(EVAL_TRACING)
+		printf("eval leave %p: ", locals.in);
+		node_print_pretty(locals.in, false);
+		printf("\n");
+#endif
 
 	*out = result;
 	node_droproot(bt_hdl);
