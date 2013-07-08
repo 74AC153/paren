@@ -483,6 +483,8 @@ void node_print_recursive(node_t *n )
     	if(n->dat.quote.val) node_print_recursive(n->dat.quote.val);
 	} else if(n->type == NODE_HANDLE) {
     	if(n->dat.handle.link) node_print_recursive(n->dat.handle.link);
+	} else if(n->type == NODE_CONTINUATION) {
+    	if(n->dat.cont.bt) node_print_recursive(n->dat.cont.bt);
 	}
 }
 
