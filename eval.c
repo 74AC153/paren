@@ -62,9 +62,9 @@ eval_err_t lambda_bind(node_t *env_handle, node_t *vars, node_t *args)
 	return EVAL_OK;
 }
 
-#define TAILCALL   0x1
-#define FRAMEADDED 0x2
-#define NEW_INPUT  0x4
+#define STATE_FLAG_TAILCALL   0x1
+#define STATE_FLAG_FRAMEADDED 0x2
+#define STATE_FLAG_NEW_INPUT  0x4
 
 struct eval_frame_locals {
 	uint64_t state;
@@ -141,7 +141,7 @@ void eval_pop_state(node_t *bt_hdl, struct eval_frame_locals *locals)
 	node_lockroot(locals->newargs);
 	node_lockroot(locals->func);
 	node_lockroot(locals->env_handle);
-	if(locals->state & NEW_INPUT) {
+	if(locals->state & STATE_FLAG_NEW_INPUT) {
 		node_lockroot(locals->in);
 	}
 
@@ -198,11 +198,11 @@ restart:
 	case NODE_CONTINUATION:
 	case NODE_SPECIAL_FUNC:
 		result = locals.in;
-		break;
+		goto finish;
 
 	case NODE_QUOTE:
 		result = node_quote_val(locals.in);
-		break;
+		goto finish;
 
 	case NODE_SYMBOL:
 		if(! environ_lookup(node_handle(locals.env_handle),
@@ -211,273 +211,278 @@ restart:
 			result = locals.in;
 			status = EVAL_ERR_UNRESOLVED_SYMBOL;
 		}
-		break;
+		goto finish;
 
 	case NODE_CONS: 
-		/* (symbol args...) */
-		_args = node_cons_cdr(locals.in);
-		if(_args && node_type(_args) != NODE_CONS) {
-			result = _args;
-			status = EVAL_ERR_EXPECTED_CONS;
-			goto node_cons_cleanup;
-		}
+		/* cons processing follows below... */
+		break;
+	}
 
-		/* 	status = eval(node_cons_car(input), environ, &func); */
-		locals.restart = &&node_cons_post_eval_func;
-		eval_push_state(bt_hdl, &locals,
-		                node_cons_car(locals.in),
-		                locals.env_handle);
-		goto restart;
-		node_cons_post_eval_func:
-		if(status != EVAL_OK) {
-			goto node_cons_cleanup;
-		}
-		node_droproot(locals.func); // we may loop back in a tail call
-		locals.func = node_lockroot(result);
 
-		if(node_type(locals.func) == NODE_SPECIAL_FUNC) {
-			switch(node_special_func(locals.func)) {
-			case SPECIAL_IF:
-				/* (if args),  args -> (test pass fail) */
-				/* status = eval(test, locals.env_handle, &result); */
-				locals.restart = &&node_if_post_eval_test;
-				eval_push_state(bt_hdl, &locals,
-				                node_cons_car(_args), locals.env_handle);
-				goto restart;
-				node_if_post_eval_test:
-				if(status != EVAL_OK) {
-					goto node_cons_cleanup;
-				}
+	/* (symbol args...) */
+	_args = node_cons_cdr(locals.in);
+	if(_args && node_type(_args) != NODE_CONS) {
+		result = _args;
+		status = EVAL_ERR_EXPECTED_CONS;
+		goto node_cons_cleanup;
+	}
 
-				_args =	node_cons_cdr(locals.in); /* restore */
+	/* 	status = eval(node_cons_car(input), environ, &func); */
+	locals.restart = &&node_cons_post_eval_func;
+	eval_push_state(bt_hdl, &locals,
+	                node_cons_car(locals.in),
+	                locals.env_handle);
+	goto restart;
+	node_cons_post_eval_func:
+	if(status != EVAL_OK) {
+		goto node_cons_cleanup;
+	}
+	node_droproot(locals.func); // we may have looped back in a tail call
+	locals.func = node_lockroot(result);
 
-				/* select which expr to eval based on result */
-				if(result != NULL) {
-					node_droproot(result);
-					locals.in = node_cons_cdr(_args);
-				} else {
-					locals.in = node_cons_cdr(_args);
-					if(node_type(locals.in) != NODE_CONS) {
-						status = EVAL_ERR_EXPECTED_CONS;
-						goto node_cons_cleanup;
-					}
-					locals.in = node_cons_cdr(locals.in);
-				}
+	if(node_type(locals.func) == NODE_SPECIAL_FUNC) {
+		switch(node_special_func(locals.func)) {
+		case SPECIAL_IF:
+			/* (if args),  args -> (test pass fail) */
+			/* status = eval(test, locals.env_handle, &result); */
+			locals.restart = &&node_if_post_eval_test;
+			eval_push_state(bt_hdl, &locals,
+			                node_cons_car(_args), locals.env_handle);
+			goto restart;
+			node_if_post_eval_test:
+			if(status != EVAL_OK) {
+				goto node_cons_cleanup;
+			}
+
+			_args =	node_cons_cdr(locals.in); /* restore */
+
+			/* select which expr to eval based on result */
+			if(result != NULL) {
+				node_droproot(result);
+				locals.in = node_cons_cdr(_args);
+			} else {
+				locals.in = node_cons_cdr(_args);
 				if(node_type(locals.in) != NODE_CONS) {
 					status = EVAL_ERR_EXPECTED_CONS;
 					goto node_cons_cleanup;
 				}
+				locals.in = node_cons_cdr(locals.in);
+			}
+			if(node_type(locals.in) != NODE_CONS) {
+				status = EVAL_ERR_EXPECTED_CONS;
+				goto node_cons_cleanup;
+			}
 
-				if(locals.state & NEW_INPUT) {
+			if(locals.state & STATE_FLAG_NEW_INPUT) {
+				/* we'll never return to this stack frame, so we must
+				   do this here */
+				node_droproot(locals.in);
+				locals.state &= ~STATE_FLAG_NEW_INPUT;
+			}
+
+			locals.in = node_cons_car(locals.in);
+			node_droproot(locals.func); /* b/c cons_cleanup not done */
+			locals.state |= STATE_FLAG_TAILCALL;
+			/* tailcall */
+			goto restart;
+
+		case SPECIAL_LAMBDA:
+			result = node_lambda_new(node_handle(locals.env_handle),
+			                         /* vars */
+			                         node_cons_car(_args), 
+			                         /* expr list */
+			                         node_cons_cdr(_args));
+			goto node_cons_cleanup;
+
+		case SPECIAL_QUOTE:
+			if(node_cons_cdr(_args)) {
+				status = EVAL_ERR_TOO_MANY_ARGS;
+				goto node_cons_cleanup;
+			}
+			result = node_cons_car(_args);
+			goto node_cons_cleanup;
+
+		case SPECIAL_MK_CONT:
+			/* generate new cons with first arg as passed func, second arg
+			   as result of node_cont_new(), then do a tail call. */
+			/* TODO: node_cons_car(_args) should be eval'd */
+			temp = node_cons_new(node_cont_new(node_handle(bt_hdl)),
+			                     NULL);
+			temp = node_cons_new(node_cons_car(_args), temp);
+			node_lockroot(temp);
+			locals.in = temp;
+			locals.state |= STATE_FLAG_NEW_INPUT;
+			node_droproot(locals.func); 
+			locals.func = NULL;
+			goto restart;
+
+		case SPECIAL_DEF:
+		case SPECIAL_SET:
+			/* return the symbol that was added to environment */
+			locals.cursor = node_cons_car(_args);
+			if(node_type(locals.cursor) != NODE_SYMBOL) {
+				status = EVAL_ERR_EXPECTED_SYMBOL;
+				goto node_cons_cleanup;
+			}
+		
+			/* eval passed value */
+			if(node_type(node_cons_cdr(_args)) != NODE_CONS) {
+				return EVAL_ERR_EXPECTED_CONS;
+			}
+
+			/* status = eval_norec(val, env_handle, &newval); */
+			locals.restart = &&node_special_def_set_post_eval_func;
+			eval_push_state(bt_hdl, &locals,
+							node_cons_car(node_cons_cdr(_args)),
+	                		locals.env_handle);
+			goto restart;
+			node_special_def_set_post_eval_func:
+			if(status != EVAL_OK) {
+				return status;
+			}
+		
+			if(node_special_func(locals.func) == SPECIAL_DEF) {
+				environ_add(locals.env_handle, locals.cursor, result);
+			} else {
+				if(!environ_keyval(node_handle(env_handle),
+				                   locals.cursor,
+				                   &keyval)) {
+					node_droproot(result);
+					status = EVAL_ERR_UNRESOLVED_SYMBOL;
+					goto node_cons_cleanup;
+				}
+				node_cons_patch_cdr(keyval, result);
+			}
+			result = locals.cursor;
+			goto node_cons_cleanup;
+		}
+	}
+
+	/* eval passed arguments in caller's environment */
+	locals.newargs_last = NULL;
+	locals.newargs = NULL;
+	for(locals.cursor = node_cons_cdr(locals.in);
+	    locals.cursor;
+	    locals.cursor= node_cons_cdr(locals.cursor)) {
+
+		locals.restart = &&node_cons_post_args_eval;
+		eval_push_state(bt_hdl, &locals,
+		                node_cons_car(locals.cursor),
+		                locals.env_handle);
+		goto restart;
+		node_cons_post_args_eval:
+		if(status != EVAL_OK) {
+			node_droproot(locals.newargs);
+			locals.newargs = NULL;
+			locals.newargs_last = NULL;
+			goto node_lambda_cleanup;
+		}
+
+		if(locals.newargs == NULL) {
+			locals.newargs = node_cons_new(result, NULL);
+			node_lockroot(locals.newargs);
+			locals.newargs_last = locals.newargs;
+		} else {
+			node_cons_patch_cdr(locals.newargs_last,
+			                    node_cons_new(result, NULL));
+			locals.newargs_last = node_cons_cdr(locals.newargs_last);
+		}
+	}
+
+	switch(node_type(locals.func)) {
+	case NODE_FOREIGN:
+		status = node_foreign_func(locals.func)(locals.newargs,
+		                                        &result);
+		goto node_cons_cleanup;
+
+	case NODE_CONTINUATION:
+		node_handle_update(bt_hdl, node_cont(locals.func));
+		result = node_cons_car(locals.newargs);
+		goto node_cons_cleanup;
+
+	case NODE_LAMBDA: 
+		/* NB: when invoking a lambda call, the stackframe is a child to
+		   the the environment that the lambda was defined in, not a child
+		   to the environment that the lambda was called from */
+		if(! (locals.state & STATE_FLAG_TAILCALL)) {
+			node_t *lambda_env = node_lambda_env(locals.func);
+			node_t *newhandle = node_handle_new(lambda_env);
+			locals.env_handle = newhandle;
+			node_lockroot(locals.env_handle);
+			environ_pushframe(locals.env_handle);
+			locals.state |= STATE_FLAG_FRAMEADDED;
+		}
+
+		/* bind / update variables to passed eval'd arguments */
+		status = lambda_bind(locals.env_handle,
+		                     node_lambda_vars(locals.func),
+		                     locals.newargs);
+		if(status != EVAL_OK) {
+			result = locals.func;
+			goto node_lambda_cleanup;
+		}
+
+		/* eval expr list in new environment */
+		for(locals.cursor = node_lambda_expr(locals.func);
+		    locals.cursor;
+		    locals.cursor = node_cons_cdr(locals.cursor)) {
+
+			if(node_cons_cdr(locals.cursor) == NULL) {
+				/* tail call: clean up and setup to restart */
+				if(locals.state & STATE_FLAG_NEW_INPUT) {
 					/* we'll never return to this stack frame, so we must
 					   do this here */
 					node_droproot(locals.in);
-					locals.state &= ~NEW_INPUT;
+					locals.state &= ~STATE_FLAG_NEW_INPUT;
 				}
-
-				locals.in = node_cons_car(locals.in);
-				node_droproot(locals.func); /* b/c cons_cleanup not done */
-				goto restart;
-
-			case SPECIAL_LAMBDA:
-				result = node_lambda_new(node_handle(locals.env_handle),
-				                         /* vars */
-				                         node_cons_car(_args), 
-				                         /* expr list */
-				                         node_cons_cdr(_args));
-				goto node_cons_cleanup;
-
-			case SPECIAL_QUOTE:
-				if(node_cons_cdr(_args)) {
-					status = EVAL_ERR_TOO_MANY_ARGS;
-					goto node_cons_cleanup;
-				}
-				result = node_cons_car(_args);
-				goto node_cons_cleanup;
-
-			case SPECIAL_MK_CONT:
-				/* generate new cons with first arg as passed func, second arg
-				   as result of node_cont_new(), then do a tail call. */
-				/* figure out what to do when we want to clean up this cons */
-				/* TODO: node_cons_car(_args) should be eval'd */
-				temp = node_cons_new(node_cont_new(node_handle(bt_hdl)),
-				                     NULL);
-				temp = node_cons_new(node_cons_car(_args), temp);
-				node_lockroot(temp);
-				locals.in = temp;
-				locals.state |= NEW_INPUT;
-				node_droproot(locals.func); 
-				locals.func = NULL;
-				goto restart;
-
-			case SPECIAL_DEF:
-			case SPECIAL_SET:
-				/* return the symbol that was added to environment */
-				locals.cursor = node_cons_car(_args);
-				if(node_type(locals.cursor) != NODE_SYMBOL) {
-					status = EVAL_ERR_EXPECTED_SYMBOL;
-					goto node_cons_cleanup;
-				}
-			
-				/* eval passed value */
-				if(node_type(node_cons_cdr(_args)) != NODE_CONS) {
-					return EVAL_ERR_EXPECTED_CONS;
-				}
-
-				/* status = eval_norec(val, env_handle, &newval); */
-				locals.restart = &&node_special_def_set_post_eval_func;
-				eval_push_state(bt_hdl, &locals,
-								node_cons_car(node_cons_cdr(_args)),
-		                		locals.env_handle);
-				goto restart;
-				node_special_def_set_post_eval_func:
-				if(status != EVAL_OK) {
-					return status;
-				}
-			
-				if(node_special_func(locals.func) == SPECIAL_DEF) {
-					environ_add(locals.env_handle, locals.cursor, result);
-				} else {
-					if(!environ_keyval(node_handle(env_handle),
-					                   locals.cursor,
-					                   &keyval)) {
-						node_droproot(result);
-						status = EVAL_ERR_UNRESOLVED_SYMBOL;
-						goto node_cons_cleanup;
-					}
-					node_cons_patch_cdr(keyval, result);
-				}
-				result = locals.cursor;
-				goto node_cons_cleanup;
-			}
-		}
-
-		/* eval passed arguments in caller's environment */
-		locals.newargs_last = NULL;
-		locals.newargs = NULL;
-		for(locals.cursor = node_cons_cdr(locals.in);
-		    locals.cursor;
-		    locals.cursor= node_cons_cdr(locals.cursor)) {
-
-			locals.restart = &&node_cons_post_args_eval;
-			eval_push_state(bt_hdl, &locals,
-			                node_cons_car(locals.cursor),
-			                locals.env_handle);
-			goto restart;
-			node_cons_post_args_eval:
-			if(status != EVAL_OK) {
+				locals.in = node_cons_car(locals.cursor);
+				locals.state |= STATE_FLAG_TAILCALL;
+				/* because cons_cleanup will not be done */
 				node_droproot(locals.newargs);
 				locals.newargs = NULL;
 				locals.newargs_last = NULL;
-				goto node_lambda_cleanup;
-			}
-
-			if(locals.newargs == NULL) {
-				locals.newargs = node_cons_new(result, NULL);
-				node_lockroot(locals.newargs);
-				locals.newargs_last = locals.newargs;
+				node_droproot(locals.func); 
+				locals.func = NULL;
+				/* tailcall */
+				goto restart;
 			} else {
-				node_cons_patch_cdr(locals.newargs_last,
-				                    node_cons_new(result, NULL));
-				locals.newargs_last = node_cons_cdr(locals.newargs_last);
-			}
-		}
-
-		switch(node_type(locals.func)) {
-		case NODE_FOREIGN:
-			status = node_foreign_func(locals.func)(locals.newargs,
-			                                        &result);
-			goto node_cons_cleanup;
-
-		case NODE_CONTINUATION:
-			node_handle_update(bt_hdl, node_cont(locals.func));
-			result = node_cons_car(locals.newargs);
-			goto node_cons_cleanup;
-
-		case NODE_LAMBDA: 
-			/* NB: when invoking a lambda call, the stackframe is a child to
-			   the the environment that the lambda was defined in, not a child
-			   to the environment that the lambda was called from */
-			if(! (locals.state & TAILCALL)) {
-				node_t *lambda_env = node_lambda_env(locals.func);
-				node_t *newhandle = node_handle_new(lambda_env);
-				locals.env_handle = newhandle;
-				node_lockroot(locals.env_handle);
-				environ_pushframe(locals.env_handle);
-				locals.state |= FRAMEADDED;
-			}
-
-			/* bind / update variables to passed eval'd arguments */
-			status = lambda_bind(locals.env_handle,
-			                     node_lambda_vars(locals.func),
-			                     locals.newargs);
-			if(status != EVAL_OK) {
-				result = locals.func;
-				goto node_lambda_cleanup;
-			}
-
-			/* eval expr list in new environment */
-			for(locals.cursor = node_lambda_expr(locals.func);
-			    locals.cursor;
-			    locals.cursor = node_cons_cdr(locals.cursor)) {
-
-				if(node_cons_cdr(locals.cursor) == NULL) {
-					/* tail call: clean up and setup to restart */
-					if(locals.state & NEW_INPUT) {
-						/* we'll never return to this stack frame, so we must
-						   do this here */
-						node_droproot(locals.in);
-						locals.state &= ~NEW_INPUT;
-					}
-					locals.in = node_cons_car(locals.cursor);
-					locals.state |= TAILCALL;
-					/* b/c cons_cleanup not done */
-					node_droproot(locals.newargs);
-					locals.newargs = NULL;
-					locals.newargs_last = NULL;
-					node_droproot(locals.func); 
-					locals.func = NULL;
-					goto restart;
-				} else {
-					/* status = eval(node_cons_car(cursor), env,
-					                 [ignored]); */
-					locals.restart = &&node_lambda_post_exprs_eval;
-					eval_push_state(bt_hdl, &locals,
-					                node_cons_car(locals.cursor),
-					                locals.env_handle);
-					goto restart;
-					node_lambda_post_exprs_eval:
-					if(status != EVAL_OK) {
-						goto node_lambda_cleanup;
-					}
-					if(!node_islocked(result)) {
-						node_droproot(result);
-						result = NULL;
-					}
+				/* status = eval(node_cons_car(cursor), env, [ignored]); */
+				locals.restart = &&node_lambda_post_exprs_eval;
+				eval_push_state(bt_hdl, &locals,
+				                node_cons_car(locals.cursor),
+				                locals.env_handle);
+				goto restart;
+				node_lambda_post_exprs_eval:
+				if(status != EVAL_OK) {
+					goto node_lambda_cleanup;
+				}
+				if(!node_islocked(result)) {
+					node_droproot(result);
+					result = NULL;
 				}
 			}
-
-			assert(0); /* not reached */
-
-		node_lambda_cleanup:
-			break;
-
-		default:
-			result = locals.func;
-			status = EVAL_ERR_UNKNOWN_FUNCALL;
-			break;
 		}
-		
-	node_cons_cleanup:
-		node_droproot(locals.func);
-		locals.func = NULL;
-		node_droproot(locals.newargs);
-		locals.newargs = NULL;
-		locals.newargs_last = NULL;
+
+		assert(0); /* not reached */
+
+	node_lambda_cleanup:
+		break;
+
+	default:
+		result = locals.func;
+		status = EVAL_ERR_UNKNOWN_FUNCALL;
 		break;
 	}
+	
+node_cons_cleanup:
+	node_droproot(locals.func);
+	locals.func = NULL;
+	node_droproot(locals.newargs);
+	locals.newargs = NULL;
+	locals.newargs_last = NULL;
 
-	if(locals.state & FRAMEADDED) {
+finish:
+	if(locals.state & STATE_FLAG_FRAMEADDED) {
 		environ_popframe(locals.env_handle);
 		node_droproot(locals.env_handle);
 		locals.env_handle = NULL;
@@ -487,7 +492,7 @@ restart:
 		node_droproot(locals.newargs);
 		locals.newargs = NULL;
 		locals.newargs_last = NULL;
-		if(locals.state & NEW_INPUT) {
+		if(locals.state & STATE_FLAG_NEW_INPUT) {
 			node_droproot(locals.in);
 		}
 #if defined(EVAL_TRACING)
