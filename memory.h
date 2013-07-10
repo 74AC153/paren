@@ -6,8 +6,8 @@
 typedef struct
 {
 	dlnode_t hdr;
-	bool locked;
 	uintptr_t refcount;
+	unsigned int flags;
 	int data[0];
 } memcell_t;
 

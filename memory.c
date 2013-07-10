@@ -38,22 +38,24 @@ void memcell_resetref(memcell_t *mc)
 	mc->refcount = 0;
 }
 
+#define MC_FLAG_LOCKED 0x1
+
 static
 bool memcell_locked(memcell_t *mc)
 {
-	return mc->locked;
+	return (mc->flags & MC_FLAG_LOCKED) != 0;
 }
 
 static
 void memcell_lock(memcell_t *mc)
 {
-	mc->locked = true;
+	mc->flags |= MC_FLAG_LOCKED;
 }
 
 static
 void memcell_unlock(memcell_t *mc)
 {
-	mc->locked = false;
+	mc->flags &= ~MC_FLAG_LOCKED;
 }
 
 void memory_state_init(
