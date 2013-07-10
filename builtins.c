@@ -8,7 +8,7 @@
 
 static bool check_atom(node_t* arg)
 {
-	return (!arg || arg->type == NODE_VALUE || arg->type == NODE_SYMBOL);
+	return (!arg || node_type(arg) == NODE_VALUE || node_type(arg) == NODE_SYMBOL);
 }
 
 eval_err_t foreign_atom(node_t *args, node_t **result)
