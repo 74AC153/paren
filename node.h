@@ -14,7 +14,6 @@ X(NODE_LAMBDA) \
 X(NODE_SYMBOL) \
 X(NODE_VALUE) \
 X(NODE_FOREIGN) \
-X(NODE_QUOTE) \
 X(NODE_HANDLE) \
 X(NODE_CONTINUATION) \
 X(NODE_SPECIAL_FUNC)
@@ -55,7 +54,6 @@ struct node {
 		foreign_t func;
 		char name[MAX_SYM_LEN];
 		int64_t value;
-		struct { node_t *val; } quote;
 		struct { node_t *link; } handle;
 		struct { node_t *bt; } cont;
 		special_func_t special;

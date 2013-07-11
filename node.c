@@ -47,12 +47,6 @@ static void links_cb(void (*cb)(void *link, void *p), void *data, void *p)
 		cb(n->dat.lambda.vars, p);
 		cb(n->dat.lambda.expr, p);
 		break;
-	case NODE_QUOTE:
-#if defined(NODE_GC_TRACING)
-		printf("node links_cb: q %p links to v=%p\n", n, n->dat.quote.val);
-#endif
-		cb(n->dat.quote.val, p);
-		break;
 	case NODE_HANDLE:
 #if defined(NODE_GC_TRACING)
 		printf("node links_cb: hdl %p links to l=%p\n", n, n->dat.handle.link);
@@ -326,26 +320,6 @@ foreign_t node_foreign_func(node_t *n)
 	return n->dat.func;
 }
 
-node_t *node_quote_new(node_t *val)
-{
-	node_t *ret = node_new();
-	assert(ret);
-	ret->dat.quote.val = node_retain(val);
-	ret->type = NODE_QUOTE;
-#if defined(NODE_INIT_TRACING)
-	printf("node init quote %p (val=%p)\n", ret, ret->dat.quote.val);
-#endif
-	NODE_GC_ITERATE();
-	return ret;
-}
-
-node_t *node_quote_val(node_t *n)
-{
-	NODE_GC_ITERATE();
-	assert(node_type(n) == NODE_QUOTE);
-	return n->dat.quote.val;
-}
-
 node_t *node_handle_new(node_t *link)
 {
 	node_t *ret = node_new();
@@ -449,9 +423,6 @@ void node_print(node_t *n)
 		case NODE_FOREIGN:
 			printf("foreign %p", n->dat.func);
 			break;
-		case NODE_QUOTE:
-			printf("quote %p", n->dat.quote.val);
-			break;
 		case NODE_HANDLE:
 			printf("handle %p", n->dat.handle.link);
 			break;
@@ -479,8 +450,6 @@ void node_print_recursive(node_t *n )
     	if(n->dat.lambda.env) node_print(n->dat.lambda.env);
 		if(n->dat.lambda.vars) node_print_recursive(n->dat.lambda.vars);
 		if(n->dat.lambda.expr) node_print_recursive(n->dat.lambda.expr);
-	} else if(n->type == NODE_QUOTE) {
-    	if(n->dat.quote.val) node_print_recursive(n->dat.quote.val);
 	} else if(n->type == NODE_HANDLE) {
     	if(n->dat.handle.link) node_print_recursive(n->dat.handle.link);
 	} else if(n->type == NODE_CONTINUATION) {
@@ -554,10 +523,6 @@ void node_print_pretty(node_t *n, bool isverbose)
 			break;
 		case NODE_FOREIGN:
 			printf("foreign:%p ", n->dat.func);
-			break;
-		case NODE_QUOTE:
-			printf("'");
-			node_print_pretty(n->dat.quote.val, isverbose);
 			break;
 		case NODE_HANDLE:
 			printf("& ");

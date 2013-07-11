@@ -103,10 +103,6 @@ static size_t read_tok(char *input, tok_state_t *state)
 		state->type = TOK_DOT;
 		end = start + 1;
 		break;
-	case '\'':
-		state->type = TOK_QUOTE;
-		end = start + 1;
-		break;
 	default:
 		/* determine where token ends */
 		for(end = start; *end && is_atom_char(*end); end++);

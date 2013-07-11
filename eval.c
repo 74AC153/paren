@@ -200,10 +200,6 @@ restart:
 		result = locals.in;
 		goto finish;
 
-	case NODE_QUOTE:
-		result = node_quote_val(locals.in);
-		goto finish;
-
 	case NODE_SYMBOL:
 		if(! environ_lookup(node_handle(locals.env_handle),
 		                    locals.in,
