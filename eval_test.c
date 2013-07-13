@@ -51,6 +51,7 @@ DEFINE_SPECIAL_MAKER(MK_CONT)
 DEFINE_SPECIAL_MAKER(QUOTE)
 DEFINE_SPECIAL_MAKER(DEF)
 DEFINE_SPECIAL_MAKER(SET)
+DEFINE_SPECIAL_MAKER(DEFINED)
 
 #define ARR_LEN(ARR) (sizeof(ARR) / sizeof((ARR)[0]))
 
@@ -61,6 +62,7 @@ foreign_assoc_t startenv[] = {
 	{ "call/cc",  make_special_MK_CONT },
 	{ "def!",     make_special_DEF },
 	{ "set!",     make_special_SET },
+	{ "defined?", make_special_DEFINED },
 
 	{ "nil?",     make_foreign_nil_p },
 	{ "value?",   make_foreign_value_p },
