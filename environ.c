@@ -50,7 +50,7 @@ bool environ_keyval_frame(node_t *top_frame, node_t *key, node_t **keyval)
 		testkey = node_cons_car(kv);
 
 		if(!strcmp(node_symbol_name(testkey), node_symbol_name(key))) {
-			*keyval = kv;
+			if(keyval) *keyval = kv;
 			return true;
 		}
 		
@@ -80,7 +80,7 @@ bool environ_lookup(node_t *top_frame, node_t *key, node_t **value)
 	if(! environ_keyval(top_frame, key, &keyval)) {
 		return false;
 	}
-	*value = node_cons_cdr(keyval);
+	if(value) *value = node_cons_cdr(keyval);
 	return true;
 }
 

@@ -260,7 +260,7 @@ node_t *node_lambda_expr(node_t *n)
 	return n->dat.lambda.expr;
 }
 
-node_t *node_value_new(uint64_t val)
+node_t *node_value_new(value_t  val)
 {
 	node_t *ret = node_new();
 	assert(ret);
@@ -273,7 +273,7 @@ node_t *node_value_new(uint64_t val)
 	return ret;
 }
 
-uint64_t node_value(node_t *n)
+value_t node_value(node_t *n)
 {
 	NODE_GC_ITERATE();
 	assert(n->type == NODE_VALUE);
@@ -550,6 +550,9 @@ void node_print_pretty(node_t *n, bool isverbose)
 				break;
 			case SPECIAL_SET:
 				printf("set! ");
+				break;
+			case SPECIAL_DEFINED:
+				printf("defined? ");
 				break;
 			}
 		}

@@ -9,60 +9,94 @@
 
 #define DEFINE_FOREIGN_MAKER(FUNC) \
 static node_t *make_ ## FUNC (void) \
-{ \
-	return node_foreign_new(FUNC); \
-}
+	{ return node_foreign_new(FUNC); }
 
-DEFINE_FOREIGN_MAKER(foreign_atom)
+DEFINE_FOREIGN_MAKER(foreign_nil_p)
+DEFINE_FOREIGN_MAKER(foreign_value_p)
+DEFINE_FOREIGN_MAKER(foreign_sym_p)
+DEFINE_FOREIGN_MAKER(foreign_cons_p)
+DEFINE_FOREIGN_MAKER(foreign_func_p)
 DEFINE_FOREIGN_MAKER(foreign_car)
 DEFINE_FOREIGN_MAKER(foreign_cdr)
-DEFINE_FOREIGN_MAKER(foreign_cons)
-DEFINE_FOREIGN_MAKER(foreign_eq)
 DEFINE_FOREIGN_MAKER(foreign_makesym)
 DEFINE_FOREIGN_MAKER(foreign_splitsym)
+DEFINE_FOREIGN_MAKER(foreign_cons)
+DEFINE_FOREIGN_MAKER(foreign_symeq_p)
+DEFINE_FOREIGN_MAKER(foreign_eq_p)
+DEFINE_FOREIGN_MAKER(foreign_lt_p)
+DEFINE_FOREIGN_MAKER(foreign_gt_p)
+DEFINE_FOREIGN_MAKER(foreign_ult_p)
+DEFINE_FOREIGN_MAKER(foreign_ugt_p)
+DEFINE_FOREIGN_MAKER(foreign_addc_p)
+DEFINE_FOREIGN_MAKER(foreign_add)
+DEFINE_FOREIGN_MAKER(foreign_sub)
+DEFINE_FOREIGN_MAKER(foreign_mul)
+DEFINE_FOREIGN_MAKER(foreign_div)
+DEFINE_FOREIGN_MAKER(foreign_rem)
+DEFINE_FOREIGN_MAKER(foreign_bit_and)
+DEFINE_FOREIGN_MAKER(foreign_bit_or)
+DEFINE_FOREIGN_MAKER(foreign_bit_nand)
+DEFINE_FOREIGN_MAKER(foreign_bit_xor)
+DEFINE_FOREIGN_MAKER(foreign_bit_shl)
+DEFINE_FOREIGN_MAKER(foreign_bit_shr)
+DEFINE_FOREIGN_MAKER(foreign_bit_shra)
 
-node_t *make_special_if(void)
-{
-	return node_special_func_new(SPECIAL_IF);
-}
-node_t *make_special_lambda(void)
-{
-	return node_special_func_new(SPECIAL_LAMBDA);
-}
-node_t *make_special_cont(void)
-{
-	return node_special_func_new(SPECIAL_MK_CONT);
-}
-node_t *make_special_quote(void)
-{
-	return node_special_func_new(SPECIAL_QUOTE);
-}
-node_t *make_special_defbang(void)
-{
-	return node_special_func_new(SPECIAL_DEF);
-}
-node_t *make_special_setbang(void)
-{
-	return node_special_func_new(SPECIAL_SET);
-}
+#define DEFINE_SPECIAL_MAKER(FUNC) \
+static node_t *make_special_ ## FUNC (void) \
+{ return node_special_func_new(SPECIAL_ ## FUNC); }
+
+DEFINE_SPECIAL_MAKER(IF)
+DEFINE_SPECIAL_MAKER(LAMBDA)
+DEFINE_SPECIAL_MAKER(MK_CONT)
+DEFINE_SPECIAL_MAKER(QUOTE)
+DEFINE_SPECIAL_MAKER(DEF)
+DEFINE_SPECIAL_MAKER(SET)
 
 #define ARR_LEN(ARR) (sizeof(ARR) / sizeof((ARR)[0]))
 
-foreign_assoc_t foreigns[] = {
-	{ "quote",    make_special_quote },
-	{ "if",       make_special_if },
-	{ "lambda",   make_special_lambda },
-	{ "call/cc",  make_special_cont },
-	{ "def!",     make_special_defbang },
-	{ "set!",     make_special_setbang },
+foreign_assoc_t startenv[] = {
+	{ "quote",    make_special_QUOTE },
+	{ "if",       make_special_IF },
+	{ "lambda",   make_special_LAMBDA },
+	{ "call/cc",  make_special_MK_CONT },
+	{ "def!",     make_special_DEF },
+	{ "set!",     make_special_SET },
 
-	{ "atom",     make_foreign_atom },
+	{ "nil?",     make_foreign_nil_p },
+	{ "value?",   make_foreign_value_p },
+	{ "sym?",     make_foreign_sym_p },
+	{ "cons?",    make_foreign_cons_p },
+	{ "func?",    make_foreign_func_p },
+
 	{ "car",      make_foreign_car },
 	{ "cdr",      make_foreign_cdr },
-	{ "cons",     make_foreign_cons },
-	{ "eq",       make_foreign_eq },
 	{ "makesym",  make_foreign_makesym },
 	{ "splitsym", make_foreign_splitsym },
+	{ "cons",     make_foreign_cons },
+
+	{ "symeq?",   make_foreign_symeq_p },
+	{ "eq?",      make_foreign_eq_p },
+	{ "lt?",      make_foreign_lt_p },
+	{ "gt?",      make_foreign_gt_p },
+	{ "ult?",     make_foreign_ult_p },
+	{ "ugt?",     make_foreign_ugt_p },
+
+	{ "addc",     make_foreign_addc_p },
+	{ "add",      make_foreign_add },
+	{ "sub",      make_foreign_sub },
+	{ "mul",      make_foreign_mul },
+	{ "div",      make_foreign_div },
+	{ "rem",      make_foreign_rem },
+
+	{ "b_and",    make_foreign_bit_and },
+	{ "b_or",     make_foreign_bit_or },
+	{ "b_nand",   make_foreign_bit_nand },
+	{ "b_xor",    make_foreign_bit_xor },
+	{ "b_shl",    make_foreign_bit_shl },
+	{ "b_shr",    make_foreign_bit_shr },
+	{ "b_shra",   make_foreign_bit_shra },
+
+
 };
 
 int main(int argc, char *argv[])
@@ -81,9 +115,9 @@ int main(int argc, char *argv[])
 	node_lockroot(env_handle);
 	{
 		node_t *key, *value;
-		for (i = 0; i < ARR_LEN(foreigns); i++) {
-			key = node_symbol_new(foreigns[i].name);
-			value = foreigns[i].func();
+		for (i = 0; i < ARR_LEN(startenv); i++) {
+			key = node_symbol_new(startenv[i].name);
+			value = startenv[i].func();
 
 			environ_add(env_handle, key, value);
 		}
@@ -108,7 +142,7 @@ int main(int argc, char *argv[])
 		environ_print(node_handle(env_handle));
 
 		printf("*** eval ***\n");
-		eval_stat = eval_norec(parse_result, env_handle, &eval_result);
+		eval_stat = eval(parse_result, env_handle, &eval_result);
 
 		if(eval_stat) {
 			printf("eval error for: \n");

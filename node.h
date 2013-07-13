@@ -30,7 +30,8 @@ X(SPECIAL_LAMBDA)\
 X(SPECIAL_QUOTE)\
 X(SPECIAL_MK_CONT)\
 X(SPECIAL_DEF)\
-X(SPECIAL_SET)
+X(SPECIAL_SET)\
+X(SPECIAL_DEFINED)
 
 typedef enum {
 #define X(name) name,
@@ -46,6 +47,8 @@ typedef struct node node_t;
 
 typedef eval_err_t (*foreign_t)(node_t *args,
                                 node_t **result);
+typedef int64_t value_t;
+typedef uint64_t u_value_t;
 struct node {
 	nodetype_t type;
 	union {
@@ -53,7 +56,7 @@ struct node {
 		struct { node_t *env, *vars, *expr; } lambda;
 		foreign_t func;
 		char name[MAX_SYM_LEN];
-		int64_t value;
+		value_t value;
 		struct { node_t *link; } handle;
 		struct { node_t *bt; } cont;
 		special_func_t special;
@@ -81,8 +84,8 @@ node_t *node_lambda_env(node_t *n);
 node_t *node_lambda_vars(node_t *n);
 node_t *node_lambda_expr(node_t *n);
 
-node_t *node_value_new(uint64_t val);
-uint64_t node_value(node_t *n);
+node_t *node_value_new(value_t val);
+value_t node_value(node_t *n);
 
 node_t *node_symbol_new(char *name);
 char *node_symbol_name(node_t *n);

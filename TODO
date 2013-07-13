@@ -1,3 +1,5 @@
+mode MK_CONT into later CONS func evaluation
+
 restrict node dat field to be sizeof(void *arr[2])
 define foreign function calling convention
 
@@ -17,7 +19,7 @@ cons
 eq?
 makesym
 splitsym
-
+defined?
 
 
 determine memory locking policy for:

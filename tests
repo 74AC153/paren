@@ -1,0 +1,48 @@
+'()'
+'5'
+'(quote 5)'
+'(cons 5 6)'
+'(def! W 5)'
+'(def! W 5)' '(set! W 6)' 'W'
+'(def! W (quote 5))'
+def! W (quote 5))' '(set! W (quote 6))' 'W'
+'(if () 1 2)'
+'(if 1 1 2)'
+'(if (quote ()) 1 2)'
+'(if (quote 1) 1 2)'
+'(if (if () () 1) 2 3)'
+'(if (if 1 () 1) 2 3)'
+'(if (if (quote ()) (quote ()) (quote 1)) (quote 2) (quote 3))'
+'(if (if (quote 1) (quote ()) (quote 1)) (quote 2) (quote 3))'
+'(lambda (x) x)'
+'((lambda (x) x) 5)'
+'(def! W 5)' '((lambda (x) x) W)'
+'(def! x 5)' '(def! five (lambda () x))' '(def! x 6)' '(five)'
+
+'(def! id (lambda (x) x))' '(id 5)'
+'(def! fun (lambda (x y) y))' '(fun 5 6)'
+'(def! fun (lambda (x y) x))' '(fun 5 6)'
+'(def! fun (lambda (x . y) y))' '(fun 5 6 7)'
+'(def! fun (lambda (x . y) x))' '(fun 5 6 7)'
+'(def! fun (lambda (x y . z) z))' '(fun 5 6 7)'
+'(def! fun (lambda (x y . z) y))' '(fun 5 6 7)'
+'(def! fun (lambda (x y . z) x))' '(fun 5 6 7)'
+'(def! fun (lambda x x))' '(fun 5 6 7)'
+
+'(def! my_car (lambda (x) (car x)))' '(my_car (quote (1 2)))'
+
+'((lambda (x) (cons 2 x)) 3)'
+
+'((lambda () 1 2 3))'
+'(cons 1 ((lambda () 2 3)))'
+'(cons 1 ((lambda (x) 2 3) 4))'
+
+'(def! reverse ())' '(set! reverse (lambda (fwd rev) (if (eq? fwd ()) rev (reverse (cdr fwd) (cons (car fwd) rev)))))' '(reverse (quote (1)) ())'
+'(def! reverse ())' '(set! reverse (lambda (fwd rev) (if (eq? fwd ()) rev (reverse (cdr fwd) (cons (car fwd) rev)))))' '(reverse (quote (1 2 3)) ())'
+
+'(cons 1 (call/cc (lambda (cc) 2)))'
+'(def! foo ())' '(call/cc (lambda (cc) (set! foo cc) 2))' '(foo 3)'
+'(def! foo ())' '(cons 1 (call/cc (lambda (cc) (set! foo cc) 2)))' '(foo 3)'
+'(def! foo ())' '(cons 1 (call/cc (lambda (cc) (set! foo cc) (if () 1 2))))' '(foo 3)'
+
+

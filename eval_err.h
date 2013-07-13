@@ -5,6 +5,7 @@
 X(EVAL_OK, "no error") \
 X(EVAL_ERR_UNRESOLVED_SYMBOL, "unresolved symbol") \
 X(EVAL_ERR_TOO_MANY_ARGS, "too many arguments to function") \
+X(EVAL_ERR_TOO_FEW_ARGS, "too few arguments to function") \
 X(EVAL_ERR_MISSING_ARG, "missing argument") \
 X(EVAL_ERR_FUNC_IS_NOT_LAMBDA, "expected lambda") \
 X(EVAL_ERR_NONLAMBDA_FUNCALL, "function with non lambda symbol") \
@@ -22,5 +23,7 @@ EVAL_ERR_DEFS
 } eval_err_t;
 
 char *eval_err_str(eval_err_t err);
+
+static eval_err_t eval_err(eval_err_t e) { return e; }
 
 #endif

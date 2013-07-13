@@ -19,18 +19,18 @@ eval_err_t lambda_bind(node_t *env_handle, node_t *vars, node_t *args)
 			/* ( ) */
 			if(arg_curs) {
 				/* still have args to bind but no more vars to bind them to */
-				return EVAL_ERR_TOO_MANY_ARGS;
+				return eval_err(EVAL_ERR_TOO_MANY_ARGS);
 			}
 			break;
 		} else if(node_type(var_curs) == NODE_CONS) {
 			/* ( sym ... ) */
 			if(node_type(arg_curs) != NODE_CONS) {
-				return EVAL_ERR_MISSING_ARG;
+				return eval_err(EVAL_ERR_MISSING_ARG);
 			}
 			value = node_cons_car(arg_curs);
 			name = node_cons_car(var_curs);
 			if(node_type(name) != NODE_SYMBOL) {
-				return EVAL_ERR_EXPECTED_SYMBOL;
+				return eval_err(EVAL_ERR_EXPECTED_SYMBOL);
 			}
 		} else if(node_type(var_curs) == NODE_SYMBOL) {
 			/* ( ... . sym ) */
@@ -41,7 +41,7 @@ eval_err_t lambda_bind(node_t *env_handle, node_t *vars, node_t *args)
 			early_term = true;
 		} else {
 			/* should only be given a list of symbols */
-			return EVAL_ERR_EXPECTED_CONS_SYM;
+			return eval_err(EVAL_ERR_EXPECTED_CONS_SYM);
 		}
 
 		/* if the symbol already exists in the current frame, update its
@@ -149,7 +149,7 @@ void eval_pop_state(node_t *bt_hdl, struct eval_frame_locals *locals)
 	node_handle_update(bt_hdl, prevframe);
 }
 
-eval_err_t eval_norec(node_t *in, node_t *env_handle, node_t **out)
+eval_err_t eval(node_t *in, node_t *env_handle, node_t **out)
 {
 	eval_err_t status = EVAL_OK;
 
@@ -181,7 +181,7 @@ eval_err_t eval_norec(node_t *in, node_t *env_handle, node_t **out)
 
 restart:
 #if defined(EVAL_TRACING)
-	printf("eval enter %p: ", locals.in);
+	printf("eval enter %p: -> ", locals.in);
 	node_print_pretty(locals.in, false);
 	printf("\n");
 #endif
@@ -205,7 +205,7 @@ restart:
 		                    locals.in,
 		                    &result)) {
 			result = locals.in;
-			status = EVAL_ERR_UNRESOLVED_SYMBOL;
+			status = eval_err(EVAL_ERR_UNRESOLVED_SYMBOL);
 		}
 		goto finish;
 
@@ -219,7 +219,7 @@ restart:
 	_args = node_cons_cdr(locals.in);
 	if(_args && node_type(_args) != NODE_CONS) {
 		result = _args;
-		status = EVAL_ERR_EXPECTED_CONS;
+		status = eval_err(EVAL_ERR_EXPECTED_CONS);
 		goto node_cons_cleanup;
 	}
 
@@ -259,13 +259,13 @@ restart:
 			} else {
 				locals.in = node_cons_cdr(_args);
 				if(node_type(locals.in) != NODE_CONS) {
-					status = EVAL_ERR_EXPECTED_CONS;
+					status = eval_err(EVAL_ERR_EXPECTED_CONS);
 					goto node_cons_cleanup;
 				}
 				locals.in = node_cons_cdr(locals.in);
 			}
 			if(node_type(locals.in) != NODE_CONS) {
-				status = EVAL_ERR_EXPECTED_CONS;
+				status = eval_err(EVAL_ERR_EXPECTED_CONS);
 				goto node_cons_cleanup;
 			}
 
@@ -292,7 +292,7 @@ restart:
 
 		case SPECIAL_QUOTE:
 			if(node_cons_cdr(_args)) {
-				status = EVAL_ERR_TOO_MANY_ARGS;
+				status = eval_err(EVAL_ERR_TOO_MANY_ARGS);
 				goto node_cons_cleanup;
 			}
 			result = node_cons_car(_args);
@@ -317,13 +317,13 @@ restart:
 			/* return the symbol that was added to environment */
 			locals.cursor = node_cons_car(_args);
 			if(node_type(locals.cursor) != NODE_SYMBOL) {
-				status = EVAL_ERR_EXPECTED_SYMBOL;
+				status = eval_err(EVAL_ERR_EXPECTED_SYMBOL);
 				goto node_cons_cleanup;
 			}
 		
 			/* eval passed value */
 			if(node_type(node_cons_cdr(_args)) != NODE_CONS) {
-				return EVAL_ERR_EXPECTED_CONS;
+				return eval_err(EVAL_ERR_EXPECTED_CONS);
 			}
 
 			/* status = eval_norec(val, env_handle, &newval); */
@@ -344,13 +344,16 @@ restart:
 				                   locals.cursor,
 				                   &keyval)) {
 					node_droproot(result);
-					status = EVAL_ERR_UNRESOLVED_SYMBOL;
+					status = eval_err(EVAL_ERR_UNRESOLVED_SYMBOL);
 					goto node_cons_cleanup;
 				}
 				node_cons_patch_cdr(keyval, result);
 			}
 			result = locals.cursor;
 			goto node_cons_cleanup;
+			case SPECIAL_DEFINED:
+				/* handled below */
+				break;
 		}
 	}
 
@@ -386,6 +389,21 @@ restart:
 	}
 
 	switch(node_type(locals.func)) {
+	case NODE_SPECIAL_FUNC:
+		switch(node_special_func(locals.func)) {
+		case SPECIAL_DEFINED:
+			if(locals.newargs) {
+				temp = node_cons_car(locals.newargs);
+				if(node_type(temp) == NODE_SYMBOL
+				   && environ_lookup(node_handle(locals.env_handle),
+				                     temp, NULL)) {
+					result = node_value_new(1);
+				}
+			}
+			goto node_cons_cleanup;
+		default:
+			assert(false);
+		}
 	case NODE_FOREIGN:
 		status = node_foreign_func(locals.func)(locals.newargs,
 		                                        &result);
@@ -466,7 +484,7 @@ restart:
 
 	default:
 		result = locals.func;
-		status = EVAL_ERR_UNKNOWN_FUNCALL;
+		status = eval_err(EVAL_ERR_UNKNOWN_FUNCALL);
 		break;
 	}
 	
@@ -492,8 +510,10 @@ finish:
 			node_droproot(locals.in);
 		}
 #if defined(EVAL_TRACING)
-		printf("eval leave %p: ", locals.in);
+		printf("eval leave %p: <- ", locals.in);
 		node_print_pretty(locals.in, false);
+		printf(" ... ");
+		node_print_pretty(result, false);
 		printf("\n");
 #endif
 		eval_pop_state(bt_hdl, &locals);
@@ -501,8 +521,10 @@ finish:
 	}
 
 #if defined(EVAL_TRACING)
-		printf("eval leave %p: ", locals.in);
+		printf("eval leave %p: <- ", locals.in);
 		node_print_pretty(locals.in, false);
+		printf(" ... ");
+		node_print_pretty(result, false);
 		printf("\n");
 #endif
 

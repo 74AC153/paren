@@ -26,4 +26,4 @@ eval_test: eval_test.o builtins.o eval.o parse.o token.o node.o environ.o enviro
 
 %.o: %.c
 	gcc -S ${CFLAGS} -c $<
-	gcc ${CFLAGS} -c $<
+	time gcc ${CFLAGS} -c $<
