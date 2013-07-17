@@ -1,13 +1,14 @@
 #ifndef MEMORY_H
 #define MEMORY_H
 
+#include <stdint.h>
 #include "dlist.h"
 
 typedef struct
 {
 	dlnode_t hdr;
 	uintptr_t refcount;
-	unsigned int flags;
+	unsigned int mc_flags;
 	int data[0];
 } memcell_t;
 
@@ -37,6 +38,7 @@ typedef struct
 	init_callback i_cb;
 	data_link_callback dl_cb;
 	print_callback p_cb;
+	uint32_t ms_flags;
 } memory_state_t;
 
 /* initialize memory state */
@@ -68,6 +70,8 @@ bool memory_gc_islive(memory_state_t *s, void *data);
 
 /* run the GC one iteration */
 bool memory_gc_iterate(memory_state_t *s);
+
+bool memcell_reachable(memory_state_t *s, memcell_t *dst);
 
 void memory_gc_print_state(memory_state_t *s);
 
