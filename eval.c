@@ -90,13 +90,13 @@ void eval_push_state(
 
 	newframe = node_cons_new(locals->func, NULL);
 	newframe = node_cons_new(locals->in, newframe);
-	temp = node_value_new((int64_t) locals->restart);
+	temp = node_value_new((u_value_t) (locals->restart));
 	newframe = node_cons_new(temp, newframe);
 	newframe = node_cons_new(locals->newargs, newframe);
 	newframe = node_cons_new(locals->newargs_last, newframe);
 	newframe = node_cons_new(locals->env_handle, newframe);
 	newframe = node_cons_new(locals->cursor, newframe);
-	temp = node_value_new((int64_t) locals->state);
+	temp = node_value_new((u_value_t) (locals->state));
 	newframe = node_cons_new(temp, newframe);
 
 	newframe = node_cons_new(newframe, oldframe);
@@ -521,11 +521,11 @@ finish:
 	}
 
 #if defined(EVAL_TRACING)
-		printf("eval leave %p: <- ", locals.in);
-		node_print_pretty(locals.in, false);
-		printf(" ... ");
-		node_print_pretty(result, false);
-		printf("\n");
+	printf("eval leave %p: <- ", locals.in);
+	node_print_pretty(locals.in, false);
+	printf(" ... ");
+	node_print_pretty(result, false);
+	printf("\n");
 #endif
 
 	*out = result;
