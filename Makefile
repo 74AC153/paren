@@ -1,14 +1,25 @@
-#CFLAGS=-DGC_REFCOUNT_DEBUG -DALLOC_DEBUG -DNODE_INIT_TRACING -g -Wall -Wextra -Werror --std=c99 -Wno-unused-function
-#CFLAGS=-DGC_REFCOUNT_DEBUG -DALLOC_DEBUG -DNODE_INIT_TRACING -DNODE_GC_TRACING -DGC_TRACING -g -Wall -Wextra -Werror --std=c99 -Wno-unused-function
-#CFLAGS=-DGC_REFCOUNT_DEBUG -DALLOC_DEBUG -DNODE_INIT_TRACING -DNODE_GC_TRACING -DGC_TRACING -g -Wall -Wextra -Werror --std=c99 -Wno-unused-function
-#CFLAGS=-DNODE_INIT_TRACING -g -Wall -Wextra -Werror --std=c99 -Wno-unused-function
-#CFLAGS=-DGC_REFCOUNT_DEBUG -DALLOC_DEBUG -DGC_TRACING -g -Wall -Wextra -Werror --std=c99 -Wno-unused-function
-#CFLAGS=-DALLOC_DEBUG -DGC_REFCOUNT_DEBUG -DALLOC_DEBUG -DNODE_INIT_TRACING -DNODE_GC_TRACING -DGC_TRACING -Wall -Wextra -Werror -g --std=c99 -O0 -Wno-unused-function
-#CFLAGS=-Wall -Wextra -Werror -g --std=c99 -DCLEAR_ON_FREE -Wno-unused-function
-CFLAGS=-Wall -Wextra -Werror -g --std=c99 -DEVAL_TRACING -DNODE_INCREMENTAL_FULL_GC -Wno-unused-function
-#CFLAGS=-Wall -Wextra -Werror -g --std=c99 -DEVAL_TRACING -Wno-unused-function
-#CFLAGS=-Wall -Wextra -Werror -DNDEBUG -Os --std=c99 -Wno-unused-function
+COMMON_CFLAGS=-Wall -Wextra -Werror --std=c99 -Wno-unused-function
 
+OPTIMIZE_CFLAGS=-g
+#OPTIMIZE_CFLAGS=-Os -DNDEBUG
+
+DEFINES_CFLAGS=
+#DEFINES_CFLAGS+=-DALLOC_DEBUG
+#DEFINES_CFLAGS+=-DCLEAR_ON_FREE
+DEFINES_CFLAGS+=-DEVAL_TRACING
+DEFINES_CFLAGS+=-DGC_REACHABILITY_VERIFICATION
+#DEFINES_CFLAGS+=-DGC_REFCOUNT_DEBUG
+#DEFINES_CFLAGS+=-DGC_TRACING
+#DEFINES_CFLAGS+=-DGC_VERBOSE
+#DEFINES_CFLAGS+=-DNODE_GC_TRACING
+#DEFINES_CFLAGS+=-DNODE_INCREMENTAL_FULL_GC
+#DEFINES_CFLAGS+=-DNODE_INIT_TRACING
+#DEFINES_CFLAGS+=-DNODE_NO_INCREMENTAL_GC
+
+
+CFLAGS=${COMMON_CFLAGS} ${OPTIMIZE_CFLAGS} ${DEFINES_CFLAGS}
+
+LDFLAGS=
 
 default: tokenize_test parse_test eval_test
 
@@ -16,13 +27,13 @@ clean:
 	rm *.o *.s
 
 tokenize_test: tokenize_test.o token.o
-	gcc -o tokenize_test tokenize_test.o token.o
+	gcc ${LDFLAGS} -o tokenize_test tokenize_test.o token.o
 
 parse_test: parse_test.o parse.o token.o node.o memory.o dlist.o
-	gcc -o parse_test parse_test.o parse.o token.o node.o memory.o dlist.o
+	gcc ${LDFLAGS} -o parse_test parse_test.o parse.o token.o node.o memory.o dlist.o
 
 eval_test: eval_test.o builtins.o eval.o parse.o token.o node.o environ.o environ_utils.o eval_err.o memory.o dlist.o
-	gcc -o eval_test eval_test.o builtins.o eval.o parse.o token.o node.o environ.o environ_utils.o eval_err.o memory.o dlist.o
+	gcc ${LDFLAGS} -o eval_test eval_test.o builtins.o eval.o parse.o token.o node.o environ.o environ_utils.o eval_err.o memory.o dlist.o
 
 %.o: %.c
 	gcc -S ${CFLAGS} -c $<
