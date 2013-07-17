@@ -97,8 +97,6 @@ foreign_assoc_t startenv[] = {
 	{ "b_shl",    make_foreign_bit_shl },
 	{ "b_shr",    make_foreign_bit_shr },
 	{ "b_shra",   make_foreign_bit_shra },
-
-
 };
 
 int main(int argc, char *argv[])
