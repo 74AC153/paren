@@ -37,12 +37,13 @@ def! W (quote 5))' '(set! W (quote 6))' 'W'
 '(cons 1 ((lambda () 2 3)))'
 '(cons 1 ((lambda (x) 2 3) 4))'
 
-'(def! reverse ())' '(set! reverse (lambda (fwd rev) (if (eq? fwd ()) rev (reverse (cdr fwd) (cons (car fwd) rev)))))' '(reverse (quote (1)) ())'
-'(def! reverse ())' '(set! reverse (lambda (fwd rev) (if (eq? fwd ()) rev (reverse (cdr fwd) (cons (car fwd) rev)))))' '(reverse (quote (1 2 3)) ())'
+'(def! reverse ())' '(set! reverse (lambda (fwd rev) (if (nil? fwd) rev (reverse (cdr fwd) (cons (car fwd) rev)))))' '(reverse (quote (1)) ())'
+'(def! reverse ())' '(set! reverse (lambda (fwd rev) (if (nil? fwd) rev (reverse (cdr fwd) (cons (car fwd) rev)))))' '(reverse (quote (1 2 3)) ())'
 
 '(cons 1 (call/cc (lambda (cc) 2)))'
 '(def! foo ())' '(call/cc (lambda (cc) (set! foo cc) 2))' '(foo 3)'
 '(def! foo ())' '(cons 1 (call/cc (lambda (cc) (set! foo cc) 2)))' '(foo 3)'
 '(def! foo ())' '(cons 1 (call/cc (lambda (cc) (set! foo cc) (if () 1 2))))' '(foo 3)'
+'(def! foo ())' '(cons 1 (call/cc (lambda (cc) (set! foo cc) (if () 1 2))))' '(cons 5 (foo 3))'
 
 
