@@ -1,4 +1,4 @@
-COMMON_CFLAGS=-Wall -Wextra -Werror --std=c99 -Wno-unused-function
+COMMON_CFLAGS=-Wall -Wextra -Werror --std=c99 -Wno-unused-function -Wno-unused-variable -Wno-unused-parameter
 
 OPTIMIZE_CFLAGS=-g
 #OPTIMIZE_CFLAGS=-Os -DNDEBUG

@@ -406,6 +406,7 @@ restart:
 		}
 	case NODE_FOREIGN:
 		status = node_foreign_func(locals.func)(locals.newargs,
+		                                        locals.env_handle,
 		                                        &result);
 		goto node_cons_cleanup;
 

@@ -42,7 +42,7 @@ static eval_err_t nil_matchfn(node_t **n, node_t **result, void *p)
 		*result = node_value_new(1);
 	return EVAL_OK;
 }
-eval_err_t foreign_nil_p(node_t *args, node_t **result)
+eval_err_t foreign_nil_p(node_t *args, node_t *env_handle, node_t **result)
 {
 	return extract_args(1, nil_matchfn, args, result, NULL);
 }
@@ -55,7 +55,7 @@ static eval_err_t value_matchfn(node_t **n, node_t **result, void *p)
 		*result = node_value_new(1);
 	return EVAL_OK;
 }
-eval_err_t foreign_value_p(node_t *args, node_t **result)
+eval_err_t foreign_value_p(node_t *args, node_t *env_handle, node_t **result)
 {
 	return extract_args(1, value_matchfn, args, result, NULL);
 }
@@ -68,7 +68,7 @@ static eval_err_t sym_matchfn(node_t **n, node_t **result, void *p)
 		*result = node_value_new(1);
 	return EVAL_OK;
 }
-eval_err_t foreign_sym_p(node_t *args, node_t **result)
+eval_err_t foreign_sym_p(node_t *args, node_t *env_handle, node_t **result)
 {
 	return extract_args(1, sym_matchfn, args, result, NULL);
 }
@@ -81,7 +81,7 @@ static eval_err_t cons_matchfn(node_t **n, node_t **result, void *p)
 		*result = node_value_new(1);
 	return EVAL_OK;
 }
-eval_err_t foreign_cons_p(node_t *args, node_t **result)
+eval_err_t foreign_cons_p(node_t *args, node_t *env_handle, node_t **result)
 {
 	return extract_args(1, cons_matchfn, args, result, NULL);
 }
@@ -98,7 +98,7 @@ static eval_err_t func_matchfn(node_t **n, node_t **result, void *p)
 		*result = node_value_new(1);
 	return EVAL_OK;
 }
-eval_err_t foreign_func_p(node_t *args, node_t **result)
+eval_err_t foreign_func_p(node_t *args, node_t *env_handle, node_t **result)
 {
 	return extract_args(1, func_matchfn, args, result, NULL);
 }
@@ -114,7 +114,7 @@ static eval_err_t do_car(node_t **args, node_t **result, void *p)
 	return EVAL_OK;
 }
 
-eval_err_t foreign_car(node_t *args, node_t **result)
+eval_err_t foreign_car(node_t *args, node_t *env_handle, node_t **result)
 {
 	return extract_args(1, do_car, args, result, NULL);
 }
@@ -130,7 +130,7 @@ static eval_err_t do_cdr(node_t **args, node_t **result, void *p)
 	return EVAL_OK;
 }
 
-eval_err_t foreign_cdr(node_t *args, node_t **result)
+eval_err_t foreign_cdr(node_t *args, node_t *env_handle, node_t **result)
 {
 	return extract_args(1, do_cdr, args, result, NULL);
 }
@@ -170,7 +170,7 @@ static eval_err_t do_makesym(node_t **args, node_t **result, void *p)
 
 	return EVAL_OK;
 }
-eval_err_t foreign_makesym(node_t *args, node_t **result)
+eval_err_t foreign_makesym(node_t *args, node_t *env_handle, node_t **result)
 {
 	return extract_args(1, do_makesym, args, result, NULL);
 }
@@ -198,7 +198,7 @@ static eval_err_t do_splitsym(node_t **args, node_t **result, void *p)
 
 	return EVAL_OK;
 }
-eval_err_t foreign_splitsym(node_t *args, node_t **result)
+eval_err_t foreign_splitsym(node_t *args, node_t *env_handle, node_t **result)
 {
 	return extract_args(1, do_splitsym, args, result, NULL);
 }
@@ -209,7 +209,7 @@ static eval_err_t do_cons(node_t **args, node_t **result, void *p)
 	*result = node_cons_new(args[0], args[1]);
 	return EVAL_OK;
 }
-eval_err_t foreign_cons(node_t *args, node_t **result)
+eval_err_t foreign_cons(node_t *args, node_t *env_handle, node_t **result)
 {
 	return extract_args(2, do_cons, args, result, NULL);
 }
@@ -232,7 +232,7 @@ static eval_err_t do_symeq_p(node_t **args, node_t **result, void *p)
 	}
 	return EVAL_OK;
 }
-eval_err_t foreign_symeq_p(node_t *args, node_t **result)
+eval_err_t foreign_symeq_p(node_t *args, node_t *env_handle, node_t **result)
 {
 	return extract_args(2, do_symeq_p, args, result, NULL);
 }
@@ -261,7 +261,7 @@ static void mathop_eq_p(value_t a, value_t b, node_t **result)
 	*result = NULL;
 	if(a == b) *result = node_value_new(1);
 }
-eval_err_t foreign_eq_p(node_t *args, node_t **result)
+eval_err_t foreign_eq_p(node_t *args, node_t *env_handle, node_t **result)
 {
 	return extract_args(2, do_mathop, args, result, mathop_eq_p);
 }
@@ -271,7 +271,7 @@ static void mathop_lt_p(value_t a, value_t b, node_t **result)
 	*result = NULL;
 	if(a < b) *result = node_value_new(1);
 }
-eval_err_t foreign_lt_p(node_t *args, node_t **result)
+eval_err_t foreign_lt_p(node_t *args, node_t *env_handle, node_t **result)
 {
 	return extract_args(2, do_mathop, args, result, mathop_lt_p);
 }
@@ -281,7 +281,7 @@ static void mathop_gt_p(value_t a, value_t b, node_t **result)
 	*result = NULL;
 	if(a > b) *result = node_value_new(1);
 }
-eval_err_t foreign_gt_p(node_t *args, node_t **result)
+eval_err_t foreign_gt_p(node_t *args, node_t *env_handle, node_t **result)
 {
 	return extract_args(2, do_mathop, args, result, mathop_gt_p);
 }
@@ -291,7 +291,7 @@ static void mathop_ult_p(value_t a, value_t b, node_t **result)
 	*result = NULL;
 	if((u_value_t) a < (u_value_t) b) *result = node_value_new(1);
 }
-eval_err_t foreign_ult_p(node_t *args, node_t **result)
+eval_err_t foreign_ult_p(node_t *args, node_t *env_handle, node_t **result)
 {
 	return extract_args(2, do_mathop, args, result, mathop_ult_p);
 }
@@ -301,7 +301,7 @@ static void mathop_ugt_p(value_t a, value_t b, node_t **result)
 	*result = NULL;
 	if((u_value_t) a > (u_value_t) b) *result = node_value_new(1);
 }
-eval_err_t foreign_ugt_p(node_t *args, node_t **result)
+eval_err_t foreign_ugt_p(node_t *args, node_t *env_handle, node_t **result)
 {
 	return extract_args(2, do_mathop, args, result, mathop_ugt_p);
 }
@@ -317,7 +317,7 @@ static void mathop_addc_p(value_t a, value_t b, node_t **result)
 	#undef HIGHBIT
 	#undef ALLBITS
 }
-eval_err_t foreign_addc_p(node_t *args, node_t **result)
+eval_err_t foreign_addc_p(node_t *args, node_t *env_handle, node_t **result)
 {
 	return extract_args(2, do_mathop, args, result, mathop_addc_p);
 }
@@ -326,7 +326,7 @@ static void mathop_add(value_t a, value_t b, node_t **result)
 {
 	*result = node_value_new(a + b);
 }
-eval_err_t foreign_add(node_t *args, node_t **result)
+eval_err_t foreign_add(node_t *args, node_t *env_handle, node_t **result)
 {
 	return extract_args(2, do_mathop, args, result, mathop_add);
 }
@@ -335,7 +335,7 @@ static void mathop_sub(value_t a, value_t b, node_t **result)
 {
 	*result = node_value_new(a - b);
 }
-eval_err_t foreign_sub(node_t *args, node_t **result)
+eval_err_t foreign_sub(node_t *args, node_t *env_handle, node_t **result)
 {
 	return extract_args(2, do_mathop, args, result, mathop_sub);
 }
@@ -344,7 +344,7 @@ static void mathop_mul(value_t a, value_t b, node_t **result)
 {
 	*result = node_value_new(a * b);
 }
-eval_err_t foreign_mul(node_t *args, node_t **result)
+eval_err_t foreign_mul(node_t *args, node_t *env_handle, node_t **result)
 {
 	return extract_args(2, do_mathop, args, result, mathop_mul);
 }
@@ -353,7 +353,7 @@ static void mathop_div(value_t a, value_t b, node_t **result)
 {
 	*result =node_value_new(a / b);
 }
-eval_err_t foreign_div(node_t *args, node_t **result)
+eval_err_t foreign_div(node_t *args, node_t *env_handle, node_t **result)
 {
 	return extract_args(2, do_mathop, args, result, mathop_div);
 }
@@ -362,7 +362,7 @@ static void mathop_rem(value_t a, value_t b, node_t **result)
 {
 	*result = node_value_new(a % b);
 }
-eval_err_t foreign_rem(node_t *args, node_t **result)
+eval_err_t foreign_rem(node_t *args, node_t *env_handle, node_t **result)
 {
 	return extract_args(2, do_mathop, args, result, mathop_rem);
 }
@@ -371,7 +371,7 @@ static void mathop_bit_and(value_t a, value_t b, node_t **result)
 {
 	*result = node_value_new(a & b);
 }
-eval_err_t foreign_bit_and(node_t *args, node_t **result)
+eval_err_t foreign_bit_and(node_t *args, node_t *env_handle, node_t **result)
 {
 	return extract_args(2, do_mathop, args, result, mathop_bit_and);
 }
@@ -380,7 +380,7 @@ static void mathop_bit_or(value_t a, value_t b, node_t **result)
 {
 	*result = node_value_new(a | b);
 }
-eval_err_t foreign_bit_or(node_t *args, node_t **result)
+eval_err_t foreign_bit_or(node_t *args, node_t *env_handle, node_t **result)
 {
 	return extract_args(2, do_mathop, args, result, mathop_bit_or);
 }
@@ -389,7 +389,7 @@ static void mathop_bit_nand(value_t a, value_t b, node_t **result)
 {
 	*result = node_value_new(~(a & b));
 }
-eval_err_t foreign_bit_nand(node_t *args, node_t **result)
+eval_err_t foreign_bit_nand(node_t *args, node_t *env_handle, node_t **result)
 {
 	return extract_args(2, do_mathop, args, result, mathop_bit_nand);
 }
@@ -398,7 +398,7 @@ static void mathop_bit_xor(value_t a, value_t b, node_t **result)
 {
 	*result = node_value_new(a ^ b);
 }
-eval_err_t foreign_bit_xor(node_t *args, node_t **result)
+eval_err_t foreign_bit_xor(node_t *args, node_t *env_handle, node_t **result)
 {
 	return extract_args(2, do_mathop, args, result, mathop_bit_xor);
 }
@@ -407,7 +407,7 @@ static void mathop_bit_shl(value_t a, value_t b, node_t **result)
 {
 	*result = node_value_new(a << b);
 }
-eval_err_t foreign_bit_shl(node_t *args, node_t **result)
+eval_err_t foreign_bit_shl(node_t *args, node_t *env_handle, node_t **result)
 {
 	return extract_args(2, do_mathop, args, result, mathop_bit_shl);
 }
@@ -416,7 +416,7 @@ static void mathop_bit_shr(value_t a, value_t b, node_t **result)
 {
 	*result = node_value_new((u_value_t) a >> b);
 }
-eval_err_t foreign_bit_shr(node_t *args, node_t **result)
+eval_err_t foreign_bit_shr(node_t *args, node_t *env_handle, node_t **result)
 {
 	return extract_args(2, do_mathop, args, result, mathop_bit_shr);
 }
@@ -425,7 +425,7 @@ static void mathop_bit_shra(value_t a, value_t b, node_t **result)
 {
 	*result = node_value_new(a >> b);
 }
-eval_err_t foreign_bit_shra(node_t *args, node_t **result)
+eval_err_t foreign_bit_shra(node_t *args, node_t *env_handle, node_t **result)
 {
 	return extract_args(2, do_mathop, args, result, mathop_bit_shra);
 }

@@ -46,6 +46,7 @@ struct node;
 typedef struct node node_t;
 
 typedef eval_err_t (*foreign_t)(node_t *args,
+                                node_t *env_handle,
                                 node_t **result);
 typedef int64_t value_t;
 typedef uint64_t u_value_t;
