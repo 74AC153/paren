@@ -161,11 +161,12 @@ error:
 	return status;
 }
 
-parse_err_t parse(char *input, char **remain, node_t **result)
+parse_err_t parse(char *input, char **remain, node_t **result, parseloc_t *loc)
 {
 	parse_err_t status = PARSE_OK;
 	tok_state_t state;
 
+	(void) loc;
 	tok_state_init(&state);
 
 	/* prime tokenizer to have first token ready */

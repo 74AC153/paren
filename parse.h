@@ -1,6 +1,7 @@
 #ifndef PARSE_H
 #define PARSE_H
 
+#include <sys/types.h>
 #include "node.h"
 
 #define PARSE_ERR_DEFS \
@@ -18,7 +19,13 @@ PARSE_ERR_DEFS
 #undef X
 } parse_err_t;
 
-parse_err_t parse(char *input, char **remain, node_t **result);
+typedef struct {
+	off_t input_offset;
+	off_t input_line;
+	off_t input_linechr;
+} parseloc_t;
+
+parse_err_t parse(char *input, char **remain, node_t **result, parseloc_t *loc);
 
 char *parse_err_str(parse_err_t err);
 

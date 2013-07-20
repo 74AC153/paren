@@ -113,20 +113,12 @@ int main(int argc, char *argv[])
 	printf("*** initialize environment ***\n");
 	env_handle = node_handle_new(NULL);
 	node_lockroot(env_handle);
-	{
-		node_t *key, *value;
-		for (i = 0; i < ARR_LEN(startenv); i++) {
-			key = node_symbol_new(startenv[i].name);
-			value = startenv[i].func();
-
-			environ_add(env_handle, key, value);
-		}
-	}
+	environ_add_builtins(env_handle, startenv, ARR_LEN(startenv));
 
 	/* parse + eval argv */
 	for(i = 1; i < (unsigned) argc; i++) {
 		printf("*** parse %s ***\n", argv[i]);
-		parse_stat = parse(argv[i], &remain, &parse_result);
+		parse_stat = parse(argv[i], &remain, &parse_result, NULL);
 		if(parse_stat != PARSE_OK) {
 			printf("parse error for: %s\n", remain);
 			printf("-- %s\n", parse_err_str(parse_stat));

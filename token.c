@@ -19,8 +19,26 @@ tok_state_t *tok_state_init(void *p)
 	if(s) {
 		s->type = TOK_NONE;
 		s->in_string = false;
+		s->off = 0;
+		s->l = 1;
+		s->lc = 1;
 	}
 	return s;
+}
+
+off_t tok_state_off(tok_state_t *state)
+{
+	return state->off;
+}
+
+off_t tok_state_line(tok_state_t *state)
+{
+	return state->l;
+}
+
+off_t tok_state_linechr(tok_state_t *state)
+{
+	return state->lc;
 }
 
 static bool is_atom_char(char c)
@@ -133,9 +151,22 @@ static size_t read_tok(char *input, tok_state_t *state)
 
 void token_chomp(char **input, tok_state_t *state)
 {
-	size_t n;
+	size_t n, i, count, last;
 
 	n = read_tok(*input, state);
+	
+	/* count number of newlines encountered and determine our offset from
+	   the most recent newline */
+	for(i = count = last = 0; i < n; i++) {
+		if((*input)[i] == '\n') {
+			count++;
+			last = i;
+		}
+	}
+	state->off += n; /* data offset */
+	state->l += count; /* line num */
+	state->lc = i - last; /* character in line */
+
 	*input += n;
 }
 

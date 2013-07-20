@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <sys/types.h>
 
 #define MAX_SYM_LEN 32
 
@@ -23,6 +24,7 @@ TOK_TYPES
 struct token {
 	toktype_t type;
 	bool in_string;
+	off_t off, l, lc;
 	union {
 		char sym[MAX_SYM_LEN+1]; // include space for tailing null
 		int64_t lit;
@@ -31,6 +33,9 @@ struct token {
 typedef struct token tok_state_t;
 
 tok_state_t *tok_state_init(void *p);
+off_t tok_state_offset(tok_state_t *state);
+off_t tok_state_line(tok_state_t *state);
+off_t tok_state_linechr(tok_state_t *state);
 void token_chomp(char **input, tok_state_t *state);
 toktype_t token_type(tok_state_t *state);
 char *token_sym(tok_state_t *state);

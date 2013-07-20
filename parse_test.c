@@ -15,7 +15,7 @@ int main(int argc, char *argv[])
 
 	nodes_initialize();
 
-	status = parse(argv[1], &remain, &result);
+	status = parse(argv[1], &remain, &result, NULL);
 	if(status != PARSE_OK) {
 		printf("parse error before: %s\n", (*remain ? remain : "end of input"));
 		printf("%s\n", parse_err_str(status));
