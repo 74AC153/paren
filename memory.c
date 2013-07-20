@@ -138,7 +138,9 @@ void *memory_request(memory_state_t *s)
 		mc = (memcell_t *) dlnode_init(malloc(sizeof(memcell_t)+s->datasize));
 		memcell_unlock(mc);
 		memcell_resetref(mc);
+#if defined(GC_STATISTICS)
 		s->total_alloc++;
+#endif
 #if defined(ALLOC_DEBUG)
 		printf("gc (%llu): malloc node %p (%p)\n", s->iter_count, mc, mc->data);
 #endif
@@ -156,7 +158,6 @@ bool memory_gc_is_locked(void *data)
 		return false;
 	}
 }
-
 
 void memory_gc_lock(memory_state_t *s, void *data)
 {
@@ -189,7 +190,7 @@ void memory_gc_unlock(memory_state_t *s, void *data)
 	printf("gc: rem root %p ", mc);
 	s->p_cb(mc->data);
 #endif
-		dlnode_remove(&(mc->hdr));
+	dlnode_remove(&(mc->hdr));
 	if(memcell_refcount(mc)) {
 		dlist_insertlast(&(s->boundary_list), &(mc->hdr));
 	} else {
@@ -200,7 +201,7 @@ void memory_gc_unlock(memory_state_t *s, void *data)
 
 void memory_gc_advise_new_link(memory_state_t *s, void *data)
 {
-	/* increase refcount */
+	/* increase refcount, move to 'boundary' if 'unprocessed' */
 
 	memcell_t *mc;
 
@@ -231,7 +232,9 @@ void memory_gc_advise_new_link(memory_state_t *s, void *data)
 void memory_gc_advise_stale_link(memory_state_t *s, void *data)
 {
 	memcell_t *mc;
-	/* decrease refcount and add to free_pending if not locked */
+
+	/* decrease refcount, move to free_pending unreferenced and not locked */
+
 	if(!data) {
 		return;
 	}
@@ -240,6 +243,9 @@ void memory_gc_advise_stale_link(memory_state_t *s, void *data)
 #if defined(GC_REFCOUNT_DEBUG)
 		printf("gc: %p (%p) refcount-- 0 -> 0 (loop?)\n", mc, mc->data);
 #endif
+		/* unreferenced nodes shouldn't be live */
+		assert(dlnode_owner(&(mc->hdr)) == &(s->free_pending_list) ||
+		       dlnode_owner(&(mc->hdr)) == &(s->free_list));
 		return;
 	}
 	memcell_decref(mc);
@@ -334,12 +340,15 @@ bool memory_gc_iterate(memory_state_t *s)
 	bool status = false;
 
 	assert(!memstate_isactive(s));
-
+#if !defined(NDEBUG) /* this is useless without the assert above */
 	memstate_setactive(s);
+#endif
 
+#if defined(GC_STATISTICS)
 	s->iter_count++;
+#endif
 
-	/* process free_pending nodes */
+	/* process free_pending nodes: move them to free_list */
 	if(! dlist_is_empty(&(s->free_pending_list))) {
 		mc = (memcell_t *) dlist_first(&(s->free_pending_list));
 #if defined(GC_REACHABILITY_VERIFICATION)
@@ -363,7 +372,7 @@ bool memory_gc_iterate(memory_state_t *s)
 		goto finish;
 	}
 
-	/* process boundary nodes */
+	/* process boundary nodes: move them to reachable */
 	if(! dlist_is_empty(&(s->boundary_list))) {
 		mc = (memcell_t *) dlist_first(&(s->boundary_list));
 #if defined(GC_TRACING)
@@ -377,7 +386,8 @@ bool memory_gc_iterate(memory_state_t *s)
 		goto finish;
 	}
 
-	/* check to see if there are any root nodes to process */
+	/* check to see if there are any root nodes to process: move their links
+	   to boundary */
 	if(dlist_first(&(s->roots_list)) != &(s->root_sentinel)) {
 		mc = (memcell_t *) dlist_first(&(s->roots_list));
 #if defined(GC_TRACING)
@@ -390,7 +400,7 @@ bool memory_gc_iterate(memory_state_t *s)
 		goto finish;
 	}
 
-	/* process unprocessed -> unreachables */
+	/* remaining 'unprocessed' nodes are unreachable: 'free' them */
 	if(! dlist_is_empty(s->unproc_listref)) {
 		mc = (memcell_t *) dlist_first(s->unproc_listref);
 #if defined(GC_REACHABILITY_VERIFICATION)
@@ -413,12 +423,13 @@ bool memory_gc_iterate(memory_state_t *s)
 		goto finish;
 	}
 
-	/* reset state */
+	/* reset state -- progress root_sentinel, swap reachable/unproc lists */
 #if defined(GC_TRACING)
 	printf("gc iter ** done **: reset state\n");
 #endif
 	assert(dlist_first(&(s->roots_list)) == &(s->root_sentinel));
-	dlist_insertlast(&(s->roots_list), dlnode_remove(dlist_first(&(s->roots_list))));
+	dlist_insertlast(&(s->roots_list),
+	                 dlnode_remove(dlist_first(&(s->roots_list))));
 	if(s->reachable_listref == &(s->white_list)) {
 		s->unproc_listref = s->reachable_listref;
 		s->reachable_listref = &(s->black_list);
@@ -432,9 +443,14 @@ finish:
 #if defined(GC_VERBOSE)
 	memory_gc_print_state(s);
 #endif
+#if !defined(NDEBUG) /* useless without the non-recursive assertion above */
 	memstate_resetactive(s);
+#endif
 	return status;
 }
+
+
+/* non-essential functions */
 
 struct _reach_info_
 {
