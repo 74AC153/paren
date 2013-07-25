@@ -1,0 +1,119 @@
+Paren -- an interpreter for a lisp-like language
+
+featuures:
+- "string shorthand"
+- lexical scope
+- tail call optimization
+- continuations
+- incremental, tracing/refcounting hybrid garbage collector
+  (no mark/sweep pauses)
+
+to use:
+paren <input-files>
+
+paren built-in functions:
+
+quote -- delay evauation
+if -- conditional evaluation
+lambda -- lambda functions
+call/cc -- continuations
+def! -- define variable in environment
+set! -- update value of variable in environment
+defined? -- indicate whether the variable name is defined
+_load-lib -- load shared library with foreign functions
+
+base foreign function libary containing:
+nil? -- return 1 if argument is nil
+value? -- return 1 if argument is a value
+sym? -- return 1 if argument is a symbol
+cons? -- return 1 if argument is a cons
+func? -- return 1 if argument is a function
+car -- return head of list
+cdr -- return rest of list
+makesym -- convert a string to a symbol
+splitsym -- convert symbol to a string
+cons -- join two objects
+symeq? -- return 1 if symbols are the same name
+=? -- return 1 if two values are equal
+<? -- return 1 if first value is less than second value
+>? -- return 1 if first value is greater than second value
+<u? -- return 1 if first value is less than second value (unsigned)
+>u? -- return 1 if first value is greater than second value (unsigned)
+addc? -- return 1 if adding two values would cause overflow
++ -- add two values
+- -- subtract second from first value
+* -- multiply two values
+/ -- integer divide first by second value
+% -- remainer of division of first by second
+& -- bitwise and
+| -- bitwise or
+~& -- bitwise nand
+^ -- bitwise xor
+<< -- logical shift left
+>> -- logical shift right
+>>+ -- arithmetic shift right
+
+
+
+Architecture:
+
++----------------------------------+
+| paren interpreter                |
++---------------+------------------+
+| evaluator     | parser/tokenizer |
++---------------+------------------+
+| node                             |
++----------------------------------+
+| memory manager                   |
++--------------------+-------------+
+| circular dlist lib | malloc      |
++--------------------+-------------+
+
+Memory manager subsystem:
+
+- reachability tracing to determine unused memory
+- reference counting to more quickly identify memory that can be reused
+- fully incremental, no need to stop the world periodically to clean up
+
+There are a number of states that a memory allocation can be in:
+'free'
+    This memory is ready for re-use.
+
+'root'
+    This memory may not be linked to but is necessary because it links to other
+    memory that is still in use.
+
+'boundary'
+    This memory has been reached and all of its links must now be processed
+
+'free_pending'
+    This memory's reference count has been decremented to zero and is thus not
+    reachable. It will be changed to 'free' after the memory allocations it
+    links to have their reference counts decremented.
+
+'reachable'
+    This memory has been found to be linked to and no further processing is
+    necessary in this garbage collection cycle.
+
+'unprocessed'
+    This memory has not been found to be linked to.
+
+
+The flow of state for all memory allocations is outlined in the diagram below:
+
+                               +-----------------------+
+                               v                       ^
+(unallocated) >-> root >-> boundary >-> reachable >-> unprocessed 
+                   ^ v           v       v             v   v
+                   | |           |       |  +----------+   |
+                   | |           v       v  v              |
+                   | +---------> free_pending >----------+ |
+                   |                                     | |
+                   |                                     v v
+                   +-----------------------------------< free
+
+Immediately following allocation, all memory is marked as being a 'root'
+allocation.
+
+Root allocations can be 'locked', meaning that even if the allocation becomes
+
