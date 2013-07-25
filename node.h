@@ -16,7 +16,8 @@ X(NODE_VALUE) \
 X(NODE_FOREIGN) \
 X(NODE_HANDLE) \
 X(NODE_CONTINUATION) \
-X(NODE_SPECIAL_FUNC)
+X(NODE_SPECIAL_FUNC) \
+X(NODE_BLOB)
 
 typedef enum {
 #define X(name) name,
@@ -50,6 +51,9 @@ typedef eval_err_t (*foreign_t)(node_t *args,
                                 node_t **result);
 typedef int64_t value_t;
 typedef uint64_t u_value_t;
+
+typedef void (*blob_fin_t)(void *addr);
+
 struct node {
 	nodetype_t type;
 	union {
@@ -60,6 +64,7 @@ struct node {
 		value_t value;
 		struct { node_t *link; } handle;
 		struct { node_t *bt; } cont;
+		struct { void *addr; blob_fin_t fin; } blob;
 		special_func_t special;
 	} dat;
 };
@@ -106,6 +111,9 @@ node_t *node_cont(node_t *n);
 
 node_t *node_special_func_new(special_func_t func);
 special_func_t node_special_func(node_t *n);
+
+node_t *node_blob_new(void *addr, blob_fin_t fin);
+void *node_blob_addr(node_t *n);
 
 void node_print(node_t *n);
 void node_print_recursive(node_t *n);

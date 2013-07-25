@@ -4,10 +4,13 @@
 #include <stdint.h>
 #include "dlist.h"
 
+typedef void (*data_fin_t)(void *data);
+
 typedef struct
 {
 	dlnode_t hdr;
 	uintptr_t refcount;
+	data_fin_t fin;
 	unsigned int mc_flags;
 	int data[0];
 } memcell_t;
@@ -51,6 +54,8 @@ void memory_state_init(
 
 /* request memory from the GC */
 void *memory_request(memory_state_t *s);
+/* attach finalizer callback to memory cell */
+void memory_set_finalizer(void *data, data_fin_t fin);
 
 bool memory_gc_is_locked(void *data);
 /* this memory should never be freed (not NULL) */

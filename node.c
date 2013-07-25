@@ -392,6 +392,36 @@ special_func_t node_special_func(node_t *n)
 	return n->dat.special;
 }
 
+static void blob_fin_wrap(void *data)
+{
+	node_t *n = (node_t *) data;
+	assert(node_type(n) == NODE_BLOB);
+	if(n->dat.blob.fin) {
+		n->dat.blob.fin(n->dat.blob.addr);
+	}
+}
+
+node_t *node_blob_new(void *addr, blob_fin_t fin)
+{
+	node_t *ret = node_new();
+	assert(ret);
+	memory_set_finalizer(ret, blob_fin_wrap);
+	ret->type = NODE_BLOB;
+	ret->dat.blob.addr = addr; 
+	ret->dat.blob.fin = fin;
+#if defined(NODE_INIT_TRACING)
+	printf("node init blob %p (addr=%p fin=%p)\n", addr, fin);
+#endif
+	NODE_GC_ITERATE();
+	return ret;
+}
+
+void *node_blob_addr(node_t *n)
+{
+	assert(node_type(n) == NODE_BLOB);
+	return n->dat.blob.addr;
+}
+
 void node_print(node_t *n)
 {
 	if(!n) {
@@ -431,6 +461,9 @@ void node_print(node_t *n)
 			break;
 		case NODE_SPECIAL_FUNC:
 			printf("special %d", n->dat.special);
+			break;
+		case NODE_BLOB:
+			printf("blob addr=%p fin=%p", n->dat.blob.addr, n->dat.blob.fin);
 			break;
 		}
 	}
@@ -555,6 +588,8 @@ void node_print_pretty(node_t *n, bool isverbose)
 				printf("defined? ");
 				break;
 			}
+		case NODE_BLOB:
+			printf("blob:%p ", n->dat.blob.addr);
 		}
 }
 

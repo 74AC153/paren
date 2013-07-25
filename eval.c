@@ -197,6 +197,7 @@ restart:
 	case NODE_FOREIGN:
 	case NODE_CONTINUATION:
 	case NODE_SPECIAL_FUNC:
+	case NODE_BLOB:
 		result = locals.in;
 		goto finish;
 

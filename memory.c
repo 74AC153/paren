@@ -150,6 +150,23 @@ void *memory_request(memory_state_t *s)
 	return mc->data;
 }
 
+static void memcell_deinit(memory_state_t *s, memcell_t *mc)
+{
+#if defined(CLEAR_ON_FREE)
+	memset(mc->data, 0, s->datasize);
+#endif
+	if(mc->fin) {
+		mc->fin(mc->data);
+	}
+}
+
+void memory_set_finalizer(void *data, data_fin_t fin)
+{
+	memcell_t *mc = data_to_memcell(data);
+	
+	mc->fin = fin;
+}
+
 bool memory_gc_is_locked(void *data)
 {
 	if(data) {
@@ -365,9 +382,7 @@ bool memory_gc_iterate(memory_state_t *s)
 		/* TODO: what about loops here? should they still be unlinked? */
 		assert(!memcell_refcount(mc)); // free_pending nodees must be unlinked
 		s->dl_cb(dl_cb_decref_free_pending_z, &(mc->data), s);
-#if defined(CLEAR_ON_FREE)
-		memset(mc->data, 0, s->datasize);
-#endif
+		memcell_deinit(s, mc);
 		dlist_insertlast(&(s->free_list), dlnode_remove(&(mc->hdr)));
 		goto finish;
 	}
@@ -416,9 +431,7 @@ bool memory_gc_iterate(memory_state_t *s)
 		assert(! memcell_locked(mc)); // locked nodes should stay in root list
 		// NB: unreachable can be referenced if e.g. lambda points back to it.
 		s->dl_cb(dl_cb_decref_free_pending_z, &(mc->data), s);
-#if defined(CLEAR_ON_FREE)
-		memset(mc->data, 0, s->datasize);
-#endif
+		memcell_deinit(s, mc);
 		dlist_insertlast(&(s->free_list), dlnode_remove(&(mc->hdr)));
 		goto finish;
 	}
