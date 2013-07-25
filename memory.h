@@ -29,7 +29,9 @@ typedef struct
 {
 	size_t datasize;
 	uintptr_t total_alloc;
+	uintptr_t total_free;
 	unsigned long long iter_count;
+	unsigned long long cycle_count;
 	dlist_t free_list;
 	dlnode_t root_sentinel;
 	dlist_t roots_list;
@@ -79,5 +81,10 @@ bool memory_gc_iterate(memory_state_t *s);
 bool memcell_reachable(memory_state_t *s, memcell_t *dst);
 
 void memory_gc_print_state(memory_state_t *s);
+
+unsigned long long memory_gc_count_iters(memory_state_t *s);
+unsigned long long memory_gc_count_cycles(memory_state_t *s);
+uintptr_t memory_gc_count_total(memory_state_t *s);
+uintptr_t memory_gc_count_free(memory_state_t *s);
 
 #endif

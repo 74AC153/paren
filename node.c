@@ -602,3 +602,23 @@ void node_gc_print_state(void)
 {
 	memory_gc_print_state(&g_memstate);
 }
+
+void node_gc_statistics(
+	uintptr_t *total_alloc,
+	uintptr_t *total_free,
+	unsigned long long *iter_count,
+	unsigned long long *cycle_count)
+{
+	if(total_alloc) {
+		*total_alloc = memory_gc_count_total(&g_memstate);
+	}
+	if(total_free) {
+		*total_free = memory_gc_count_free(&g_memstate);
+	}
+	if(iter_count) {
+		*iter_count = memory_gc_count_iters(&g_memstate);
+	}
+	if(cycle_count) {
+		*iter_count = memory_gc_count_cycles(&g_memstate);
+	}
+}

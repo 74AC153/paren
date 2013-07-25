@@ -103,7 +103,9 @@ void memory_state_init(
 	s->dl_cb = dl_cb;
 	s->p_cb = p_cb;
 	s->total_alloc = 0;
+	s->total_free = 0;
 	s->iter_count = 0;
+	s->cycle_count = 0;
 	s->ms_flags = 0;
 }
 
@@ -131,6 +133,10 @@ void *memory_request(memory_state_t *s)
 		mc = (memcell_t *) dlnode_remove(dlist_first(&(s->free_list)));
 		assert(! memcell_locked(mc));
 		//assert(! memcell_refcount(mc));
+#if ! defined(NO_GC_STATISTICS)
+		assert(s->total_free);
+		s->total_free--;
+#endif
 #if defined(ALLOC_DEBUG)
 		printf("gc (%llu): reuse node %p (%p)\n", s->iter_count, mc, mc->data);
 #endif
@@ -138,7 +144,7 @@ void *memory_request(memory_state_t *s)
 		mc = (memcell_t *) dlnode_init(malloc(sizeof(memcell_t)+s->datasize));
 		memcell_unlock(mc);
 		memcell_resetref(mc);
-#if defined(GC_STATISTICS)
+#if ! defined(NO_GC_STATISTICS)
 		s->total_alloc++;
 #endif
 #if defined(ALLOC_DEBUG)
@@ -152,7 +158,7 @@ void *memory_request(memory_state_t *s)
 
 static void memcell_deinit(memory_state_t *s, memcell_t *mc)
 {
-#if defined(CLEAR_ON_FREE)
+#if ! defined(NO_CLEAR_ON_FREE)
 	memset(mc->data, 0, s->datasize);
 #endif
 	if(mc->fin) {
@@ -361,7 +367,7 @@ bool memory_gc_iterate(memory_state_t *s)
 	memstate_setactive(s);
 #endif
 
-#if defined(GC_STATISTICS)
+#if ! defined(NO_GC_STATISTICS)
 	s->iter_count++;
 #endif
 
@@ -384,6 +390,9 @@ bool memory_gc_iterate(memory_state_t *s)
 		s->dl_cb(dl_cb_decref_free_pending_z, &(mc->data), s);
 		memcell_deinit(s, mc);
 		dlist_insertlast(&(s->free_list), dlnode_remove(&(mc->hdr)));
+#if ! defined(NO_GC_STATISTICS)
+		s->total_free++;
+#endif
 		goto finish;
 	}
 
@@ -433,6 +442,9 @@ bool memory_gc_iterate(memory_state_t *s)
 		s->dl_cb(dl_cb_decref_free_pending_z, &(mc->data), s);
 		memcell_deinit(s, mc);
 		dlist_insertlast(&(s->free_list), dlnode_remove(&(mc->hdr)));
+#if ! defined(NO_GC_STATISTICS)
+		s->total_free++;
+#endif
 		goto finish;
 	}
 
@@ -451,6 +463,9 @@ bool memory_gc_iterate(memory_state_t *s)
 		s->reachable_listref = &(s->white_list);
 	}
 	status = true;
+#if ! defined(NO_GC_STATISTICS)
+	s->cycle_count++;
+#endif
 
 finish:
 #if defined(GC_VERBOSE)
@@ -596,4 +611,24 @@ void memory_gc_print_state(memory_state_t *s)
 		memcell_print_meta(s, mc);
 		s->p_cb(mc->data);
 	}
+}
+
+unsigned long long memory_gc_count_iters(memory_state_t *s)
+{
+	return s->cycle_count;
+}
+
+unsigned long long memory_gc_count_cycles(memory_state_t *s)
+{
+	return s->iter_count;
+}
+
+uintptr_t memory_gc_count_total(memory_state_t *s)
+{
+	return s->total_alloc;
+}
+
+uintptr_t memory_gc_count_free(memory_state_t *s)
+{
+	return s->total_free;
 }

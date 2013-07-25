@@ -122,5 +122,10 @@ void node_print_pretty(node_t *n, bool verbose);
 /* run garbage collector one full cycle */
 void node_gc(void);
 void node_gc_print_state(void);
+void node_gc_statistics(
+	uintptr_t *total_alloc,
+	uintptr_t *total_free,
+	unsigned long long *iter_count,
+	unsigned long long *cycle_count);
 
 #endif
