@@ -72,6 +72,12 @@ int main(int argc, char *argv[])
 	for(i = 1; i < (unsigned) argc; i++) {
 		node_droproot(parse_result);
 		node_droproot(eval_result);
+		if(filebuf != NULL && filebuf != MAP_FAILED) {
+			munmap(filebuf, file_len);
+		}
+		if(infd >= 0) {
+			close(infd);
+		}
 		infd = -1;
 		filebuf = NULL;
 
@@ -130,17 +136,26 @@ int main(int argc, char *argv[])
 			printf("\n");
 
 		}
+	}
 
 
 cleanup:
-		node_droproot(parse_result);
-		node_droproot(eval_result);
-		node_droproot(env_handle);
-		if(filebuf != NULL && filebuf != MAP_FAILED) {
-			munmap(filebuf, file_len);
-		}
-		if(infd >= 0) {
-			close(infd);
+	node_droproot(parse_result);
+	node_droproot(eval_result);
+	node_droproot(env_handle);
+	if(filebuf != NULL && filebuf != MAP_FAILED) {
+		munmap(filebuf, file_len);
+	}
+	if(infd >= 0) {
+		close(infd);
+	}
+	if(getenv("PAREN_LEAK_CHECK")) {
+		uintptr_t total_alloc, free_alloc;
+		node_gc();
+		node_gc();
+		node_gc_statistics(&total_alloc, &free_alloc, NULL, NULL);
+		if(total_alloc != free_alloc) {
+			printf("warning: allocations remain at exit!\n");
 		}
 	}
 	return status;
