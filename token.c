@@ -90,14 +90,27 @@ static size_t read_tok(char *input, tok_state_t *state)
 	char *start, *end, *test_end;
 	size_t len;
 	int64_t lit;
+	bool in_comment = false;
 
 	/* string-mode shortcut */
 	if(state->in_string) {
 		return string_mode(input, state);
 	}
 
-	/* skip leading whitespace */
-	for(start = input; isspace(start[0]); start++);
+	/* skip leading whitespace and comments */
+	start = input;
+	while(true) {
+		if(*start == '#') {
+			in_comment = true;
+		} else if(*start == '\n') {
+			in_comment = false;
+		}
+		if(isspace(*start) || in_comment) {
+			start++;
+		} else {
+			break;
+		}
+	}
 
 	switch(start[0]) {
 	case 0: /* end of input */
