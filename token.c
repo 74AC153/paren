@@ -22,6 +22,7 @@ tok_state_t *tok_state_init(void *p)
 		s->off = 0;
 		s->l = 1;
 		s->lc = 1;
+		s->last_chomp = 0;
 	}
 	return s;
 }
@@ -181,6 +182,12 @@ void token_chomp(char **input, tok_state_t *state)
 	state->lc = i - last; /* character in line */
 
 	*input += n;
+	state->last_chomp = n;
+}
+
+size_t token_lastchomp(tok_state_t *state)
+{
+	return state->last_chomp;
 }
 
 toktype_t token_type(tok_state_t *state)

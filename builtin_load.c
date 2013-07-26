@@ -6,33 +6,7 @@
 #include "node.h"
 #include "environ.h"
 #include "load_wrapper.h"
-
-typedef eval_err_t (*callback_t)(node_t **args, node_t **result, void *p);
-
-static eval_err_t extract_args(
-	unsigned int n,
-	callback_t cb,
-	node_t *args,
-	node_t **result,
-	void *p)
-{
-	unsigned int i;
-	node_t *cursor = args;
-	node_t **arglist = alloca(n * sizeof(node_t *));
-	for(i = 0; i < n; i++) {
-		if(node_type(cursor) != NODE_CONS) {
-			*result = args;
-			return eval_err(EVAL_ERR_EXPECTED_CONS);
-		}
-		arglist[i] = node_cons_car(cursor);
-		cursor = node_cons_cdr(cursor);
-	}
-	if(cursor) {
-		*result = args;
-		return eval_err(EVAL_ERR_TOO_MANY_ARGS);
-	}
-	return cb(arglist, result, p);
-}
+#include "foreign_common.h"
 
 static eval_err_t loadfn(node_t **n, node_t **result, void *p)
 {
@@ -84,6 +58,10 @@ static eval_err_t loadfn(node_t **n, node_t **result, void *p)
 	
 	/* update environment */
 	assert(node_type(env_handle) == NODE_HANDLE);
+	if(! ld_funs) {
+		status = EVAL_ERR_FOREIGN_FAILURE;
+		goto cleanup;
+	}
 	for(ld_funs_cursor = ld_funs; ld_funs_cursor->name; ld_funs_cursor++) {
 		node_t *name, *val;
 		name = node_symbol_new(ld_funs_cursor->name);

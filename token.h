@@ -25,6 +25,7 @@ struct token {
 	toktype_t type;
 	bool in_string;
 	off_t off, l, lc;
+	size_t last_chomp;
 	union {
 		char sym[MAX_SYM_LEN+1]; // include space for tailing null
 		int64_t lit;
@@ -37,6 +38,7 @@ off_t tok_state_offset(tok_state_t *state);
 off_t tok_state_line(tok_state_t *state);
 off_t tok_state_linechr(tok_state_t *state);
 void token_chomp(char **input, tok_state_t *state);
+size_t token_lastchomp(tok_state_t *state);
 toktype_t token_type(tok_state_t *state);
 char *token_sym(tok_state_t *state);
 int64_t token_lit(tok_state_t *state);

@@ -95,7 +95,7 @@ parse_err_t parse_sexpr(char **input, tok_state_t *state, node_t **result)
 
 	switch(token_type(state)) {
 	case TOK_NONE:
-		return PARSE_TOKEN_UNDERFLOW;
+		return PARSE_OK;
 
 	case TOK_SYM:
 	case TOK_LIT:
@@ -172,12 +172,15 @@ parse_err_t parse(char *input, char **remain, node_t **result, parseloc_t *loc)
 	/* prime tokenizer to have first token ready */
 	token_chomp(&input, &state);
 
+	*result = NULL;
 	status = parse_sexpr(&input, &state, result);
 	if(status != PARSE_OK) {
 		node_droproot(*result);
 	}
 
-	*remain = input;
+	/* the tokenizer will consume one token past what we've actually parsed,
+	   so put the string for that token back to where it should be */ 
+	*remain = input - token_lastchomp(&state);
 
 	return status;
 }

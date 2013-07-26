@@ -25,7 +25,7 @@ LDFLAGS=
 SO_LDFLAGS=-fPIC -dynamiclib -Wl,-undefined,dynamic_lookup
 
 EXECUTABLES=tokenize_test parse_test eval_test paren
-OUTLIBS=builtins_shared.so
+OUTLIBS=base.so sio.so
 
 default: ${EXECUTABLES} ${OUTLIBS}
 
@@ -38,13 +38,16 @@ tokenize_test: tokenize_test.o token.o
 parse_test: parse_test.o parse.o token.o node.o memory.o dlist.o
 	gcc ${LDFLAGS} -o $@ $^
 
-eval_test: eval_test.o builtins.o eval.o parse.o token.o node.o environ.o environ_utils.o eval_err.o memory.o dlist.o
+eval_test: eval_test.o builtins.o eval.o parse.o token.o node.o environ.o environ_utils.o eval_err.o memory.o dlist.o foreign_common.o
 	gcc ${LDFLAGS} -o $@ $^
 
-builtins_shared.so: builtins_shared.o builtins.o
+base.so: builtins_shared.o builtins.o
 	gcc ${SO_LDFLAGS} -o $@ $^
 
-paren: paren.o eval.o parse.o token.o node.o environ.o environ_utils.o eval_err.o memory.o dlist.o load_wrapper.o builtin_load.o
+sio.so: sio.o
+	gcc ${SO_LDFLAGS} -o $@ $^
+
+paren: paren.o eval.o parse.o token.o node.o environ.o environ_utils.o eval_err.o memory.o dlist.o load_wrapper.o builtin_load.o foreign_common.o
 	gcc ${LDFLAGS} -o $@ $^
 
 %.o: %.c

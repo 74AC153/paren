@@ -1,6 +1,6 @@
-#include "builtins.h"
+#include <stddef.h>
 
-struct { char *name, *nmemonic; } data_names[] = {
+struct { char *name, *nmemonic; } base_data_names[] = {
 	{ "foreign_nil_p",    "nil?" },
 	{ "foreign_value_p",  "value?" },
 	{ "foreign_sym_p",    "sym?" },
@@ -32,5 +32,5 @@ struct { char *name, *nmemonic; } data_names[] = {
 	{ "foreign_bit_shra", ">>+" },
 };
 
-size_t data_count = sizeof(data_names) / sizeof(data_names[0]);
+size_t base_data_count = sizeof(base_data_names) / sizeof(base_data_names[0]);
 

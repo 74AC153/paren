@@ -15,7 +15,8 @@ X(EVAL_ERR_EXPECTED_SYMBOL, "expected symbol") \
 X(EVAL_ERR_EXPECTED_VALUE, "expected value") \
 X(EVAL_ERR_EXPECTED_CONS_SYM, "expected cons or symbol") \
 X(EVAL_ERR_VALUE_BOUNDS, "given value out of bounds") \
-X(EVAL_ERR_OUT_OF_MEM, "out of memory")
+X(EVAL_ERR_OUT_OF_MEM, "out of memory") \
+X(EVAL_ERR_FOREIGN_FAILURE, "foreign function call failure")
 
 
 typedef enum {
