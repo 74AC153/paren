@@ -11,6 +11,7 @@
 #include "parse.h"
 #include "eval.h"
 #include "environ_utils.h"
+#include "enviroN.H"
 #include "builtin_load.h"
 
 #define DEFINE_SPECIAL_MAKER(FUNC) \
@@ -142,11 +143,15 @@ int main(int argc, char *argv[])
 			status = -1;
 			goto cleanup;
 		}
+		node_droproot(parse_result);
+		node_droproot(eval_result);
 	}
-	node_print_pretty(eval_result, false);
-	printf("\n");
 
 cleanup:
+	if(getenv("PAREN_FINALENV")) {
+		environ_print(node_handle(env_handle));
+	}
+
 	node_droproot(parse_result);
 	node_droproot(eval_result);
 	node_droproot(env_handle);
@@ -156,14 +161,31 @@ cleanup:
 	if(infd >= 0) {
 		close(infd);
 	}
+
+	if(getenv("PAREN_MEMSTAT")) {
+		uintptr_t total_alloc, total_free;
+		unsigned long long gc_cycles, gc_iters;
+		node_gc_statistics(&total_alloc, &total_free, &gc_iters, &gc_cycles);
+		printf("total alloc: %llu total free: %llu iters: %llu cycles: %llu\n",
+		       (unsigned long long) total_alloc,
+		       (unsigned long long) total_free,
+		       (unsigned long long) gc_iters,
+		       (unsigned long long) gc_cycles);
+	}
+
 	if(getenv("PAREN_LEAK_CHECK")) {
 		uintptr_t total_alloc, free_alloc;
 		node_gc();
 		node_gc();
 		node_gc_statistics(&total_alloc, &free_alloc, NULL, NULL);
 		if(total_alloc != free_alloc) {
-			printf("warning: allocations remain at exit!\n");
+			printf("warning: %llu allocations remain at exit!\n",
+			       (unsigned long long) (total_alloc - free_alloc));
 		}
+	}
+
+	if(getenv("PAREN_DUMPMEM")) {
+		node_gc_print_state();
 	}
 	return status;
 }
