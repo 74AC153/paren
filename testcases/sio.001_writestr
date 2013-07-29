@@ -1,0 +1,12 @@
+(_load-lib (quote "sio.so"))
+(_load-lib (quote "base.so"))
+
+(def! writestr ())
+(set! writestr (lambda (str) (if (nil? str)
+                                 ()
+                                 ((lambda () (sio:putchar (car str)) (writestr (cdr str))))
+                             )
+               )
+)
+
+(writestr (quote "hello world\n"))
