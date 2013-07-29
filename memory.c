@@ -1,6 +1,7 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <assert.h>
+#include <string.h>
 
 #if defined(CLEAR_ON_FREE)
 #include "string.h"
@@ -18,7 +19,9 @@ void memstate_print(memory_state_t *state)
 	printf("memstate @ %p:\n", state);
 	printf("datasize=%llu\n", (unsigned long long) state->datasize);
 	printf("total_alloc=%llu\n", (unsigned long long) state->total_alloc);
+	printf("total_free=%llu\n", (unsigned long long) state->total_free);
 	printf("iter count=%llu\n", state->iter_count);
+	printf("cycle count=%llu\n", state->cycle_count);
 	printf("free list @ %p\n", &(state->free_list));
 	printf("root sentinel @ %p\n", &(state->root_sentinel));
 	printf("roots_list @ %p\n", &(state->roots_list));
@@ -80,6 +83,38 @@ void memcell_unlock(memcell_t *mc)
 {
 	mc->mc_flags &= ~MC_FLAG_LOCKED;
 }
+
+static
+void memcell_to_roots(memory_state_t *s, memcell_t *mc)
+{
+	dlist_insertlast(&(s->roots_list), &(mc->hdr));
+}
+
+static
+void memcell_to_boundary(memory_state_t *s, memcell_t *mc)
+{
+	dlist_insertlast(&(s->boundary_list), &(mc->hdr));
+}
+
+static
+void memcell_to_free_pending(memory_state_t *s, memcell_t *mc)
+{
+	dlist_insertlast(&(s->free_pending_list), &(mc->hdr));
+}
+
+static
+void memcell_to_free(memory_state_t *s, memcell_t *mc)
+{
+	dlist_insertlast(&(s->free_list), &(mc->hdr));
+}
+
+static
+void memcell_to_reachable(memory_state_t *s, memcell_t *mc)
+{
+	dlist_insertlast(s->reachable_listref, &(mc->hdr));
+}
+
+
 
 void memory_state_init(
 	memory_state_t *s,
@@ -144,6 +179,7 @@ void *memory_request(memory_state_t *s)
 		mc = (memcell_t *) dlnode_init(malloc(sizeof(memcell_t)+s->datasize));
 		memcell_unlock(mc);
 		memcell_resetref(mc);
+		memory_set_finalizer(mc->data, NULL);
 #if ! defined(NO_GC_STATISTICS)
 		s->total_alloc++;
 #endif
@@ -152,7 +188,8 @@ void *memory_request(memory_state_t *s)
 #endif
 	}
 	s->i_cb(mc->data);
-	dlist_insertlast(&(s->roots_list), &(mc->hdr));
+	memcell_to_roots(s, mc);
+	//dlist_insertlast(&(s->roots_list), &(mc->hdr));
 	return mc->data;
 }
 
@@ -215,9 +252,11 @@ void memory_gc_unlock(memory_state_t *s, void *data)
 #endif
 	dlnode_remove(&(mc->hdr));
 	if(memcell_refcount(mc)) {
-		dlist_insertlast(&(s->boundary_list), &(mc->hdr));
+		memcell_to_boundary(s, mc);
+		//dlist_insertlast(&(s->boundary_list), &(mc->hdr));
 	} else {
-		dlist_insertlast(&(s->free_pending_list), &(mc->hdr));
+		memcell_to_free_pending(s, mc);
+		//dlist_insertlast(&(s->free_pending_list), &(mc->hdr));
 	}
 	memcell_unlock(mc);
 }
@@ -248,7 +287,8 @@ void memory_gc_advise_new_link(memory_state_t *s, void *data)
 	   - and it is being unlnked from a nonroot that is not 'processed' */
 	if(dlnode_owner(&(mc->hdr)) == s->unproc_listref) {
 		dlnode_remove(&(mc->hdr));
-		dlist_insertlast(&(s->boundary_list), &(mc->hdr));
+		memcell_to_boundary(s, mc);
+		//dlist_insertlast(&(s->boundary_list), &(mc->hdr));
 	}
 }
 
@@ -278,7 +318,8 @@ void memory_gc_advise_stale_link(memory_state_t *s, void *data)
 #endif
 	if(! memcell_refcount(mc) && ! memcell_locked(mc)) {
 		dlnode_remove(&(mc->hdr));
-		dlist_insertlast(&(s->free_pending_list), &(mc->hdr));
+		memcell_to_free_pending(s, mc);
+		//dlist_insertlast(&(s->free_pending_list), &(mc->hdr));
 	}
 }
 
@@ -331,7 +372,8 @@ static void dl_cb_try_move_boundary(void *link, void *p)
 		s->p_cb(mc->data);
 #endif
 		dlnode_remove(&(mc->hdr));
-		dlist_insertlast(&(s->boundary_list), &(mc->hdr));
+		memcell_to_boundary(s, mc);
+		//dlist_insertlast(&(s->boundary_list), &(mc->hdr));
 	} else if(dlnode_owner(&(mc->hdr)) == &(s->roots_list)) {
 #if defined(GC_TRACING)
 		printf("gc: move boundary root %p%s",
@@ -340,7 +382,8 @@ static void dl_cb_try_move_boundary(void *link, void *p)
 #endif
 		if(! memcell_locked(mc)) {
 			dlnode_remove(&(mc->hdr));
-			dlist_insertlast(&(s->boundary_list), &(mc->hdr));
+			memcell_to_boundary(s, mc);
+			//dlist_insertlast(&(s->boundary_list), &(mc->hdr));
 		}
 	} else {
 #if defined(GC_TRACING)
@@ -389,9 +432,12 @@ bool memory_gc_iterate(memory_state_t *s)
 		assert(!memcell_refcount(mc)); // free_pending nodees must be unlinked
 		s->dl_cb(dl_cb_decref_free_pending_z, &(mc->data), s);
 		memcell_deinit(s, mc);
-		dlist_insertlast(&(s->free_list), dlnode_remove(&(mc->hdr)));
+		dlnode_remove(&(mc->hdr));
+		memcell_to_free(s, mc);
+		//dlist_insertlast(&(s->free_list), dlnode_remove(&(mc->hdr)));
 #if ! defined(NO_GC_STATISTICS)
 		s->total_free++;
+		assert(s->total_free <= s->total_alloc);
 #endif
 		goto finish;
 	}
@@ -406,7 +452,9 @@ bool memory_gc_iterate(memory_state_t *s)
 		assert(!memcell_locked(mc)); // locked nodes should stay in root list
 		assert(memcell_refcount(mc)); // referenced nodes should have refcount
 		s->dl_cb(dl_cb_try_move_boundary, &(mc->data), s);
-		dlist_insertlast(s->reachable_listref, dlnode_remove(&(mc->hdr)));
+		dlnode_remove(&(mc->hdr));
+		memcell_to_reachable(s, mc);
+		//dlist_insertlast(s->reachable_listref, dlnode_remove(&(mc->hdr)));
 		goto finish;
 	}
 
@@ -420,7 +468,9 @@ bool memory_gc_iterate(memory_state_t *s)
 #endif
 		s->dl_cb(dl_cb_try_move_boundary, &(mc->data), s);
 		/* after processing, rotate to end of list */
-		dlist_insertlast(&(s->roots_list), dlnode_remove(&(mc->hdr)));
+		dlnode_remove(&(mc->hdr));
+		memcell_to_roots(s, mc);
+		//dlist_insertlast(&(s->roots_list), dlnode_remove(&(mc->hdr)));
 		goto finish;
 	}
 
@@ -441,9 +491,12 @@ bool memory_gc_iterate(memory_state_t *s)
 		// NB: unreachable can be referenced if e.g. lambda points back to it.
 		s->dl_cb(dl_cb_decref_free_pending_z, &(mc->data), s);
 		memcell_deinit(s, mc);
-		dlist_insertlast(&(s->free_list), dlnode_remove(&(mc->hdr)));
+		dlnode_remove(&(mc->hdr));
+		memcell_to_free(s, mc);
+		//dlist_insertlast(&(s->free_list), dlnode_remove(&(mc->hdr)));
 #if ! defined(NO_GC_STATISTICS)
 		s->total_free++;
+		assert(s->total_free <= s->total_alloc);
 #endif
 		goto finish;
 	}
@@ -453,8 +506,10 @@ bool memory_gc_iterate(memory_state_t *s)
 	printf("gc iter ** done **: reset state\n");
 #endif
 	assert(dlist_first(&(s->roots_list)) == &(s->root_sentinel));
-	dlist_insertlast(&(s->roots_list),
-	                 dlnode_remove(dlist_first(&(s->roots_list))));
+	mc = (memcell_t *) dlnode_remove(dlist_first(&(s->roots_list)));
+	memcell_to_roots(s, mc);
+	//dlist_insertlast(&(s->roots_list),
+	//                 dlnode_remove(dlist_first(&(s->roots_list))));
 	if(s->reachable_listref == &(s->white_list)) {
 		s->unproc_listref = s->reachable_listref;
 		s->reachable_listref = &(s->black_list);
@@ -615,12 +670,12 @@ void memory_gc_print_state(memory_state_t *s)
 
 unsigned long long memory_gc_count_iters(memory_state_t *s)
 {
-	return s->cycle_count;
+	return s->iter_count;
 }
 
 unsigned long long memory_gc_count_cycles(memory_state_t *s)
 {
-	return s->iter_count;
+	return s->cycle_count;
 }
 
 uintptr_t memory_gc_count_total(memory_state_t *s)
