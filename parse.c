@@ -178,9 +178,14 @@ parse_err_t parse(char *input, char **remain, node_t **result, parseloc_t *loc)
 		node_droproot(*result);
 	}
 
+	*remain = input;
 	/* the tokenizer will consume one token past what we've actually parsed,
-	   so put the string for that token back to where it should be */ 
-	*remain = input - token_lastchomp(&state);
+	   so put the string for that last token back to where it should be.
+	   However... if the tokenizer didn't consume any tokens, we don't need to
+	   back up */ 
+	if(token_type(&state) != TOK_NONE) {
+		*remain -= token_lastchomp(&state);
+	}
 
 	return status;
 }
