@@ -588,8 +588,10 @@ void node_print_pretty(node_t *n, bool isverbose)
 				printf("defined? ");
 				break;
 			}
+			break;
 		case NODE_BLOB:
 			printf("blob:%p ", n->dat.blob.addr);
+			break;
 		}
 }
 
@@ -619,6 +621,6 @@ void node_gc_statistics(
 		*iter_count = memory_gc_count_iters(&g_memstate);
 	}
 	if(cycle_count) {
-		*iter_count = memory_gc_count_cycles(&g_memstate);
+		*cycle_count = memory_gc_count_cycles(&g_memstate);
 	}
 }
