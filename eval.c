@@ -168,6 +168,8 @@ eval_err_t eval(node_t *in, node_t *env_handle, node_t **out)
 	/* long-lived local variables */
 	node_t *bt_hdl = node_handle_new(NULL);
 	node_t *result = NULL;
+	size_t bt_depth = 0;
+	size_t env_depth = 0;
 
 	/* temps -- must be restored after recursive calls */
 	node_t *_args = NULL;
@@ -181,7 +183,7 @@ eval_err_t eval(node_t *in, node_t *env_handle, node_t **out)
 
 restart:
 #if defined(EVAL_TRACING)
-	printf("eval enter %p: -> ", locals.in);
+	printf("%zu eval enter %p: -> ", bt_depth, locals.in);
 	node_print_pretty(locals.in, false);
 	printf("\n");
 #endif
@@ -226,6 +228,7 @@ restart:
 
 	/* 	status = eval(node_cons_car(input), environ, &func); */
 	locals.restart = &&node_cons_post_eval_func;
+	bt_depth++;
 	eval_push_state(bt_hdl, &locals,
 	                node_cons_car(locals.in),
 	                locals.env_handle);
@@ -243,6 +246,7 @@ restart:
 			/* (if args),  args -> (test pass fail) */
 			/* status = eval(test, locals.env_handle, &result); */
 			locals.restart = &&node_if_post_eval_test;
+			bt_depth++;
 			eval_push_state(bt_hdl, &locals,
 			                node_cons_car(_args), locals.env_handle);
 			goto restart;
@@ -329,22 +333,24 @@ restart:
 
 			/* status = eval_norec(val, env_handle, &newval); */
 			locals.restart = &&node_special_def_set_post_eval_func;
+			bt_depth++;
 			eval_push_state(bt_hdl, &locals,
-							node_cons_car(node_cons_cdr(_args)),
+			                node_cons_car(node_cons_cdr(_args)),
 	                		locals.env_handle);
 			goto restart;
 			node_special_def_set_post_eval_func:
 			if(status != EVAL_OK) {
-				return status;
+				goto node_cons_cleanup;
 			}
 		
 			if(node_special_func(locals.func) == SPECIAL_DEF) {
 				environ_add(locals.env_handle, locals.cursor, result);
 			} else {
-				if(!environ_keyval(node_handle(env_handle),
+				if(!environ_keyval(node_handle(locals.env_handle),
 				                   locals.cursor,
 				                   &keyval)) {
 					node_droproot(result);
+					result = locals.cursor;
 					status = eval_err(EVAL_ERR_UNRESOLVED_SYMBOL);
 					goto node_cons_cleanup;
 				}
@@ -366,6 +372,7 @@ restart:
 	    locals.cursor= node_cons_cdr(locals.cursor)) {
 
 		locals.restart = &&node_cons_post_args_eval;
+		bt_depth++;
 		eval_push_state(bt_hdl, &locals,
 		                node_cons_car(locals.cursor),
 		                locals.env_handle);
@@ -426,6 +433,10 @@ restart:
 			locals.env_handle = newhandle;
 			node_lockroot(locals.env_handle);
 			environ_pushframe(locals.env_handle);
+			env_depth++;
+#if defined(EVAL_TRACING)
+		printf("%zu eval env_depth++ -> %zu\n", bt_depth, env_depth);
+#endif
 			locals.state |= STATE_FLAG_FRAMEADDED;
 		}
 
@@ -464,6 +475,7 @@ restart:
 			} else {
 				/* status = eval(node_cons_car(cursor), env, [ignored]); */
 				locals.restart = &&node_lambda_post_exprs_eval;
+				bt_depth++;
 				eval_push_state(bt_hdl, &locals,
 				                node_cons_car(locals.cursor),
 				                locals.env_handle);
@@ -500,6 +512,10 @@ node_cons_cleanup:
 finish:
 	if(locals.state & STATE_FLAG_FRAMEADDED) {
 		environ_popframe(locals.env_handle);
+		env_depth--;
+#if defined(EVAL_TRACING)
+		printf("%zu eval env_depth-- -> %zu\n", bt_depth, env_depth);
+#endif
 		node_droproot(locals.env_handle);
 		locals.env_handle = NULL;
 	}
@@ -512,18 +528,19 @@ finish:
 			node_droproot(locals.in);
 		}
 #if defined(EVAL_TRACING)
-		printf("eval leave %p: <- ", locals.in);
+		printf("%zu eval leave %p: <- ", bt_depth, locals.in);
 		node_print_pretty(locals.in, false);
 		printf(" ... ");
 		node_print_pretty(result, false);
 		printf("\n");
 #endif
 		eval_pop_state(bt_hdl, &locals);
+		bt_depth--;
 		goto *locals.restart;
 	}
 
 #if defined(EVAL_TRACING)
-	printf("eval leave %p: <- ", locals.in);
+	printf("%zu eval leave %p: <- ", bt_depth, locals.in);
 	node_print_pretty(locals.in, false);
 	printf(" ... ");
 	node_print_pretty(result, false);
