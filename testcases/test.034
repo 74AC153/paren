@@ -1,0 +1,6 @@
+(_load-lib (quote "testutil.so"))
+(_load-lib (quote "base.so"))
+
+(testutil:nodeprintpretty (def! reverse ()))
+(testutil:nodeprintpretty (set! reverse (lambda (fwd rev) (if (nil? fwd) rev (reverse (cdr fwd) (cons (car fwd) rev))))))
+(testutil:nodeprintpretty (reverse (quote (1)) ()))

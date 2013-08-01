@@ -1,0 +1,6 @@
+(_load-lib (quote "testutil.so"))
+(_load-lib (quote "base.so"))
+
+(testutil:nodeprintpretty (def! foo ()))
+(testutil:nodeprintpretty (call/cc (lambda (cc) (set! foo cc) 2)))
+(testutil:nodeprintpretty (foo 3))

@@ -1,0 +1,6 @@
+(_load-lib (quote "testutil.so"))
+(_load-lib (quote "base.so"))
+
+(testutil:nodeprintpretty (def! W 5))
+(testutil:nodeprintpretty (set! W 6))
+(testutil:nodeprintpretty W)

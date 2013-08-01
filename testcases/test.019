@@ -1,0 +1,7 @@
+(_load-lib (quote "testutil.so"))
+(_load-lib (quote "base.so"))
+
+(testutil:nodeprintpretty (def! x 5))
+(testutil:nodeprintpretty (def! five (lambda () x)))
+(testutil:nodeprintpretty (def! x 6))
+(testutil:nodeprintpretty (five))

@@ -1,0 +1,5 @@
+(_load-lib (quote "testutil.so"))
+(_load-lib (quote "base.so"))
+
+(testutil:nodeprintpretty (def! my_car (lambda (x) (car x))))
+(testutil:nodeprintpretty (my_car (quote (1 2))))

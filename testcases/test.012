@@ -1,0 +1,4 @@
+(_load-lib (quote "testutil.so"))
+(_load-lib (quote "base.so"))
+
+(testutil:nodeprintpretty (if (if () () 1) 2 3))
