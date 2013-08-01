@@ -5,7 +5,7 @@
 '(def! W 5)'
 '(def! W 5)' '(set! W 6)' 'W'
 '(def! W (quote 5))'
-def! W (quote 5))' '(set! W (quote 6))' 'W'
+'(def! W (quote 5))' '(set! W (quote 6))' 'W'
 '(if () 1 2)'
 '(if 1 1 2)'
 '(if (quote ()) 1 2)'
@@ -45,5 +45,3 @@ def! W (quote 5))' '(set! W (quote 6))' 'W'
 '(def! foo ())' '(cons 1 (call/cc (lambda (cc) (set! foo cc) 2)))' '(foo 3)'
 '(def! foo ())' '(cons 1 (call/cc (lambda (cc) (set! foo cc) (if () 1 2))))' '(foo 3)'
 '(def! foo ())' '(cons 1 (call/cc (lambda (cc) (set! foo cc) (if () 1 2))))' '(cons 5 (foo 3))'
-
-

@@ -1,3 +1,15 @@
+add (eval ... ) builtin
+
+when returning error, must make sure we still lock/unlock returned value?
+eval error for:
+<uninitialized memory>
+-- too many arguments to function
+
+
+when building with -m32, get errors like:
+	locals->restart = (void*) node_value(node_cons_car(temp));
+	warning: cast to pointer from integer of different size
+
 mode MK_CONT into later CONS func evaluation
 
 restrict node dat field to be sizeof(void *arr[2])
