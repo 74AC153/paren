@@ -64,7 +64,7 @@ void environ_add_argv(node_t *env_handle, int argc, char *argv[])
 
 int main(int argc, char *argv[])
 {
-	node_t *parse_result = NULL, *eval_result = NULL, *env_handle = NULL;
+	node_t *parse_result = NULL, *eval_in_hdl = NULL, *eval_out_hdl = NULL, *env_handle = NULL;
 	eval_err_t eval_stat;
 	parse_err_t parse_stat;
 	char *remain;
@@ -79,6 +79,8 @@ int main(int argc, char *argv[])
 	nodes_initialize();
 
 	/* initialize environment */
+	eval_in_hdl = node_lockroot(node_handle_new(NULL));
+	eval_out_hdl = node_lockroot(node_handle_new(NULL));
 	env_handle = node_handle_new(NULL);
 	node_lockroot(env_handle);
 	{
@@ -131,20 +133,18 @@ int main(int argc, char *argv[])
 			status = -1;
 			goto cleanup;
 		}
-		if(parse_result) {
-			node_lockroot(parse_result);
-		}
-		eval_stat = eval(parse_result, env_handle, &eval_result);
+		node_handle_update(eval_in_hdl, parse_result);
+		eval_stat = eval(eval_in_hdl, env_handle, eval_out_hdl);
 		if(eval_stat) {
 			printf("eval error for: \n");
-			node_print_pretty(eval_result, false);
+			node_print_pretty(node_handle(eval_out_hdl), false);
 			printf("\n");
 			printf("-- %s\n", eval_err_str(eval_stat));
 			status = -1;
 			goto cleanup;
 		}
-		node_droproot(parse_result);
-		node_droproot(eval_result);
+		node_handle_update(eval_in_hdl, NULL);
+		node_handle_update(eval_out_hdl, NULL);
 	}
 
 cleanup:
@@ -152,8 +152,8 @@ cleanup:
 		environ_print(node_handle(env_handle));
 	}
 
-	node_droproot(parse_result);
-	node_droproot(eval_result);
+	node_droproot(eval_in_hdl);
+	node_droproot(eval_out_hdl);
 	node_droproot(env_handle);
 	if(filebuf != NULL && filebuf != MAP_FAILED) {
 		munmap(filebuf, file_len);

@@ -149,25 +149,25 @@ void eval_pop_state(node_t *bt_hdl, struct eval_frame_locals *locals)
 	node_handle_update(bt_hdl, prevframe);
 }
 
-eval_err_t eval(node_t *in, node_t *env_handle, node_t **out)
+eval_err_t eval(node_t *in_handle, node_t *env_handle, node_t *out_handle)
 {
 	eval_err_t status = EVAL_OK;
 
 	/* saved local variables */
 	struct eval_frame_locals locals = {
 		.state = 0,
-		.env_handle = env_handle,
+		.env_handle = NULL,
 		.cursor = NULL,
 		.newargs = NULL,
 		.newargs_last = NULL,
 		.restart = NULL,
-		.in = in,
+		.in = NULL,
 		.func = NULL,
 	};
 
 	/* long-lived local variables */
-	node_t *bt_hdl = node_handle_new(NULL);
-	node_t *result = NULL;
+	node_t *bt_hdl = NULL;
+	node_t *result_handle = NULL;
 	size_t bt_depth = 0;
 	size_t env_depth = 0;
 
@@ -176,10 +176,15 @@ eval_err_t eval(node_t *in, node_t *env_handle, node_t **out)
 	node_t *keyval = NULL;
 	node_t *temp = NULL;
 
-	/* if 'in' is not locked, calls to eval_push_state may cause memory
-	   to be made nonroot and likely to be freed before we want it to be */
-	/* TODO: enable this */
-	//assert(node_islocked(in));
+	assert(node_type(in_handle) == NODE_HANDLE);
+	assert(node_type(env_handle) == NODE_HANDLE);
+	assert(node_type(out_handle) == NODE_HANDLE);
+
+	locals.in = node_handle(in_handle);
+	locals.env_handle = env_handle;
+
+	bt_hdl = node_lockroot(node_handle_new(NULL));
+	result_handle = node_lockroot(node_handle_new(NULL));
 
 restart:
 #if defined(EVAL_TRACING)
@@ -200,16 +205,17 @@ restart:
 	case NODE_CONTINUATION:
 	case NODE_SPECIAL_FUNC:
 	case NODE_BLOB:
-		result = locals.in;
+		node_handle_update(result_handle, locals.in);
 		goto finish;
 
 	case NODE_SYMBOL:
 		if(! environ_lookup(node_handle(locals.env_handle),
 		                    locals.in,
-		                    &result)) {
-			result = locals.in;
+		                    &temp)) {
+			node_handle_update(result_handle, locals.in);
 			status = eval_err(EVAL_ERR_UNRESOLVED_SYMBOL);
 		}
+		node_handle_update(result_handle, temp);
 		goto finish;
 
 	case NODE_CONS: 
@@ -221,7 +227,7 @@ restart:
 	/* (symbol args...) */
 	_args = node_cons_cdr(locals.in);
 	if(_args && node_type(_args) != NODE_CONS) {
-		result = _args;
+		node_handle_update(result_handle, _args);
 		status = eval_err(EVAL_ERR_EXPECTED_CONS);
 		goto node_cons_cleanup;
 	}
@@ -238,7 +244,8 @@ restart:
 		goto node_cons_cleanup;
 	}
 	node_droproot(locals.func); // we may have looped back in a tail call
-	locals.func = node_lockroot(result);
+	locals.func = node_handle(result_handle);
+	node_lockroot(locals.func);
 
 	if(node_type(locals.func) == NODE_SPECIAL_FUNC) {
 		switch(node_special_func(locals.func)) {
@@ -258,8 +265,8 @@ restart:
 			_args =	node_cons_cdr(locals.in); /* restore */
 
 			/* select which expr to eval based on result */
-			if(result != NULL) {
-				node_droproot(result);
+			if(node_handle(result_handle) != NULL) {
+				node_handle_update(result_handle, NULL);
 				locals.in = node_cons_cdr(_args);
 			} else {
 				locals.in = node_cons_cdr(_args);
@@ -288,11 +295,12 @@ restart:
 			goto restart;
 
 		case SPECIAL_LAMBDA:
-			result = node_lambda_new(node_handle(locals.env_handle),
-			                         /* vars */
-			                         node_cons_car(_args), 
-			                         /* expr list */
-			                         node_cons_cdr(_args));
+			temp = node_lambda_new(node_handle(locals.env_handle),
+			                       /* vars */
+			                       node_cons_car(_args), 
+			                       /* expr list */
+			                       node_cons_cdr(_args));
+			node_handle_update(result_handle, temp);
 			goto node_cons_cleanup;
 
 		case SPECIAL_QUOTE:
@@ -300,7 +308,8 @@ restart:
 				status = eval_err(EVAL_ERR_TOO_MANY_ARGS);
 				goto node_cons_cleanup;
 			}
-			result = node_cons_car(_args);
+			temp = node_cons_car(_args);
+			node_handle_update(result_handle, temp);
 			goto node_cons_cleanup;
 
 		case SPECIAL_MK_CONT:
@@ -344,19 +353,20 @@ restart:
 			}
 		
 			if(node_special_func(locals.func) == SPECIAL_DEF) {
-				environ_add(locals.env_handle, locals.cursor, result);
+				temp = node_handle(result_handle);
+				environ_add(locals.env_handle, locals.cursor, temp);
 			} else {
 				if(!environ_keyval(node_handle(locals.env_handle),
 				                   locals.cursor,
 				                   &keyval)) {
-					node_droproot(result);
-					result = locals.cursor;
+					node_handle_update(result_handle, locals.cursor);
 					status = eval_err(EVAL_ERR_UNRESOLVED_SYMBOL);
 					goto node_cons_cleanup;
 				}
-				node_cons_patch_cdr(keyval, result);
+				temp = node_handle(result_handle);
+				node_cons_patch_cdr(keyval, temp);
 			}
-			result = locals.cursor;
+			node_handle_update(result_handle, locals.cursor);
 			goto node_cons_cleanup;
 			case SPECIAL_DEFINED:
 				/* handled below */
@@ -385,13 +395,14 @@ restart:
 			goto node_lambda_cleanup;
 		}
 
+		temp = node_handle(result_handle);
 		if(locals.newargs == NULL) {
-			locals.newargs = node_cons_new(result, NULL);
+			locals.newargs = node_cons_new(temp, NULL);
 			node_lockroot(locals.newargs);
 			locals.newargs_last = locals.newargs;
 		} else {
 			node_cons_patch_cdr(locals.newargs_last,
-			                    node_cons_new(result, NULL));
+			                    node_cons_new(temp, NULL));
 			locals.newargs_last = node_cons_cdr(locals.newargs_last);
 		}
 	}
@@ -405,7 +416,7 @@ restart:
 				if(node_type(temp) == NODE_SYMBOL
 				   && environ_lookup(node_handle(locals.env_handle),
 				                     temp, NULL)) {
-					result = node_value_new(1);
+					node_handle_update(result_handle, node_value_new(1));
 				}
 			}
 			goto node_cons_cleanup;
@@ -415,12 +426,13 @@ restart:
 	case NODE_FOREIGN:
 		status = node_foreign_func(locals.func)(locals.newargs,
 		                                        locals.env_handle,
-		                                        &result);
+		                                        &temp);
+		node_handle_update(result_handle, temp);
 		goto node_cons_cleanup;
 
 	case NODE_CONTINUATION:
 		node_handle_update(bt_hdl, node_cont(locals.func));
-		result = node_cons_car(locals.newargs);
+		node_handle_update(result_handle, node_cons_car(locals.newargs));
 		goto node_cons_cleanup;
 
 	case NODE_LAMBDA: 
@@ -445,7 +457,7 @@ restart:
 		                     node_lambda_vars(locals.func),
 		                     locals.newargs);
 		if(status != EVAL_OK) {
-			result = locals.func;
+			node_handle_update(result_handle, locals.func);
 			goto node_lambda_cleanup;
 		}
 
@@ -484,10 +496,7 @@ restart:
 				if(status != EVAL_OK) {
 					goto node_lambda_cleanup;
 				}
-				if(!node_islocked(result)) {
-					node_droproot(result);
-					result = NULL;
-				}
+				node_handle_update(result_handle, NULL);
 			}
 		}
 
@@ -497,7 +506,7 @@ restart:
 		break;
 
 	default:
-		result = locals.func;
+		node_handle_update(result_handle, locals.func);
 		status = eval_err(EVAL_ERR_UNKNOWN_FUNCALL);
 		break;
 	}
@@ -531,7 +540,7 @@ finish:
 		printf("%zu eval leave %p: <- ", bt_depth, locals.in);
 		node_print_pretty(locals.in, false);
 		printf(" ... ");
-		node_print_pretty(result, false);
+		node_print_pretty(node_handle(result_handle), false);
 		printf("\n");
 #endif
 		eval_pop_state(bt_hdl, &locals);
@@ -543,11 +552,12 @@ finish:
 	printf("%zu eval leave %p: <- ", bt_depth, locals.in);
 	node_print_pretty(locals.in, false);
 	printf(" ... ");
-	node_print_pretty(result, false);
+	node_print_pretty(node_handle(result_handle), false);
 	printf("\n");
 #endif
 
-	*out = result;
+	node_handle_update(out_handle, node_handle(result_handle));
 	node_droproot(bt_hdl);
+	node_droproot(result_handle);
 	return status;
 }

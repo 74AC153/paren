@@ -101,7 +101,7 @@ foreign_assoc_t startenv[] = {
 
 int main(int argc, char *argv[])
 {
-	node_t *parse_result, *eval_result, *env_handle = NULL;
+	node_t *parse_result, *eval_in_hdl, *eval_out_hdl, *env_handle = NULL;
 	eval_err_t eval_stat;
 	parse_err_t parse_stat;
 	char *remain;
@@ -110,6 +110,8 @@ int main(int argc, char *argv[])
 	nodes_initialize();
 
 	/* setup environment */
+	eval_in_hdl = node_lockroot(node_handle_new(NULL));
+	eval_out_hdl = node_lockroot(node_handle_new(NULL));
 	printf("*** initialize environment ***\n");
 	env_handle = node_handle_new(NULL);
 	node_lockroot(env_handle);
@@ -124,7 +126,7 @@ int main(int argc, char *argv[])
 			printf("-- %s\n", parse_err_str(parse_stat));
 			continue;
 		}
-		node_lockroot(parse_result); /* required before passing to eval() */
+		node_handle_update(eval_in_hdl, parse_result);
 
 		printf("parse result: %p\n", parse_result);
 		node_print_pretty(parse_result, false);
@@ -134,37 +136,33 @@ int main(int argc, char *argv[])
 		environ_print(node_handle(env_handle));
 
 		printf("*** eval ***\n");
-		eval_stat = eval(parse_result, env_handle, &eval_result);
+		eval_stat = eval(eval_in_hdl, env_handle, eval_out_hdl);
 
 		if(eval_stat) {
 			printf("eval error for: \n");
-			node_print_pretty(eval_result, false);
+			node_print_pretty(node_handle(eval_out_hdl), false);
 			printf("\n");
 			printf("%s\n", eval_err_str(eval_stat));
 			return -1;
 		}
-		printf("eval result: %p\n", eval_result);
-		node_print_pretty(eval_result, false);
+		printf("eval result: %p\n", node_handle(eval_out_hdl));
+		node_print_pretty(node_handle(eval_out_hdl), false);
 		printf("\n");
-		//node_print_recursive(eval_result);
-
-		
-		//printf("*** gc state following eval ***\n");
-		//node_gc_state();
 
 		printf("*** releasing parse result %p ***\n", parse_result);
-		node_droproot(parse_result);
+		node_handle_update(eval_in_hdl, NULL);
 
-		printf("*** releasing eval result %p ***\n", eval_result);
-		node_droproot(eval_result);
+		printf("*** releasing eval result %p ***\n", node_handle(eval_out_hdl));
+		node_handle_update(eval_out_hdl, NULL);
 	}
 
 	printf("*** result environment %p ***\n", node_handle(env_handle));
 	environ_print(node_handle(env_handle));
 
 	printf("*** release toplevel environment %p ***\n", env_handle);
+	node_droproot(eval_in_hdl);
+	node_droproot(eval_out_hdl);
 	node_droproot(env_handle);
-
 	
 	printf("*** cleanup ***\n");
 
