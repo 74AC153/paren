@@ -149,24 +149,187 @@ void eval_pop_state(node_t *bt_hdl, struct eval_frame_locals *locals)
 	node_handle_update(bt_hdl, prevframe);
 }
 
+struct eval_frame {
+	node_t *state_hdl;
+	node_t *restart_hdl;
+	node_t *cursor_hdl;
+	node_t *newargs_last_hdl;
+	node_t *newargs_hdl;
+	node_t *env_hdl_hdl;
+	node_t *func_hdl;
+	node_t *in_hdl;
+};
+
+static value_t locals_state_get(struct eval_frame *f)
+{
+	if(node_handle(f->state_hdl)) {
+		return node_value(node_handle(f->state_hdl));
+	} else {
+		return 0;
+	}
+}
+
+static void locals_state_set(struct eval_frame *f, value_t v)
+{ node_handle_update(f->state_hdl, node_value_new(v)); }
+
+static void *locals_restart_get(struct eval_frame *f)
+{
+	if(node_handle(f->restart_hdl)) {
+		return node_blob_addr(node_handle(f->restart_hdl));
+	} else {
+		return NULL;
+	}
+}
+
+static void locals_restart_set(struct eval_frame *f, void *addr)
+{ node_handle_update(f->restart_hdl, node_blob_new(addr, NULL)); }
+
+static node_t *locals_cursor_get(struct eval_frame *f)
+{ return node_handle(f->cursor_hdl); }
+
+static void locals_cursor_set(struct eval_frame *f, node_t *curs)
+{ node_handle_update(f->cursor_hdl, curs); }
+
+static node_t *locals_newargs_last_get(struct eval_frame *f)
+{ return node_handle(f->newargs_last_hdl); }
+
+static void locals_newargs_last_set(struct eval_frame *f, node_t *last)
+{ node_handle_update(f->newargs_last_hdl, last); }
+
+static node_t *locals_newargs_get(struct eval_frame *f)
+{ return node_handle(f->newargs_hdl); }
+
+static void locals_newargs_set(struct eval_frame *f, node_t *args)
+{ node_handle_update(f->newargs_hdl, args); }
+
+static node_t *locals_env_hdl_get(struct eval_frame *f)
+{ return node_handle(f->env_hdl_hdl); }
+
+static void locals_env_hdl_set(struct eval_frame *f, node_t *env)
+{ node_handle_update(f->env_hdl_hdl, env); }
+
+static node_t *locals_func_get(struct eval_frame *f)
+{ return node_handle(f->func_hdl); }
+
+static void locals_func_set(struct eval_frame *f, node_t *func)
+{ node_handle_update(f->func_hdl, func); }
+
+static node_t *locals_in_get(struct eval_frame *f)
+{ return node_handle(f->in_hdl); }
+
+static void locals_in_set(struct eval_frame *f, node_t *in)
+{ node_handle_update(f->in_hdl, in); }
+
+void frame_push(
+	node_t *frame_hdl,
+	struct eval_frame *locals,
+	node_t *in,
+	node_t *env_handle)
+{
+	node_t *newframe, *oldframe;
+	struct eval_frame temp_frame = {
+		.state_hdl = node_handle_new(node_value_new(0)),
+		.restart_hdl = node_handle_new(node_value_new(0)),
+		.cursor_hdl = node_handle_new(NULL),
+		.newargs_last_hdl = node_handle_new(NULL),
+		.newargs_hdl = node_handle_new(NULL),
+		.env_hdl_hdl = node_handle_new(env_handle),
+		.func_hdl = node_handle_new(NULL),
+		.in_hdl = node_handle_new(in)
+	};
+
+	assert(node_type(frame_hdl) == NODE_HANDLE);
+	assert(locals);
+	assert(node_type(env_handle) == NODE_HANDLE);
+
+	oldframe = node_handle(frame_hdl);
+	newframe = NULL;
+
+	newframe = node_cons_new(temp_frame.state_hdl, newframe);
+	newframe = node_cons_new(temp_frame.restart_hdl, newframe);
+	newframe = node_cons_new(temp_frame.cursor_hdl, newframe);
+	newframe = node_cons_new(temp_frame.newargs_last_hdl, newframe);
+	newframe = node_cons_new(temp_frame.newargs_hdl, newframe);
+	newframe = node_cons_new(temp_frame.env_hdl_hdl, newframe);
+	newframe = node_cons_new(temp_frame.func_hdl, newframe);
+	newframe = node_cons_new(temp_frame.in_hdl, newframe);
+
+	newframe = node_cons_new(newframe, oldframe);
+	node_handle_update(frame_hdl, newframe);
+
+	memcpy(locals, &temp_frame, sizeof(temp_frame));
+}
+
+void frame_pop(
+	node_t *frame_hdl,
+	struct eval_frame *locals)
+{
+	node_t *newframe, *cursor;
+	struct eval_frame temp_frame;
+
+	assert(node_type(frame_hdl) == NODE_HANDLE);
+	assert(node_handle(frame_hdl));
+	assert(locals);
+
+	newframe = node_cons_cdr(node_handle(frame_hdl));
+	cursor = node_cons_car(newframe);
+
+	temp_frame.in_hdl = node_cons_car(cursor);
+	cursor = node_cons_cdr(cursor);
+	temp_frame.func_hdl = node_cons_car(cursor);
+	cursor = node_cons_cdr(cursor);
+	temp_frame.env_hdl_hdl = node_cons_car(cursor);
+	cursor = node_cons_cdr(cursor);
+	temp_frame.newargs_hdl = node_cons_car(cursor);
+	cursor = node_cons_cdr(cursor);
+	temp_frame.newargs_last_hdl = node_cons_car(cursor);
+	cursor = node_cons_cdr(cursor);
+	temp_frame.cursor_hdl = node_cons_car(cursor);
+	cursor = node_cons_cdr(cursor);
+	temp_frame.restart_hdl = node_cons_car(cursor);
+	cursor = node_cons_cdr(cursor);
+	temp_frame.state_hdl = node_cons_car(cursor);
+
+	node_handle_update(frame_hdl, newframe);
+	memcpy(locals, &temp_frame, sizeof(temp_frame));
+}
+
+void frame_restore(
+	node_t *frame_hdl,
+	struct eval_frame *locals,
+	node_t *newframe)
+{
+	/* push an empty dummy frame, then reuse frame_pop */	
+	node_t *dummy = node_cons_new(NULL, newframe);
+	node_handle_update(frame_hdl, dummy);
+	frame_pop(frame_hdl, locals);
+}
+
 eval_err_t eval(node_t *in_handle, node_t *env_handle, node_t *out_handle)
 {
 	eval_err_t status = EVAL_OK;
 
 	/* saved local variables */
-	struct eval_frame_locals locals = {
-		.state = 0,
-		.env_handle = NULL,
-		.cursor = NULL,
-		.newargs = NULL,
-		.newargs_last = NULL,
-		.restart = NULL,
-		.in = NULL,
-		.func = NULL,
-	};
+	struct eval_frame locals;
+	#define _STATE locals_state_get(&locals)
+	#define _RESTART locals_restart_get(&locals)
+	#define _CURSOR locals_cursor_get(&locals)
+	#define _NEWARGS_LAST locals_newargs_last_get(&locals)
+	#define _NEWARGS locals_newargs_get(&locals)
+	#define _ENV_HDL locals_env_hdl_get(&locals)
+	#define _FUNC locals_func_get(&locals)
+	#define _INPUT locals_in_get(&locals)
+	#define _SET_STATE(x) locals_state_set(&locals, (x))
+	#define _SET_RESTART(x) locals_restart_set(&locals, (x))
+	#define _SET_CURSOR(x) locals_cursor_set(&locals, (x))
+	#define _SET_NEWARGS_LAST(x) locals_newargs_last_set(&locals, (x))
+	#define _SET_NEWARGS(x) locals_newargs_set(&locals, (x))
+	#define _SET_ENV_HDL(x) locals_env_hdl_set(&locals, (x))
+	#define _SET_FUNC(x) locals_func_set(&locals, (x))
+	#define _SET_INPUT(x) locals_in_set(&locals, (x))
 
 	/* long-lived local variables */
-	node_t *bt_hdl = NULL;
+	node_t *frame_hdl = NULL;
 	node_t *result_handle = NULL;
 	size_t bt_depth = 0;
 	size_t env_depth = 0;
@@ -180,20 +343,19 @@ eval_err_t eval(node_t *in_handle, node_t *env_handle, node_t *out_handle)
 	assert(node_type(env_handle) == NODE_HANDLE);
 	assert(node_type(out_handle) == NODE_HANDLE);
 
-	locals.in = node_handle(in_handle);
-	locals.env_handle = env_handle;
-
-	bt_hdl = node_lockroot(node_handle_new(NULL));
+	frame_hdl = node_lockroot(node_handle_new(NULL));
 	result_handle = node_lockroot(node_handle_new(NULL));
+
+	frame_push(frame_hdl, &locals, node_handle(in_handle), env_handle);
 
 restart:
 #if defined(EVAL_TRACING)
-	printf("%zu eval enter %p: -> ", bt_depth, locals.in);
-	node_print_pretty(locals.in, false);
+	printf("%zu eval enter %p: -> ", bt_depth, _INPUT);
+	node_print_pretty(_INPUT, false);
 	printf("\n");
 #endif
 
-	switch(node_type(locals.in)) {
+	switch(node_type(_INPUT)) {
 	case NODE_UNINITIALIZED:
 	case NODE_HANDLE:
 		assert(false);
@@ -205,14 +367,14 @@ restart:
 	case NODE_CONTINUATION:
 	case NODE_SPECIAL_FUNC:
 	case NODE_BLOB:
-		node_handle_update(result_handle, locals.in);
+		node_handle_update(result_handle, _INPUT);
 		goto finish;
 
 	case NODE_SYMBOL:
-		if(! environ_lookup(node_handle(locals.env_handle),
-		                    locals.in,
+		if(! environ_lookup(node_handle(_ENV_HDL),
+		                    _INPUT,
 		                    &temp)) {
-			node_handle_update(result_handle, locals.in);
+			node_handle_update(result_handle, _INPUT);
 			status = eval_err(EVAL_ERR_UNRESOLVED_SYMBOL);
 		}
 		node_handle_update(result_handle, temp);
@@ -225,7 +387,7 @@ restart:
 
 
 	/* (symbol args...) */
-	_args = node_cons_cdr(locals.in);
+	_args = node_cons_cdr(_INPUT);
 	if(_args && node_type(_args) != NODE_CONS) {
 		node_handle_update(result_handle, _args);
 		status = eval_err(EVAL_ERR_EXPECTED_CONS);
@@ -233,69 +395,69 @@ restart:
 	}
 
 	/* 	status = eval(node_cons_car(input), environ, &func); */
-	locals.restart = &&node_cons_post_eval_func;
+	_SET_RESTART(&&node_cons_post_eval_func);
 	bt_depth++;
-	eval_push_state(bt_hdl, &locals,
-	                node_cons_car(locals.in),
-	                locals.env_handle);
+	frame_push(frame_hdl, &locals,
+	           node_cons_car(_INPUT),
+	           _ENV_HDL);
 	goto restart;
 	node_cons_post_eval_func:
 	if(status != EVAL_OK) {
 		goto node_cons_cleanup;
 	}
-	node_droproot(locals.func); // we may have looped back in a tail call
-	locals.func = node_handle(result_handle);
-	node_lockroot(locals.func);
+	_SET_FUNC(node_handle(result_handle));
 
-	if(node_type(locals.func) == NODE_SPECIAL_FUNC) {
-		switch(node_special_func(locals.func)) {
+	if(node_type(_FUNC) == NODE_SPECIAL_FUNC) {
+		switch(node_special_func(_FUNC)) {
 		case SPECIAL_IF:
 			/* (if args),  args -> (test pass fail) */
 			/* status = eval(test, locals.env_handle, &result); */
-			locals.restart = &&node_if_post_eval_test;
+			_SET_RESTART(&&node_if_post_eval_test);
 			bt_depth++;
-			eval_push_state(bt_hdl, &locals,
-			                node_cons_car(_args), locals.env_handle);
+			frame_push(frame_hdl, &locals,
+			           node_cons_car(_args), _ENV_HDL);
 			goto restart;
 			node_if_post_eval_test:
 			if(status != EVAL_OK) {
 				goto node_cons_cleanup;
 			}
 
-			_args =	node_cons_cdr(locals.in); /* restore */
+			_args =	node_cons_cdr(_INPUT); /* restore */
 
 			/* select which expr to eval based on result */
 			if(node_handle(result_handle) != NULL) {
 				node_handle_update(result_handle, NULL);
-				locals.in = node_cons_cdr(_args);
+				_SET_INPUT(node_cons_cdr(_args));
 			} else {
-				locals.in = node_cons_cdr(_args);
-				if(node_type(locals.in) != NODE_CONS) {
+				temp = node_cons_cdr(_args);
+				if(node_type(temp) != NODE_CONS) {
+					node_handle_update(result_handle, temp);
 					status = eval_err(EVAL_ERR_EXPECTED_CONS);
 					goto node_cons_cleanup;
 				}
-				locals.in = node_cons_cdr(locals.in);
+				_SET_INPUT(node_cons_cdr(temp));
 			}
-			if(node_type(locals.in) != NODE_CONS) {
+			if(node_type(_INPUT) != NODE_CONS) {
+				node_handle_update(result_handle, _INPUT);
 				status = eval_err(EVAL_ERR_EXPECTED_CONS);
 				goto node_cons_cleanup;
 			}
 
-			if(locals.state & STATE_FLAG_NEW_INPUT) {
+			if(_STATE & STATE_FLAG_NEW_INPUT) {
 				/* we'll never return to this stack frame, so we must
 				   do this here */
-				node_droproot(locals.in);
-				locals.state &= ~STATE_FLAG_NEW_INPUT;
+				_SET_INPUT(NULL);
+				_SET_STATE(_STATE &~ STATE_FLAG_NEW_INPUT);
 			}
 
-			locals.in = node_cons_car(locals.in);
-			node_droproot(locals.func); /* b/c cons_cleanup not done */
-			locals.state |= STATE_FLAG_TAILCALL;
+			_SET_INPUT(node_cons_car(_INPUT));
+			_SET_FUNC(NULL); /* b/c cons_cleanup not done */
+			_SET_STATE(_STATE | STATE_FLAG_TAILCALL);
 			/* tailcall */
 			goto restart;
 
 		case SPECIAL_LAMBDA:
-			temp = node_lambda_new(node_handle(locals.env_handle),
+			temp = node_lambda_new(_ENV_HDL,
 			                       /* vars */
 			                       node_cons_car(_args), 
 			                       /* expr list */
@@ -305,6 +467,7 @@ restart:
 
 		case SPECIAL_QUOTE:
 			if(node_cons_cdr(_args)) {
+				node_handle_update(result_handle, node_cons_cdr(_args));
 				status = eval_err(EVAL_ERR_TOO_MANY_ARGS);
 				goto node_cons_cleanup;
 			}
@@ -316,57 +479,57 @@ restart:
 			/* generate new cons with first arg as passed func, second arg
 			   as result of node_cont_new(), then do a tail call. */
 			/* TODO: node_cons_car(_args) should be eval'd */
-			temp = node_cons_new(node_cont_new(node_handle(bt_hdl)),
+			temp = node_cons_new(node_cont_new(node_handle(frame_hdl)),
 			                     NULL);
 			temp = node_cons_new(node_cons_car(_args), temp);
-			node_lockroot(temp);
-			locals.in = temp;
-			locals.state |= STATE_FLAG_NEW_INPUT;
-			node_droproot(locals.func); 
-			locals.func = NULL;
+			_SET_INPUT(temp);
+			_SET_STATE(_STATE | STATE_FLAG_NEW_INPUT);
+			_SET_FUNC(NULL);
 			goto restart;
 
 		case SPECIAL_DEF:
 		case SPECIAL_SET:
 			/* return the symbol that was added to environment */
-			locals.cursor = node_cons_car(_args);
-			if(node_type(locals.cursor) != NODE_SYMBOL) {
+			_SET_CURSOR(node_cons_car(_args));
+			if(node_type(_CURSOR) != NODE_SYMBOL) {
+				node_handle_update(result_handle, _CURSOR);
 				status = eval_err(EVAL_ERR_EXPECTED_SYMBOL);
 				goto node_cons_cleanup;
 			}
 		
 			/* eval passed value */
 			if(node_type(node_cons_cdr(_args)) != NODE_CONS) {
+				node_handle_update(result_handle, node_cons_cdr(_args));
 				return eval_err(EVAL_ERR_EXPECTED_CONS);
 			}
 
 			/* status = eval_norec(val, env_handle, &newval); */
-			locals.restart = &&node_special_def_set_post_eval_func;
+			_SET_RESTART(&&node_special_def_set_post_eval_func);
 			bt_depth++;
-			eval_push_state(bt_hdl, &locals,
-			                node_cons_car(node_cons_cdr(_args)),
-	                		locals.env_handle);
+			frame_push(frame_hdl, &locals,
+			           node_cons_car(node_cons_cdr(_args)),
+			           _ENV_HDL);
 			goto restart;
 			node_special_def_set_post_eval_func:
 			if(status != EVAL_OK) {
 				goto node_cons_cleanup;
 			}
 		
-			if(node_special_func(locals.func) == SPECIAL_DEF) {
+			if(node_special_func(_FUNC) == SPECIAL_DEF) {
 				temp = node_handle(result_handle);
-				environ_add(locals.env_handle, locals.cursor, temp);
+				environ_add(_ENV_HDL, _CURSOR, temp);
 			} else {
-				if(!environ_keyval(node_handle(locals.env_handle),
-				                   locals.cursor,
+				if(!environ_keyval(node_handle(_ENV_HDL),
+				                   _CURSOR,
 				                   &keyval)) {
-					node_handle_update(result_handle, locals.cursor);
+					node_handle_update(result_handle, _CURSOR);
 					status = eval_err(EVAL_ERR_UNRESOLVED_SYMBOL);
 					goto node_cons_cleanup;
 				}
 				temp = node_handle(result_handle);
 				node_cons_patch_cdr(keyval, temp);
 			}
-			node_handle_update(result_handle, locals.cursor);
+			node_handle_update(result_handle, _CURSOR);
 			goto node_cons_cleanup;
 			case SPECIAL_DEFINED:
 				/* handled below */
@@ -375,46 +538,44 @@ restart:
 	}
 
 	/* eval passed arguments in caller's environment */
-	locals.newargs_last = NULL;
-	locals.newargs = NULL;
-	for(locals.cursor = node_cons_cdr(locals.in);
-	    locals.cursor;
-	    locals.cursor= node_cons_cdr(locals.cursor)) {
+	_SET_NEWARGS_LAST(NULL);
+	_SET_NEWARGS(NULL);
+	for(_SET_CURSOR(node_cons_cdr(_INPUT));
+	    _CURSOR;
+		_SET_CURSOR(node_cons_cdr(_CURSOR))) {
 
-		locals.restart = &&node_cons_post_args_eval;
+		_SET_RESTART(&&node_cons_post_args_eval);
 		bt_depth++;
-		eval_push_state(bt_hdl, &locals,
-		                node_cons_car(locals.cursor),
-		                locals.env_handle);
+		frame_push(frame_hdl, &locals,
+		                node_cons_car(_CURSOR),
+		                _ENV_HDL);
 		goto restart;
 		node_cons_post_args_eval:
 		if(status != EVAL_OK) {
-			node_droproot(locals.newargs);
-			locals.newargs = NULL;
-			locals.newargs_last = NULL;
+			_SET_NEWARGS_LAST(NULL);
+			_SET_NEWARGS(NULL);
 			goto node_lambda_cleanup;
 		}
 
 		temp = node_handle(result_handle);
-		if(locals.newargs == NULL) {
-			locals.newargs = node_cons_new(temp, NULL);
-			node_lockroot(locals.newargs);
-			locals.newargs_last = locals.newargs;
+		if(_NEWARGS == NULL) {
+			_SET_NEWARGS(node_cons_new(temp, NULL));
+			_SET_NEWARGS_LAST(_NEWARGS);
 		} else {
-			node_cons_patch_cdr(locals.newargs_last,
+			node_cons_patch_cdr(_NEWARGS_LAST,
 			                    node_cons_new(temp, NULL));
-			locals.newargs_last = node_cons_cdr(locals.newargs_last);
+			_SET_NEWARGS_LAST(node_cons_cdr(_NEWARGS_LAST));
 		}
 	}
 
-	switch(node_type(locals.func)) {
+	switch(node_type(_FUNC)) {
 	case NODE_SPECIAL_FUNC:
-		switch(node_special_func(locals.func)) {
+		switch(node_special_func(_FUNC)) {
 		case SPECIAL_DEFINED:
-			if(locals.newargs) {
-				temp = node_cons_car(locals.newargs);
+			if(_NEWARGS) {
+				temp = node_cons_car(_NEWARGS);
 				if(node_type(temp) == NODE_SYMBOL
-				   && environ_lookup(node_handle(locals.env_handle),
+				   && environ_lookup(node_handle(_ENV_HDL),
 				                     temp, NULL)) {
 					node_handle_update(result_handle, node_value_new(1));
 				}
@@ -424,73 +585,70 @@ restart:
 			assert(false);
 		}
 	case NODE_FOREIGN:
-		status = node_foreign_func(locals.func)(locals.newargs,
-		                                        locals.env_handle,
-		                                        &temp);
+		status = node_foreign_func(_FUNC)(_NEWARGS,
+		                                  _ENV_HDL,
+		                                  &temp);
 		node_handle_update(result_handle, temp);
 		goto node_cons_cleanup;
 
 	case NODE_CONTINUATION:
-		node_handle_update(bt_hdl, node_cont(locals.func));
-		node_handle_update(result_handle, node_cons_car(locals.newargs));
+		node_handle_update(frame_hdl, node_cont(_FUNC));
+		node_handle_update(result_handle, node_cons_car(_NEWARGS));
 		goto node_cons_cleanup;
 
 	case NODE_LAMBDA: 
 		/* NB: when invoking a lambda call, the stackframe is a child to
 		   the the environment that the lambda was defined in, not a child
 		   to the environment that the lambda was called from */
-		if(! (locals.state & STATE_FLAG_TAILCALL)) {
-			node_t *lambda_env = node_lambda_env(locals.func);
+		if(! (_STATE & STATE_FLAG_TAILCALL)) {
+			node_t *lambda_env = node_lambda_env(_FUNC);
 			node_t *newhandle = node_handle_new(lambda_env);
-			locals.env_handle = newhandle;
-			node_lockroot(locals.env_handle);
-			environ_pushframe(locals.env_handle);
+			_SET_ENV_HDL(newhandle);
+			environ_pushframe(_ENV_HDL);
 			env_depth++;
 #if defined(EVAL_TRACING)
 		printf("%zu eval env_depth++ -> %zu\n", bt_depth, env_depth);
 #endif
-			locals.state |= STATE_FLAG_FRAMEADDED;
+			_SET_STATE(_STATE | STATE_FLAG_FRAMEADDED);
 		}
 
 		/* bind / update variables to passed eval'd arguments */
-		status = lambda_bind(locals.env_handle,
-		                     node_lambda_vars(locals.func),
-		                     locals.newargs);
+		status = lambda_bind(_ENV_HDL,
+		                     node_lambda_vars(_FUNC),
+		                     _NEWARGS);
 		if(status != EVAL_OK) {
-			node_handle_update(result_handle, locals.func);
+			node_handle_update(result_handle, _FUNC);
 			goto node_lambda_cleanup;
 		}
 
 		/* eval expr list in new environment */
-		for(locals.cursor = node_lambda_expr(locals.func);
-		    locals.cursor;
-		    locals.cursor = node_cons_cdr(locals.cursor)) {
+		for(_SET_CURSOR(node_lambda_expr(_FUNC));
+		    _CURSOR;
+		    _SET_CURSOR(node_cons_cdr(_CURSOR))) {
 
-			if(node_cons_cdr(locals.cursor) == NULL) {
+			if(node_cons_cdr(_CURSOR) == NULL) {
 				/* tail call: clean up and setup to restart */
-				if(locals.state & STATE_FLAG_NEW_INPUT) {
+				if(_STATE & STATE_FLAG_NEW_INPUT) {
 					/* we'll never return to this stack frame, so we must
 					   do this here */
-					node_droproot(locals.in);
-					locals.state &= ~STATE_FLAG_NEW_INPUT;
+					_SET_INPUT(NULL);
+					_SET_STATE(_STATE & ~STATE_FLAG_NEW_INPUT);
 				}
-				locals.in = node_cons_car(locals.cursor);
-				locals.state |= STATE_FLAG_TAILCALL;
+				_SET_INPUT(node_cons_car(_CURSOR));
+				_SET_STATE(_STATE | STATE_FLAG_TAILCALL);
 				/* because cons_cleanup will not be done */
-				node_droproot(locals.newargs);
-				locals.newargs = NULL;
-				locals.newargs_last = NULL;
-				node_droproot(locals.func); 
-				locals.func = NULL;
+				_SET_NEWARGS_LAST(NULL);
+				_SET_NEWARGS(NULL);
+				_SET_FUNC(NULL);
 				/* tailcall */
 				goto restart;
 			} else {
 				/* status = eval(node_cons_car(cursor), env, [ignored]); */
-				locals.restart = &&node_lambda_post_exprs_eval;
+				_SET_RESTART(&&node_lambda_post_exprs_eval);
 				bt_depth++;
-				eval_push_state(bt_hdl, &locals,
-				                node_cons_car(locals.cursor),
-				                locals.env_handle);
+				frame_push(frame_hdl, &locals,
+				           node_cons_car(_CURSOR),
+				           _ENV_HDL);
 				goto restart;
 				node_lambda_post_exprs_eval:
 				if(status != EVAL_OK) {
@@ -506,58 +664,71 @@ restart:
 		break;
 
 	default:
-		node_handle_update(result_handle, locals.func);
+		node_handle_update(result_handle, _FUNC);
 		status = eval_err(EVAL_ERR_UNKNOWN_FUNCALL);
 		break;
 	}
 	
 node_cons_cleanup:
-	node_droproot(locals.func);
-	locals.func = NULL;
-	node_droproot(locals.newargs);
-	locals.newargs = NULL;
-	locals.newargs_last = NULL;
+	_SET_FUNC(NULL);
+	_SET_NEWARGS(NULL);
+	_SET_NEWARGS_LAST(NULL);
 
 finish:
-	if(locals.state & STATE_FLAG_FRAMEADDED) {
-		environ_popframe(locals.env_handle);
+	if(_STATE & STATE_FLAG_FRAMEADDED) {
+		environ_popframe(_ENV_HDL);
 		env_depth--;
 #if defined(EVAL_TRACING)
 		printf("%zu eval env_depth-- -> %zu\n", bt_depth, env_depth);
 #endif
-		node_droproot(locals.env_handle);
-		locals.env_handle = NULL;
+		_SET_ENV_HDL(NULL);
 	}
 
-	if(node_handle(bt_hdl)) {
-		node_droproot(locals.newargs);
-		locals.newargs = NULL;
-		locals.newargs_last = NULL;
-		if(locals.state & STATE_FLAG_NEW_INPUT) {
-			node_droproot(locals.in);
+	if(node_handle(frame_hdl)) {
+		_SET_NEWARGS(NULL);
+		_SET_NEWARGS_LAST(NULL);
+		if(_STATE & STATE_FLAG_NEW_INPUT) {
+			_SET_INPUT(NULL);
 		}
 #if defined(EVAL_TRACING)
-		printf("%zu eval leave %p: <- ", bt_depth, locals.in);
-		node_print_pretty(locals.in, false);
+		printf("%zu eval leave %p: <- ", bt_depth, _INPUT);
+		node_print_pretty(_INPUT, false);
 		printf(" ... ");
 		node_print_pretty(node_handle(result_handle), false);
 		printf("\n");
 #endif
-		eval_pop_state(bt_hdl, &locals);
+		frame_pop(frame_hdl, &locals);
 		bt_depth--;
-		goto *locals.restart;
+		goto *_RESTART;
 	}
 
 #if defined(EVAL_TRACING)
-	printf("%zu eval leave %p: <- ", bt_depth, locals.in);
-	node_print_pretty(locals.in, false);
+	printf("%zu eval leave %p: <- ", bt_depth, _INPUT);
+	node_print_pretty(_INPUT, false);
 	printf(" ... ");
 	node_print_pretty(node_handle(result_handle), false);
 	printf("\n");
 #endif
 
 	node_handle_update(out_handle, node_handle(result_handle));
-	node_droproot(bt_hdl);
+	node_droproot(frame_hdl);
 	node_droproot(result_handle);
 	return status;
+
+	#undef _STATE
+	#undef _RESTART
+	#undef _CURSOR
+	#undef _NEWARGS_LAST
+	#undef _NEWARGS
+	#undef _ENV_HDL
+	#undef _FUNC
+	#undef _INPUT
+	#undef _SET_STATE
+	#undef _SET_RESTART
+	#undef _SET_CURSOR
+	#undef _SET_NEWARGS_LAST
+	#undef _SET_NEWARGS
+	#undef _SET_ENV_HDL
+	#undef _SET_FUNC
+	#undef _SET_INPUT
 }
