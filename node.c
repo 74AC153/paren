@@ -425,7 +425,7 @@ void *node_blob_addr(node_t *n)
 void node_print(node_t *n)
 {
 	if(!n) {
-		printf("node NULL\n");
+		printf("node NULL");
 	} else {
 		printf("node@%p: ", n);
 

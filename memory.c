@@ -193,13 +193,22 @@ static bool memstate_isactive(memory_state_t *s)
 	return (s->ms_flags & MS_FLAG_ACTIVE) != 0;
 }
 
+static void memcell_init(memory_state_t *s, memcell_t *mc)
+{
+	memcell_unlock(mc);
+	memcell_resetref(mc);
+	memory_set_finalizer(mc->data, NULL);
+	s->i_cb(mc->data);
+	memcell_to_roots_unproc(s, mc);
+}
+
 void *memory_request(memory_state_t *s)
 {
 	memcell_t *mc;
 	if(! dlist_is_empty(&(s->free_list))) {
 		mc = (memcell_t *) dlnode_remove(dlist_first(&(s->free_list)));
 		assert(! memcell_locked(mc));
-		//assert(! memcell_refcount(mc));
+		//assert(! memcell_refcount(mc)); // why not enable?
 #if ! defined(NO_GC_STATISTICS)
 		assert(s->total_free);
 		s->total_free--;
@@ -211,9 +220,6 @@ void *memory_request(memory_state_t *s)
 #endif
 	} else {
 		mc = (memcell_t *) dlnode_init(malloc(sizeof(memcell_t)+s->datasize));
-		memcell_unlock(mc);
-		memcell_resetref(mc);
-		memory_set_finalizer(mc->data, NULL);
 #if ! defined(NO_GC_STATISTICS)
 		s->total_alloc++;
 #endif
@@ -223,19 +229,18 @@ void *memory_request(memory_state_t *s)
 		       (unsigned long long) s->total_alloc);
 #endif
 	}
-	s->i_cb(mc->data);
-	memcell_to_roots_unproc(s, mc);
+	memcell_init(s, mc);
 	return mc->data;
 }
 
 static void memcell_deinit(memory_state_t *s, memcell_t *mc)
 {
-#if ! defined(NO_CLEAR_ON_FREE)
-	memset(mc->data, 0, s->datasize);
-#endif
 	if(mc->fin) {
 		mc->fin(mc->data);
 	}
+#if ! defined(NO_CLEAR_ON_FREE)
+	memset(mc->data, 0, s->datasize);
+#endif
 }
 
 void memory_set_finalizer(void *data, data_fin_t fin)

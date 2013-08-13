@@ -182,43 +182,104 @@ static void *locals_restart_get(struct eval_frame *f)
 }
 
 static void locals_restart_set(struct eval_frame *f, void *addr)
-{ node_handle_update(f->restart_hdl, node_blob_new(addr, NULL)); }
+{
+	node_handle_update(f->restart_hdl, node_blob_new(addr, NULL));
+}
 
 static node_t *locals_cursor_get(struct eval_frame *f)
-{ return node_handle(f->cursor_hdl); }
+{
+	return node_handle(f->cursor_hdl);
+}
 
 static void locals_cursor_set(struct eval_frame *f, node_t *curs)
-{ node_handle_update(f->cursor_hdl, curs); }
+{
+	node_handle_update(f->cursor_hdl, curs);
+}
 
 static node_t *locals_newargs_last_get(struct eval_frame *f)
-{ return node_handle(f->newargs_last_hdl); }
+{
+	return node_handle(f->newargs_last_hdl);
+}
 
 static void locals_newargs_last_set(struct eval_frame *f, node_t *last)
-{ node_handle_update(f->newargs_last_hdl, last); }
+{
+	node_handle_update(f->newargs_last_hdl, last);
+}
 
 static node_t *locals_newargs_get(struct eval_frame *f)
-{ return node_handle(f->newargs_hdl); }
+{
+	return node_handle(f->newargs_hdl);
+}
 
 static void locals_newargs_set(struct eval_frame *f, node_t *args)
-{ node_handle_update(f->newargs_hdl, args); }
+{
+	node_handle_update(f->newargs_hdl, args);
+}
 
 static node_t *locals_env_hdl_get(struct eval_frame *f)
-{ return node_handle(f->env_hdl_hdl); }
+{
+	return node_handle(f->env_hdl_hdl);
+}
 
 static void locals_env_hdl_set(struct eval_frame *f, node_t *env)
-{ node_handle_update(f->env_hdl_hdl, env); }
+{
+	node_handle_update(f->env_hdl_hdl, env);
+}
 
 static node_t *locals_func_get(struct eval_frame *f)
-{ return node_handle(f->func_hdl); }
+{
+	return node_handle(f->func_hdl);
+}
 
 static void locals_func_set(struct eval_frame *f, node_t *func)
-{ node_handle_update(f->func_hdl, func); }
+{
+	node_handle_update(f->func_hdl, func);
+}
 
 static node_t *locals_in_get(struct eval_frame *f)
-{ return node_handle(f->in_hdl); }
+{
+	return node_handle(f->in_hdl);
+}
 
 static void locals_in_set(struct eval_frame *f, node_t *in)
-{ node_handle_update(f->in_hdl, in); }
+{
+	node_handle_update(f->in_hdl, in);
+}
+
+/* frame format:
+
+   frame_hdl
+   +---+
+   |   |
+   +---+
+     |
+     |
+     v
+   top frame    (parent frame)
+   +---+---+    +---+---+
+   |   | ------>|   | -----> ...
+   +-|-+---+    +-|-+---+
+     |            v
+     |            ...
+     |
+     v
+   entry        (next entry)
+   +---+---+    +---+---+
+   |   | ------>|   | -----> ...
+   +-|-+---+    +-|-+---+
+     |            |
+     v            v
+   val_hdl
+   +---+
+   |   |
+   +-|-+
+     |
+     v
+    val 
+   +---+
+   | ? |
+   +---+
+*/
 
 void frame_push(
 	node_t *frame_hdl,
@@ -294,15 +355,63 @@ void frame_pop(
 	memcpy(locals, &temp_frame, sizeof(temp_frame));
 }
 
+node_t *frame_snapshot(node_t *frame_hdl)
+{
+	node_t *src, *dst, *dst_curs, *val, *newhdl;
+
+	dst = dst_curs = NULL;
+	for(src = node_cons_car(node_handle(frame_hdl));
+	    src;
+	    src = node_cons_cdr(src)) {
+
+		val = node_handle(node_cons_car(src));
+		newhdl = node_handle_new(val);
+		if(dst == NULL) {
+			dst_curs = node_cons_new(newhdl, NULL);
+			dst = dst_curs;
+		} else {
+			node_cons_patch_cdr(dst_curs, node_cons_new(newhdl, NULL));
+			dst_curs = node_cons_cdr(dst_curs);
+		}
+	}
+
+	return node_cons_new(dst, node_cons_cdr(node_handle(frame_hdl)));
+}
+
 void frame_restore(
 	node_t *frame_hdl,
 	struct eval_frame *locals,
-	node_t *newframe)
+	node_t *snapshot)
 {
 	/* push an empty dummy frame, then reuse frame_pop */	
-	node_t *dummy = node_cons_new(NULL, newframe);
+	node_t *dummy = node_cons_new(NULL, snapshot);
 	node_handle_update(frame_hdl, dummy);
 	frame_pop(frame_hdl, locals);
+}
+
+void frame_print_bt(node_t *frame_hdl)
+{
+	node_t *frame_curs, *var_curs, *var_hdl;
+
+	for(frame_curs = node_handle(frame_hdl);
+	    frame_curs;
+	    frame_curs = node_cons_cdr(frame_curs)) {
+
+		assert(node_type(frame_curs) == NODE_CONS);
+		printf("frame @ %p\n", frame_curs);
+
+		for(var_curs = node_cons_car(frame_curs);
+		    var_curs;
+		    var_curs = node_cons_cdr(var_curs)) {
+
+			assert(node_type(var_curs) == NODE_CONS);
+			var_hdl = node_cons_car(var_curs);
+			assert(node_type(var_hdl) == NODE_HANDLE);
+			printf("var @ %p ", node_handle(var_hdl));
+			node_print(node_handle(var_hdl));
+		}
+		printf("\n");
+	}
 }
 
 eval_err_t eval(node_t *in_handle, node_t *env_handle, node_t *out_handle)
@@ -329,15 +438,15 @@ eval_err_t eval(node_t *in_handle, node_t *env_handle, node_t *out_handle)
 	#define _SET_INPUT(x) locals_in_set(&locals, (x))
 
 	/* long-lived local variables */
-	node_t *frame_hdl = NULL;
-	node_t *result_handle = NULL;
+	node_t *frame_hdl;
+	node_t *result_handle;
 	size_t bt_depth = 0;
 	size_t env_depth = 0;
 
 	/* temps -- must be restored after recursive calls */
-	node_t *_args = NULL;
-	node_t *keyval = NULL;
-	node_t *temp = NULL;
+	node_t *_args;
+	node_t *keyval;
+	node_t *temp;
 
 	assert(node_type(in_handle) == NODE_HANDLE);
 	assert(node_type(env_handle) == NODE_HANDLE);
@@ -457,7 +566,7 @@ restart:
 			goto restart;
 
 		case SPECIAL_LAMBDA:
-			temp = node_lambda_new(_ENV_HDL,
+			temp = node_lambda_new(node_handle(_ENV_HDL),
 			                       /* vars */
 			                       node_cons_car(_args), 
 			                       /* expr list */
@@ -479,8 +588,8 @@ restart:
 			/* generate new cons with first arg as passed func, second arg
 			   as result of node_cont_new(), then do a tail call. */
 			/* TODO: node_cons_car(_args) should be eval'd */
-			temp = node_cons_new(node_cont_new(node_handle(frame_hdl)),
-			                     NULL);
+			temp = frame_snapshot(frame_hdl);
+			temp = node_cons_new(node_cont_new(temp), NULL);
 			temp = node_cons_new(node_cons_car(_args), temp);
 			_SET_INPUT(temp);
 			_SET_STATE(_STATE | STATE_FLAG_NEW_INPUT);
@@ -684,24 +793,12 @@ finish:
 		_SET_ENV_HDL(NULL);
 	}
 
-	if(node_handle(frame_hdl)) {
-		_SET_NEWARGS(NULL);
-		_SET_NEWARGS_LAST(NULL);
-		if(_STATE & STATE_FLAG_NEW_INPUT) {
-			_SET_INPUT(NULL);
-		}
-#if defined(EVAL_TRACING)
-		printf("%zu eval leave %p: <- ", bt_depth, _INPUT);
-		node_print_pretty(_INPUT, false);
-		printf(" ... ");
-		node_print_pretty(node_handle(result_handle), false);
-		printf("\n");
-#endif
-		frame_pop(frame_hdl, &locals);
-		bt_depth--;
-		goto *_RESTART;
-	}
 
+	_SET_NEWARGS(NULL);
+	_SET_NEWARGS_LAST(NULL);
+	if(_STATE & STATE_FLAG_NEW_INPUT) {
+		_SET_INPUT(NULL);
+	}
 #if defined(EVAL_TRACING)
 	printf("%zu eval leave %p: <- ", bt_depth, _INPUT);
 	node_print_pretty(_INPUT, false);
@@ -709,6 +806,12 @@ finish:
 	node_print_pretty(node_handle(result_handle), false);
 	printf("\n");
 #endif
+	frame_pop(frame_hdl, &locals);
+	bt_depth--;
+	if(node_handle(frame_hdl)) {
+		goto *_RESTART;
+	}
+
 
 	node_handle_update(out_handle, node_handle(result_handle));
 	node_droproot(frame_hdl);
