@@ -31,4 +31,29 @@ void frame_restore(
 
 void frame_print_bt(node_t *frame_hdl);
 
+void framearr_push(
+	node_t *frame_hdl,
+	node_t **locals,
+	node_t **newvals,
+	size_t n);
+
+void framearr_pop(
+	node_t *frame_hdl,
+	node_t **locals,
+	size_t n);
+
+void framearr_restore(
+	node_t *frame_hdl,
+	node_t **locals,
+	size_t n,
+	node_t *snapshot);
+	
+void framearr_init(
+	node_t **locals,
+	size_t n);
+
+void framearr_deinit(
+	node_t **locals,
+	size_t n);
+
 #endif
