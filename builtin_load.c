@@ -55,6 +55,10 @@ static eval_err_t loadfn(node_t **n, node_t **result, void *p)
 
 	/* load libs */
 	load_status = load_wrapper(path, &ld_funs);
+	if(load_status) {
+		status = EVAL_ERR_FOREIGN_FAILURE;
+		goto cleanup;
+	}
 	
 	/* update environment */
 	assert(node_type(env_handle) == NODE_HANDLE);

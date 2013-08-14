@@ -11,7 +11,7 @@
 #include "parse.h"
 #include "eval.h"
 #include "environ_utils.h"
-#include "enviroN.H"
+#include "environ.h"
 #include "builtin_load.h"
 
 #define DEFINE_SPECIAL_MAKER(FUNC) \

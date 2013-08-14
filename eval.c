@@ -267,6 +267,8 @@ restart:
 	}
 	_SET_FUNC(node_handle(result_handle));
 
+	_args = node_cons_cdr(_INPUT); /* restore */
+
 	if(node_type(_FUNC) == NODE_SPECIAL_FUNC) {
 		switch(node_special_func(_FUNC)) {
 		case SPECIAL_IF:

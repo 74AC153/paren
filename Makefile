@@ -4,7 +4,7 @@ DEBUG_CFLAGS=-g
 
 PROFILE_CFLAGS=
 #PROFILE_CFLAGS+=-pg
-#PROFILE_CFLAGS+=-fprofile-arcs -ftest-coverage
+#PROFILE_CFLAGS+=-fprofile-arcs #-ftest-coverage
 
 OPTIMIZE_CFLAGS=
 #OPTIMIZE_CFLAGS+=-DNO_GC_STATISTICS
@@ -12,7 +12,7 @@ OPTIMIZE_CFLAGS=
 
 DEFINES_CFLAGS=
 #DEFINES_CFLAGS+=-DEVAL_TRACING
-DEFINES_CFLAGS+=-DGC_REACHABILITY_VERIFICATION
+#DEFINES_CFLAGS+=-DGC_REACHABILITY_VERIFICATION
 #DEFINES_CFLAGS+=-DNO_CLEAR_ON_FREE
 
 #DEFINES_CFLAGS+=-DALLOC_DEBUG
@@ -29,10 +29,13 @@ DEFINES_CFLAGS+=-DGC_REACHABILITY_VERIFICATION
 CFLAGS=${COMMON_CFLAGS} ${OPTIMIZE_CFLAGS} ${DEBUG_CFLAGS} ${PROFILE_CFLAGS} ${DEFINES_CFLAGS}
 
 LDFLAGS=
-#LDFLAGS+= -pg
+#LDFLAGS+= -ldl -Wl,--export-dynamic # Linux
+#LDFLAGS+= -pg -fprofile-arcs -lgcov
 #LDFLAGS+=-lgcov
 
-SO_LDFLAGS=-fPIC -dynamiclib -Wl,-undefined,dynamic_lookup
+
+SO_LDFLAGS=-fPIC -dynamiclib -Wl,-undefined,dynamic_lookup # MacOSX
+#SO_LDFLAGS=-fPIC -shared -lgcov -fprofile-arcs # Linux
 
 EXECUTABLES=tokenize_test parse_test eval_test paren
 OUTLIBS=base.so sio.so testutil.so
@@ -62,6 +65,15 @@ testutil.so: testutil.o
 
 paren: paren.o eval.o parse.o token.o node.o environ.o environ_utils.o eval_err.o memory.o dlist.o load_wrapper.o builtin_load.o foreign_common.o frame.o
 	gcc ${LDFLAGS} -o $@ $^
+
+builtins.o: builtins.c
+	gcc ${CFLAGS} -c $< -fPIC
+
+sio.o: sio.c
+	gcc ${CFLAGS} -c $< -fPIC
+
+testutil.o: testutil.c
+	gcc ${CFLAGS} -c $< -fPIC
 
 %.o: %.c
 	gcc ${CFLAGS} -c $<

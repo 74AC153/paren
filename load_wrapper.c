@@ -65,8 +65,8 @@ int load_wrapper(char *path, ldwrap_ent_t **funs)
 		return -1;
 	}
 
-	*funs = malloc(*fun_count * sizeof(ldwrap_ent_t) + 1);
-	if(! funs) {
+	*funs = malloc((*fun_count + 1) * sizeof((*funs)[0]));
+	if(! *funs) {
 		fprintf(stderr, "malloc() failed\n");
 		return -1;
 	}
