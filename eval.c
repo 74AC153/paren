@@ -66,89 +66,6 @@ eval_err_t lambda_bind(node_t *env_handle, node_t *vars, node_t *args)
 #define STATE_FLAG_FRAMEADDED 0x2
 #define STATE_FLAG_NEW_INPUT  0x4
 
-struct eval_frame_locals {
-	uint64_t state;
-	void *restart;
-	node_t *cursor;
-	node_t *newargs_last;
-
-	node_t *newargs; 
-	node_t *env_handle;
-	node_t *func;
-	node_t *in;
-};
-
-void eval_push_state(
-	node_t *bt_hdl,
-	struct eval_frame_locals *locals,
-	node_t *in,
-	node_t *env_handle)
-{
-	node_t *newframe, *oldframe, *temp;
-
-	oldframe = node_handle(bt_hdl);
-
-	newframe = node_cons_new(locals->func, NULL);
-	newframe = node_cons_new(locals->in, newframe);
-	temp = node_value_new((u_value_t) (locals->restart));
-	newframe = node_cons_new(temp, newframe);
-	newframe = node_cons_new(locals->newargs, newframe);
-	newframe = node_cons_new(locals->newargs_last, newframe);
-	newframe = node_cons_new(locals->env_handle, newframe);
-	newframe = node_cons_new(locals->cursor, newframe);
-	temp = node_value_new((u_value_t) (locals->state));
-	newframe = node_cons_new(temp, newframe);
-
-	newframe = node_cons_new(newframe, oldframe);
-	node_handle_update(bt_hdl, newframe);
-
-	memset(locals, 0, sizeof(*locals));
-	locals->in = in;
-	locals->env_handle = env_handle;
-}
-
-void eval_pop_state(node_t *bt_hdl, struct eval_frame_locals *locals)
-{
-	node_t *prevframe, *temp;
-
-	temp = node_cons_car(node_handle(bt_hdl));
-
-	locals->state = node_value(node_cons_car(temp));
-	temp = node_cons_cdr(temp);
-
-	locals->cursor = node_cons_car(temp);
-	temp = node_cons_cdr(temp);
-
-	locals->env_handle = node_cons_car(temp);
-	temp = node_cons_cdr(temp);
-
-	locals->newargs_last = node_cons_car(temp);
-	temp = node_cons_cdr(temp);
-
-	locals->newargs = node_cons_car(temp);
-	temp = node_cons_cdr(temp);
-
-	locals->restart = (void*) node_value(node_cons_car(temp));
-	temp = node_cons_cdr(temp);
-
-	locals->in = node_cons_car(temp);
-	temp = node_cons_cdr(temp);
-
-	locals->func = node_cons_car(temp);
-	temp = node_cons_cdr(temp);
-
-
-	node_lockroot(locals->newargs);
-	node_lockroot(locals->func);
-	node_lockroot(locals->env_handle);
-	if(locals->state & STATE_FLAG_NEW_INPUT) {
-		node_lockroot(locals->in);
-	}
-
-	prevframe = node_cons_cdr(node_handle(bt_hdl));
-	node_handle_update(bt_hdl, prevframe);
-}
-
 struct eval_frame {
 	node_t *state_hdl;
 	node_t *restart_hdl;
@@ -170,7 +87,9 @@ static value_t locals_state_get(struct eval_frame *f)
 }
 
 static void locals_state_set(struct eval_frame *f, value_t v)
-{ node_handle_update(f->state_hdl, node_value_new(v)); }
+{
+	node_handle_update(f->state_hdl, node_value_new(v));
+}
 
 static void *locals_restart_get(struct eval_frame *f)
 {
@@ -356,29 +275,6 @@ void frame_pop(
 	node_handle_update(locals->state_hdl, node_cons_car(cursor));
 
 	node_handle_update(frame_hdl, newframe);
-}
-
-node_t *frame_snapshot(node_t *frame_hdl)
-{
-	node_t *src, *dst, *dst_curs, *val, *newhdl;
-
-	dst = dst_curs = NULL;
-	for(src = node_cons_car(node_handle(frame_hdl));
-	    src;
-	    src = node_cons_cdr(src)) {
-
-		val = node_handle(node_cons_car(src));
-		newhdl = node_handle_new(val);
-		if(dst == NULL) {
-			dst_curs = node_cons_new(newhdl, NULL);
-			dst = dst_curs;
-		} else {
-			node_cons_patch_cdr(dst_curs, node_cons_new(newhdl, NULL));
-			dst_curs = node_cons_cdr(dst_curs);
-		}
-	}
-
-	return node_cons_new(dst, node_cons_cdr(node_handle(frame_hdl)));
 }
 
 void frame_restore(
