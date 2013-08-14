@@ -48,7 +48,7 @@ tokenize_test: tokenize_test.o token.o
 parse_test: parse_test.o parse.o token.o node.o memory.o dlist.o
 	gcc ${LDFLAGS} -o $@ $^
 
-eval_test: eval_test.o builtins.o eval.o parse.o token.o node.o environ.o environ_utils.o eval_err.o memory.o dlist.o foreign_common.o
+eval_test: eval_test.o builtins.o eval.o parse.o token.o node.o environ.o environ_utils.o eval_err.o memory.o dlist.o foreign_common.o frame.o
 	gcc ${LDFLAGS} -o $@ $^
 
 base.so: builtins_shared.o builtins.o
@@ -60,7 +60,7 @@ sio.so: sio.o
 testutil.so: testutil.o
 	gcc ${SO_LDFLAGS} -o $@ $^
 
-paren: paren.o eval.o parse.o token.o node.o environ.o environ_utils.o eval_err.o memory.o dlist.o load_wrapper.o builtin_load.o foreign_common.o
+paren: paren.o eval.o parse.o token.o node.o environ.o environ_utils.o eval_err.o memory.o dlist.o load_wrapper.o builtin_load.o foreign_common.o frame.o
 	gcc ${LDFLAGS} -o $@ $^
 
 %.o: %.c
