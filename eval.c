@@ -288,16 +288,6 @@ void frame_push(
 	node_t *env_handle)
 {
 	node_t *newframe, *oldframe;
-	struct eval_frame temp_frame = {
-		.state_hdl = node_handle_new(node_value_new(0)),
-		.restart_hdl = node_handle_new(node_value_new(0)),
-		.cursor_hdl = node_handle_new(NULL),
-		.newargs_last_hdl = node_handle_new(NULL),
-		.newargs_hdl = node_handle_new(NULL),
-		.env_hdl_hdl = node_handle_new(env_handle),
-		.func_hdl = node_handle_new(NULL),
-		.in_hdl = node_handle_new(in)
-	};
 
 	assert(node_type(frame_hdl) == NODE_HANDLE);
 	assert(locals);
@@ -306,19 +296,26 @@ void frame_push(
 	oldframe = node_handle(frame_hdl);
 	newframe = NULL;
 
-	newframe = node_cons_new(temp_frame.state_hdl, newframe);
-	newframe = node_cons_new(temp_frame.restart_hdl, newframe);
-	newframe = node_cons_new(temp_frame.cursor_hdl, newframe);
-	newframe = node_cons_new(temp_frame.newargs_last_hdl, newframe);
-	newframe = node_cons_new(temp_frame.newargs_hdl, newframe);
-	newframe = node_cons_new(temp_frame.env_hdl_hdl, newframe);
-	newframe = node_cons_new(temp_frame.func_hdl, newframe);
-	newframe = node_cons_new(temp_frame.in_hdl, newframe);
+	newframe = node_cons_new(node_handle(locals->state_hdl), newframe);
+	newframe = node_cons_new(node_handle(locals->restart_hdl), newframe);
+	newframe = node_cons_new(node_handle(locals->cursor_hdl), newframe);
+	newframe = node_cons_new(node_handle(locals->newargs_last_hdl), newframe);
+	newframe = node_cons_new(node_handle(locals->newargs_hdl), newframe);
+	newframe = node_cons_new(node_handle(locals->env_hdl_hdl), newframe);
+	newframe = node_cons_new(node_handle(locals->func_hdl), newframe);
+	newframe = node_cons_new(node_handle(locals->in_hdl), newframe);
 
 	newframe = node_cons_new(newframe, oldframe);
 	node_handle_update(frame_hdl, newframe);
 
-	memcpy(locals, &temp_frame, sizeof(temp_frame));
+	node_handle_update(locals->state_hdl, NULL);
+	node_handle_update(locals->restart_hdl, NULL);
+	node_handle_update(locals->cursor_hdl, NULL);
+	node_handle_update(locals->newargs_last_hdl, NULL);
+	node_handle_update(locals->newargs_hdl, NULL);
+	node_handle_update(locals->env_hdl_hdl, env_handle);
+	node_handle_update(locals->func_hdl, NULL);
+	node_handle_update(locals->in_hdl, in);
 }
 
 void frame_pop(
@@ -326,33 +323,39 @@ void frame_pop(
 	struct eval_frame *locals)
 {
 	node_t *newframe, *cursor;
-	struct eval_frame temp_frame;
 
 	assert(node_type(frame_hdl) == NODE_HANDLE);
 	assert(node_handle(frame_hdl));
 	assert(locals);
 
 	newframe = node_cons_cdr(node_handle(frame_hdl));
-	cursor = node_cons_car(newframe);
+	cursor = node_cons_car(node_handle(frame_hdl));
+	assert(cursor);
 
-	temp_frame.in_hdl = node_cons_car(cursor);
+	node_handle_update(locals->in_hdl, node_cons_car(cursor));
 	cursor = node_cons_cdr(cursor);
-	temp_frame.func_hdl = node_cons_car(cursor);
+	assert(cursor);
+	node_handle_update(locals->func_hdl, node_cons_car(cursor));
 	cursor = node_cons_cdr(cursor);
-	temp_frame.env_hdl_hdl = node_cons_car(cursor);
+	assert(cursor);
+	node_handle_update(locals->env_hdl_hdl, node_cons_car(cursor));
 	cursor = node_cons_cdr(cursor);
-	temp_frame.newargs_hdl = node_cons_car(cursor);
+	assert(cursor);
+	node_handle_update(locals->newargs_hdl, node_cons_car(cursor));
 	cursor = node_cons_cdr(cursor);
-	temp_frame.newargs_last_hdl = node_cons_car(cursor);
+	assert(cursor);
+	node_handle_update(locals->newargs_last_hdl, node_cons_car(cursor));
 	cursor = node_cons_cdr(cursor);
-	temp_frame.cursor_hdl = node_cons_car(cursor);
+	assert(cursor);
+	node_handle_update(locals->cursor_hdl, node_cons_car(cursor));
 	cursor = node_cons_cdr(cursor);
-	temp_frame.restart_hdl = node_cons_car(cursor);
+	assert(cursor);
+	node_handle_update(locals->restart_hdl, node_cons_car(cursor));
 	cursor = node_cons_cdr(cursor);
-	temp_frame.state_hdl = node_cons_car(cursor);
+	assert(cursor);
+	node_handle_update(locals->state_hdl, node_cons_car(cursor));
 
 	node_handle_update(frame_hdl, newframe);
-	memcpy(locals, &temp_frame, sizeof(temp_frame));
 }
 
 node_t *frame_snapshot(node_t *frame_hdl)
@@ -391,7 +394,7 @@ void frame_restore(
 
 void frame_print_bt(node_t *frame_hdl)
 {
-	node_t *frame_curs, *var_curs, *var_hdl;
+	node_t *frame_curs, *var_curs, *val;
 
 	for(frame_curs = node_handle(frame_hdl);
 	    frame_curs;
@@ -405,10 +408,9 @@ void frame_print_bt(node_t *frame_hdl)
 		    var_curs = node_cons_cdr(var_curs)) {
 
 			assert(node_type(var_curs) == NODE_CONS);
-			var_hdl = node_cons_car(var_curs);
-			assert(node_type(var_hdl) == NODE_HANDLE);
-			printf("var @ %p ", node_handle(var_hdl));
-			node_print(node_handle(var_hdl));
+			val = node_cons_car(var_curs);
+			printf("val @ %p ", val);
+			node_print(val);
 		}
 		printf("\n");
 	}
@@ -448,6 +450,15 @@ eval_err_t eval(node_t *in_handle, node_t *env_handle, node_t *out_handle)
 	node_t *keyval;
 	node_t *temp;
 
+	locals.state_hdl = node_lockroot(node_handle_new(NULL));
+	locals.restart_hdl = node_lockroot(node_handle_new(NULL));
+	locals.cursor_hdl = node_lockroot(node_handle_new(NULL));
+	locals.newargs_last_hdl = node_lockroot(node_handle_new(NULL));
+	locals.newargs_hdl = node_lockroot(node_handle_new(NULL));
+	locals.env_hdl_hdl = node_lockroot(node_handle_new(NULL));
+	locals.func_hdl = node_lockroot(node_handle_new(NULL));
+	locals.in_hdl = node_lockroot(node_handle_new(NULL));
+
 	assert(node_type(in_handle) == NODE_HANDLE);
 	assert(node_type(env_handle) == NODE_HANDLE);
 	assert(node_type(out_handle) == NODE_HANDLE);
@@ -455,7 +466,8 @@ eval_err_t eval(node_t *in_handle, node_t *env_handle, node_t *out_handle)
 	frame_hdl = node_lockroot(node_handle_new(NULL));
 	result_handle = node_lockroot(node_handle_new(NULL));
 
-	frame_push(frame_hdl, &locals, node_handle(in_handle), env_handle);
+	_SET_INPUT(node_handle(in_handle));
+	_SET_ENV_HDL(env_handle);
 
 restart:
 #if defined(EVAL_TRACING)
@@ -588,8 +600,8 @@ restart:
 			/* generate new cons with first arg as passed func, second arg
 			   as result of node_cont_new(), then do a tail call. */
 			/* TODO: node_cons_car(_args) should be eval'd */
-			temp = frame_snapshot(frame_hdl);
-			temp = node_cons_new(node_cont_new(temp), NULL);
+			temp = node_cons_new(node_cont_new(node_handle(frame_hdl)),
+			                     NULL);
 			temp = node_cons_new(node_cons_car(_args), temp);
 			_SET_INPUT(temp);
 			_SET_STATE(_STATE | STATE_FLAG_NEW_INPUT);
@@ -794,21 +806,22 @@ finish:
 	}
 
 
-	_SET_NEWARGS(NULL);
-	_SET_NEWARGS_LAST(NULL);
-	if(_STATE & STATE_FLAG_NEW_INPUT) {
-		_SET_INPUT(NULL);
-	}
-#if defined(EVAL_TRACING)
-	printf("%zu eval leave %p: <- ", bt_depth, _INPUT);
-	node_print_pretty(_INPUT, false);
-	printf(" ... ");
-	node_print_pretty(node_handle(result_handle), false);
-	printf("\n");
-#endif
-	frame_pop(frame_hdl, &locals);
-	bt_depth--;
 	if(node_handle(frame_hdl)) {
+		_SET_NEWARGS(NULL);
+		_SET_NEWARGS_LAST(NULL);
+		if(_STATE & STATE_FLAG_NEW_INPUT) {
+			_SET_INPUT(NULL);
+		}
+#if defined(EVAL_TRACING)
+		printf("%zu eval leave %p: <- ", bt_depth, _INPUT);
+		node_print_pretty(_INPUT, false);
+		printf(" ... ");
+		node_print_pretty(node_handle(result_handle), false);
+		printf("\n");
+#endif
+		frame_pop(frame_hdl, &locals);
+		bt_depth--;
+		assert(_RESTART);
 		goto *_RESTART;
 	}
 
@@ -816,6 +829,16 @@ finish:
 	node_handle_update(out_handle, node_handle(result_handle));
 	node_droproot(frame_hdl);
 	node_droproot(result_handle);
+
+	node_droproot(locals.state_hdl);
+	node_droproot(locals.restart_hdl);
+	node_droproot(locals.cursor_hdl);
+	node_droproot(locals.newargs_last_hdl);
+	node_droproot(locals.newargs_hdl);
+	node_droproot(locals.env_hdl_hdl);
+	node_droproot(locals.func_hdl);
+	node_droproot(locals.in_hdl);
+
 	return status;
 
 	#undef _STATE
