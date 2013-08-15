@@ -67,92 +67,44 @@ eval_err_t lambda_bind(node_t *env_handle, node_t *vars, node_t *args)
 #define STATE_FLAG_FRAMEADDED 0x2
 #define STATE_FLAG_NEW_INPUT  0x4
 
-static value_t locals_state_get(struct eval_frame *f)
+enum local_id {
+	LOCAL_ID_STATE,
+	LOCAL_ID_RESTART,
+	LOCAL_ID_CURSOR,
+	LOCAL_ID_NA_LAST,
+	LOCAL_ID_NEWARGS,
+	LOCAL_ID_ENV_HDL,
+	LOCAL_ID_FUNC,
+	LOCAL_ID_INPUT,
+	LOCAL_ID_MAX
+};
+
+static value_t locals_state_get(node_t **locals)
 {
-	if(node_handle(f->state_hdl)) {
-		return node_value(node_handle(f->state_hdl));
+	if(node_handle(locals[LOCAL_ID_STATE])) {
+		return node_value(node_handle(locals[LOCAL_ID_STATE]));
 	} else {
 		return 0;
 	}
 }
 
-static void locals_state_set(struct eval_frame *f, value_t v)
+static void locals_state_set(node_t **locals, value_t v)
 {
-	node_handle_update(f->state_hdl, node_value_new(v));
+	node_handle_update(locals[LOCAL_ID_STATE], node_value_new(v));
 }
 
-static void *locals_restart_get(struct eval_frame *f)
+static void *locals_restart_get(node_t **locals)
 {
-	if(node_handle(f->restart_hdl)) {
-		return node_blob_addr(node_handle(f->restart_hdl));
+	if(node_handle(locals[LOCAL_ID_RESTART])) {
+		return node_blob_addr(node_handle(locals[LOCAL_ID_RESTART]));
 	} else {
 		return NULL;
 	}
 }
 
-static void locals_restart_set(struct eval_frame *f, void *addr)
+static void locals_restart_set(node_t **locals, void *addr)
 {
-	node_handle_update(f->restart_hdl, node_blob_new(addr, NULL));
-}
-
-static node_t *locals_cursor_get(struct eval_frame *f)
-{
-	return node_handle(f->cursor_hdl);
-}
-
-static void locals_cursor_set(struct eval_frame *f, node_t *curs)
-{
-	node_handle_update(f->cursor_hdl, curs);
-}
-
-static node_t *locals_newargs_last_get(struct eval_frame *f)
-{
-	return node_handle(f->newargs_last_hdl);
-}
-
-static void locals_newargs_last_set(struct eval_frame *f, node_t *last)
-{
-	node_handle_update(f->newargs_last_hdl, last);
-}
-
-static node_t *locals_newargs_get(struct eval_frame *f)
-{
-	return node_handle(f->newargs_hdl);
-}
-
-static void locals_newargs_set(struct eval_frame *f, node_t *args)
-{
-	node_handle_update(f->newargs_hdl, args);
-}
-
-static node_t *locals_env_hdl_get(struct eval_frame *f)
-{
-	return node_handle(f->env_hdl_hdl);
-}
-
-static void locals_env_hdl_set(struct eval_frame *f, node_t *env)
-{
-	node_handle_update(f->env_hdl_hdl, env);
-}
-
-static node_t *locals_func_get(struct eval_frame *f)
-{
-	return node_handle(f->func_hdl);
-}
-
-static void locals_func_set(struct eval_frame *f, node_t *func)
-{
-	node_handle_update(f->func_hdl, func);
-}
-
-static node_t *locals_in_get(struct eval_frame *f)
-{
-	return node_handle(f->in_hdl);
-}
-
-static void locals_in_set(struct eval_frame *f, node_t *in)
-{
-	node_handle_update(f->in_hdl, in);
+	node_handle_update(locals[LOCAL_ID_RESTART], node_blob_new(addr, NULL));
 }
 
 eval_err_t eval(node_t *in_handle, node_t *env_handle, node_t *out_handle)
@@ -160,23 +112,26 @@ eval_err_t eval(node_t *in_handle, node_t *env_handle, node_t *out_handle)
 	eval_err_t status = EVAL_OK;
 
 	/* saved local variables */
-	struct eval_frame locals;
-	#define _STATE locals_state_get(&locals)
-	#define _RESTART locals_restart_get(&locals)
-	#define _CURSOR locals_cursor_get(&locals)
-	#define _NEWARGS_LAST locals_newargs_last_get(&locals)
-	#define _NEWARGS locals_newargs_get(&locals)
-	#define _ENV_HDL locals_env_hdl_get(&locals)
-	#define _FUNC locals_func_get(&locals)
-	#define _INPUT locals_in_get(&locals)
-	#define _SET_STATE(x) locals_state_set(&locals, (x))
-	#define _SET_RESTART(x) locals_restart_set(&locals, (x))
-	#define _SET_CURSOR(x) locals_cursor_set(&locals, (x))
-	#define _SET_NEWARGS_LAST(x) locals_newargs_last_set(&locals, (x))
-	#define _SET_NEWARGS(x) locals_newargs_set(&locals, (x))
-	#define _SET_ENV_HDL(x) locals_env_hdl_set(&locals, (x))
-	#define _SET_FUNC(x) locals_func_set(&locals, (x))
-	#define _SET_INPUT(x) locals_in_set(&locals, (x))
+	node_t *locals[LOCAL_ID_MAX] = { NULL };
+	node_t *newvals[LOCAL_ID_MAX] = { NULL };
+
+	#define _STATE locals_state_get(locals)
+	#define _RESTART locals_restart_get(locals)
+	#define _CURSOR node_handle(locals[LOCAL_ID_CURSOR])
+	#define _NEWARGS_LAST node_handle(locals[LOCAL_ID_NA_LAST])
+	#define _NEWARGS node_handle(locals[LOCAL_ID_NEWARGS])
+	#define _ENV_HDL node_handle(locals[LOCAL_ID_ENV_HDL])
+	#define _FUNC node_handle(locals[LOCAL_ID_FUNC])
+	#define _INPUT node_handle(locals[LOCAL_ID_INPUT])
+
+	#define _SET_STATE(x) locals_state_set(locals, (x))
+	#define _SET_RESTART(x) locals_restart_set(locals, (x))
+	#define _SET_CURSOR(x) node_handle_update(locals[LOCAL_ID_CURSOR], (x))
+	#define _SET_NA_LAST(x) node_handle_update(locals[LOCAL_ID_NA_LAST], (x))
+	#define _SET_NEWARGS(x) node_handle_update(locals[LOCAL_ID_NEWARGS], (x))
+	#define _SET_ENV_HDL(x) node_handle_update(locals[LOCAL_ID_ENV_HDL], (x))
+	#define _SET_FUNC(x) node_handle_update(locals[LOCAL_ID_FUNC], (x))
+	#define _SET_INPUT(x) node_handle_update(locals[LOCAL_ID_INPUT], (x))
 
 	/* long-lived local variables */
 	node_t *frame_hdl;
@@ -189,14 +144,8 @@ eval_err_t eval(node_t *in_handle, node_t *env_handle, node_t *out_handle)
 	node_t *keyval;
 	node_t *temp;
 
-	locals.state_hdl = node_lockroot(node_handle_new(NULL));
-	locals.restart_hdl = node_lockroot(node_handle_new(NULL));
-	locals.cursor_hdl = node_lockroot(node_handle_new(NULL));
-	locals.newargs_last_hdl = node_lockroot(node_handle_new(NULL));
-	locals.newargs_hdl = node_lockroot(node_handle_new(NULL));
-	locals.env_hdl_hdl = node_lockroot(node_handle_new(NULL));
-	locals.func_hdl = node_lockroot(node_handle_new(NULL));
-	locals.in_hdl = node_lockroot(node_handle_new(NULL));
+	frame_init(locals, LOCAL_ID_MAX);
+	memset(newvals, 0, sizeof(newvals));
 
 	assert(node_type(in_handle) == NODE_HANDLE);
 	assert(node_type(env_handle) == NODE_HANDLE);
@@ -256,10 +205,10 @@ restart:
 
 	/* 	status = eval(node_cons_car(input), environ, &func); */
 	_SET_RESTART(&&node_cons_post_eval_func);
+	newvals[LOCAL_ID_ENV_HDL] = _ENV_HDL;
+	newvals[LOCAL_ID_INPUT] = node_cons_car(_INPUT);
+	frame_push(frame_hdl, locals, newvals, LOCAL_ID_MAX);
 	bt_depth++;
-	frame_push(frame_hdl, &locals,
-	           node_cons_car(_INPUT),
-	           _ENV_HDL);
 	goto restart;
 	node_cons_post_eval_func:
 	if(status != EVAL_OK) {
@@ -275,9 +224,10 @@ restart:
 			/* (if args),  args -> (test pass fail) */
 			/* status = eval(test, locals.env_handle, &result); */
 			_SET_RESTART(&&node_if_post_eval_test);
+			newvals[LOCAL_ID_ENV_HDL] = _ENV_HDL;
+			newvals[LOCAL_ID_INPUT] = node_cons_car(_args);
+			frame_push(frame_hdl, locals, newvals, LOCAL_ID_MAX);
 			bt_depth++;
-			frame_push(frame_hdl, &locals,
-			           node_cons_car(_args), _ENV_HDL);
 			goto restart;
 			node_if_post_eval_test:
 			if(status != EVAL_OK) {
@@ -367,10 +317,10 @@ restart:
 
 			/* status = eval_norec(val, env_handle, &newval); */
 			_SET_RESTART(&&node_special_def_set_post_eval_func);
+			newvals[LOCAL_ID_ENV_HDL] = _ENV_HDL;
+			newvals[LOCAL_ID_INPUT] = node_cons_car(node_cons_cdr(_args));
+			frame_push(frame_hdl, locals, newvals, LOCAL_ID_MAX);
 			bt_depth++;
-			frame_push(frame_hdl, &locals,
-			           node_cons_car(node_cons_cdr(_args)),
-			           _ENV_HDL);
 			goto restart;
 			node_special_def_set_post_eval_func:
 			if(status != EVAL_OK) {
@@ -400,21 +350,21 @@ restart:
 	}
 
 	/* eval passed arguments in caller's environment */
-	_SET_NEWARGS_LAST(NULL);
+	_SET_NA_LAST(NULL);
 	_SET_NEWARGS(NULL);
 	for(_SET_CURSOR(node_cons_cdr(_INPUT));
 	    _CURSOR;
 		_SET_CURSOR(node_cons_cdr(_CURSOR))) {
 
 		_SET_RESTART(&&node_cons_post_args_eval);
+		newvals[LOCAL_ID_ENV_HDL] = _ENV_HDL;
+		newvals[LOCAL_ID_INPUT] = node_cons_car(_CURSOR);
+		frame_push(frame_hdl, locals, newvals, LOCAL_ID_MAX);
 		bt_depth++;
-		frame_push(frame_hdl, &locals,
-		                node_cons_car(_CURSOR),
-		                _ENV_HDL);
 		goto restart;
 		node_cons_post_args_eval:
 		if(status != EVAL_OK) {
-			_SET_NEWARGS_LAST(NULL);
+			_SET_NA_LAST(NULL);
 			_SET_NEWARGS(NULL);
 			goto node_lambda_cleanup;
 		}
@@ -422,11 +372,11 @@ restart:
 		temp = node_handle(result_handle);
 		if(_NEWARGS == NULL) {
 			_SET_NEWARGS(node_cons_new(temp, NULL));
-			_SET_NEWARGS_LAST(_NEWARGS);
+			_SET_NA_LAST(_NEWARGS);
 		} else {
 			node_cons_patch_cdr(_NEWARGS_LAST,
 			                    node_cons_new(temp, NULL));
-			_SET_NEWARGS_LAST(node_cons_cdr(_NEWARGS_LAST));
+			_SET_NA_LAST(node_cons_cdr(_NEWARGS_LAST));
 		}
 	}
 
@@ -499,7 +449,7 @@ restart:
 				_SET_INPUT(node_cons_car(_CURSOR));
 				_SET_STATE(_STATE | STATE_FLAG_TAILCALL);
 				/* because cons_cleanup will not be done */
-				_SET_NEWARGS_LAST(NULL);
+				_SET_NA_LAST(NULL);
 				_SET_NEWARGS(NULL);
 				_SET_FUNC(NULL);
 				/* tailcall */
@@ -507,10 +457,10 @@ restart:
 			} else {
 				/* status = eval(node_cons_car(cursor), env, [ignored]); */
 				_SET_RESTART(&&node_lambda_post_exprs_eval);
+				newvals[LOCAL_ID_ENV_HDL] = _ENV_HDL;
+				newvals[LOCAL_ID_INPUT] = node_cons_car(_CURSOR);
+				frame_push(frame_hdl, locals, newvals, LOCAL_ID_MAX);
 				bt_depth++;
-				frame_push(frame_hdl, &locals,
-				           node_cons_car(_CURSOR),
-				           _ENV_HDL);
 				goto restart;
 				node_lambda_post_exprs_eval:
 				if(status != EVAL_OK) {
@@ -534,7 +484,7 @@ restart:
 node_cons_cleanup:
 	_SET_FUNC(NULL);
 	_SET_NEWARGS(NULL);
-	_SET_NEWARGS_LAST(NULL);
+	_SET_NA_LAST(NULL);
 
 finish:
 	if(_STATE & STATE_FLAG_FRAMEADDED) {
@@ -549,7 +499,7 @@ finish:
 
 	if(node_handle(frame_hdl)) {
 		_SET_NEWARGS(NULL);
-		_SET_NEWARGS_LAST(NULL);
+		_SET_NA_LAST(NULL);
 		if(_STATE & STATE_FLAG_NEW_INPUT) {
 			_SET_INPUT(NULL);
 		}
@@ -560,7 +510,7 @@ finish:
 		node_print_pretty(node_handle(result_handle), false);
 		printf("\n");
 #endif
-		frame_pop(frame_hdl, &locals);
+		frame_pop(frame_hdl, locals, LOCAL_ID_MAX);
 		bt_depth--;
 		assert(_RESTART);
 		goto *_RESTART;
@@ -571,14 +521,7 @@ finish:
 	node_droproot(frame_hdl);
 	node_droproot(result_handle);
 
-	node_droproot(locals.state_hdl);
-	node_droproot(locals.restart_hdl);
-	node_droproot(locals.cursor_hdl);
-	node_droproot(locals.newargs_last_hdl);
-	node_droproot(locals.newargs_hdl);
-	node_droproot(locals.env_hdl_hdl);
-	node_droproot(locals.func_hdl);
-	node_droproot(locals.in_hdl);
+	frame_deinit(locals, LOCAL_ID_MAX);
 
 	return status;
 
@@ -593,7 +536,7 @@ finish:
 	#undef _SET_STATE
 	#undef _SET_RESTART
 	#undef _SET_CURSOR
-	#undef _SET_NEWARGS_LAST
+	#undef _SET_NA_LAST
 	#undef _SET_NEWARGS
 	#undef _SET_ENV_HDL
 	#undef _SET_FUNC
