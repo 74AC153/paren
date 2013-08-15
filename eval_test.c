@@ -52,6 +52,7 @@ DEFINE_SPECIAL_MAKER(QUOTE)
 DEFINE_SPECIAL_MAKER(DEF)
 DEFINE_SPECIAL_MAKER(SET)
 DEFINE_SPECIAL_MAKER(DEFINED)
+DEFINE_SPECIAL_MAKER(EVAL)
 
 #define ARR_LEN(ARR) (sizeof(ARR) / sizeof((ARR)[0]))
 
@@ -63,6 +64,7 @@ foreign_assoc_t startenv[] = {
 	{ "def!",     make_special_DEF },
 	{ "set!",     make_special_SET },
 	{ "defined?", make_special_DEFINED },
+	{ "eval",     make_special_EVAL },
 
 	{ "nil?",     make_foreign_nil_p },
 	{ "value?",   make_foreign_value_p },

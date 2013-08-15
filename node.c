@@ -587,6 +587,8 @@ void node_print_pretty(node_t *n, bool isverbose)
 			case SPECIAL_DEFINED:
 				printf("defined? ");
 				break;
+			case SPECIAL_EVAL:
+				printf("eval ");
 			}
 			break;
 		case NODE_BLOB:

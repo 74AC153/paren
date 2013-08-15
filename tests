@@ -45,3 +45,5 @@
 '(def! foo ())' '(cons 1 (call/cc (lambda (cc) (set! foo cc) 2)))' '(foo 3)'
 '(def! foo ())' '(cons 1 (call/cc (lambda (cc) (set! foo cc) (if () 1 2))))' '(foo 3)'
 '(def! foo ())' '(cons 1 (call/cc (lambda (cc) (set! foo cc) (if () 1 2))))' '(cons 5 (foo 3))'
+
+'(eval (quote (quote 5)))'

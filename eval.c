@@ -185,8 +185,9 @@ restart:
 		                    &temp)) {
 			node_handle_update(result_handle, _INPUT);
 			status = eval_err(EVAL_ERR_UNRESOLVED_SYMBOL);
+		} else {
+			node_handle_update(result_handle, temp);
 		}
-		node_handle_update(result_handle, temp);
 		goto finish;
 
 	case NODE_CONS: 
@@ -344,6 +345,7 @@ restart:
 			node_handle_update(result_handle, _CURSOR);
 			goto node_cons_cleanup;
 			case SPECIAL_DEFINED:
+			case SPECIAL_EVAL:
 				/* handled below */
 				break;
 		}
@@ -393,6 +395,10 @@ restart:
 				}
 			}
 			goto node_cons_cleanup;
+		case SPECIAL_EVAL:
+			/* restart with new input */
+			_SET_INPUT(node_cons_car(_NEWARGS));
+			goto restart;		
 		default:
 			assert(false);
 		}
