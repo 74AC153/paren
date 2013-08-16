@@ -116,4 +116,6 @@ Immediately following allocation, all memory is marked as being a 'root'
 allocation.
 
 Root allocations can be 'locked', meaning that even if the allocation becomes
+linked, it will stay in the roots list.
+
 
