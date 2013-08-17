@@ -22,6 +22,8 @@ void memstate_print(memory_state_t *state)
 	printf("total_free=%llu\n", (unsigned long long) state->total_free);
 	printf("iter count=%llu\n", state->iter_count);
 	printf("cycle count=%llu\n", state->cycle_count);
+	printf("clean_cycles=%u\n", state->clean_cycles);
+	printf("skipped_clean_iters=%llu\n", state->skipped_clean_iters);
 	printf("free list @ %p\n", &(state->free_list));
 	printf("root sentinel @ %p\n", &(state->root_sentinel));
 	printf("roots_list @ %p\n", &(state->roots_list));
@@ -173,6 +175,8 @@ void memory_state_init(
 	s->total_free = 0;
 	s->iter_count = 0;
 	s->cycle_count = 0;
+	s->clean_cycles = 0;
+	s->skipped_clean_iters = 0;
 	s->ms_flags = 0;
 }
 
@@ -297,6 +301,7 @@ void memory_gc_unlock(memory_state_t *s, void *data)
 		memcell_to_free_pending(s, mc);
 	}
 	memcell_unlock(mc);
+	s->clean_cycles = 0; // may need to begin cleanup
 }
 
 void memory_gc_advise_new_link(memory_state_t *s, void *data)
@@ -338,6 +343,7 @@ void memory_gc_advise_stale_link(memory_state_t *s, void *data)
 	if(!data) {
 		return;
 	}
+	s->clean_cycles = 0; // may need to begin cleanup
 	mc = data_to_memcell(data);
 	if(! memcell_refcount(mc)) { // may already be zero if there is a loop
 #if defined(GC_REFCOUNT_DEBUG)
@@ -445,6 +451,11 @@ bool memory_gc_iterate(memory_state_t *s)
 #if !defined(NDEBUG) /* this is useless without the assert above */
 	memstate_setactive(s);
 #endif
+	/* 2 clean cycles allows unprocessed nodes to reach the free list */
+	if(s->clean_cycles == 2) {
+		s->skipped_clean_iters++;
+		goto finish;
+	}
 
 #if ! defined(NO_GC_STATISTICS)
 	s->iter_count++;
@@ -553,6 +564,7 @@ bool memory_gc_iterate(memory_state_t *s)
 #if ! defined(NO_GC_STATISTICS)
 	s->cycle_count++;
 #endif
+	s->clean_cycles++;
 
 finish:
 #if defined(GC_VERBOSE)

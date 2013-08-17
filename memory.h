@@ -32,6 +32,8 @@ typedef struct
 	uintptr_t total_free;
 	unsigned long long iter_count;
 	unsigned long long cycle_count;
+	unsigned int clean_cycles;
+	unsigned long long skipped_clean_iters;
 	dlist_t free_list;
 	dlnode_t root_sentinel;
 	dlist_t roots_list;
