@@ -42,9 +42,9 @@ void environ_pushframe(node_t *env_handle);
 void environ_popframe(node_t *env_handle);
 void environ_add(node_t *env_handle, node_t *key, node_t *val);
 
-bool environ_keyval_frame(node_t *top_frame, node_t *key, node_t **keyval);
-bool environ_keyval(node_t *top_frame, node_t *key, node_t **keyval);
-bool environ_lookup(node_t *top_frame, node_t *key, node_t **val);
+bool environ_keyval_frame(node_t *env_handle, node_t *key, node_t **keyval);
+bool environ_keyval(node_t *env_handle, node_t *key, node_t **keyval);
+bool environ_lookup(node_t *env_handle, node_t *key, node_t **val);
 
 void environ_print(node_t *top_frame);
 

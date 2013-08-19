@@ -151,7 +151,7 @@ int main(int argc, char *argv[])
 
 cleanup:
 	if(getenv("PAREN_FINALENV")) {
-		environ_print(node_handle(env_handle));
+		environ_print(env_handle);
 	}
 
 	node_droproot(eval_in_hdl);

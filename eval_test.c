@@ -135,7 +135,7 @@ int main(int argc, char *argv[])
 		printf("\n");
 
 		printf("start environment:\n");
-		environ_print(node_handle(env_handle));
+		environ_print(env_handle);
 
 		printf("*** eval ***\n");
 		eval_stat = eval(eval_in_hdl, env_handle, eval_out_hdl);
@@ -158,8 +158,8 @@ int main(int argc, char *argv[])
 		node_handle_update(eval_out_hdl, NULL);
 	}
 
-	printf("*** result environment %p ***\n", node_handle(env_handle));
-	environ_print(node_handle(env_handle));
+	printf("*** result environment %p ***\n", env_handle);
+	environ_print(env_handle);
 
 	printf("*** release toplevel environment %p ***\n", env_handle);
 	node_droproot(eval_in_hdl);

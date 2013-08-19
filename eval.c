@@ -47,7 +47,7 @@ eval_err_t lambda_bind(node_t *env_handle, node_t *vars, node_t *args)
 
 		/* if the symbol already exists in the current frame, update its
 		   value, otherwise, add the value to the frame */
-		if(environ_keyval_frame(node_handle(env_handle), name, &kv)) {
+		if(environ_keyval_frame(env_handle, name, &kv)) {
 			node_cons_patch_cdr(kv, value);
 		} else {
 			environ_add(env_handle, name, value);
@@ -180,7 +180,7 @@ restart:
 		goto finish;
 
 	case NODE_SYMBOL:
-		if(! environ_lookup(node_handle(_ENV_HDL),
+		if(! environ_lookup(_ENV_HDL,
 		                    _INPUT,
 		                    &temp)) {
 			node_handle_update(result_handle, _INPUT);
@@ -332,7 +332,7 @@ restart:
 				temp = node_handle(result_handle);
 				environ_add(_ENV_HDL, _CURSOR, temp);
 			} else {
-				if(!environ_keyval(node_handle(_ENV_HDL),
+				if(!environ_keyval(_ENV_HDL,
 				                   _CURSOR,
 				                   &keyval)) {
 					node_handle_update(result_handle, _CURSOR);
@@ -389,7 +389,7 @@ restart:
 			if(_NEWARGS) {
 				temp = node_cons_car(_NEWARGS);
 				if(node_type(temp) == NODE_SYMBOL
-				   && environ_lookup(node_handle(_ENV_HDL),
+				   && environ_lookup(_ENV_HDL,
 				                     temp, NULL)) {
 					node_handle_update(result_handle, node_value_new(1));
 				}

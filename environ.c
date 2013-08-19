@@ -5,107 +5,99 @@
 
 #include "node.h"
 #include "environ.h"
+#include "frame.h"
 
 void environ_pushframe(node_t *env_handle)
 {
-	node_t *oldenv, *newenv;
-	assert(env_handle);
-	oldenv = node_handle(env_handle);
-	newenv = node_cons_new(NULL, oldenv);
-	node_handle_update(env_handle, newenv);
+	frame_push(env_handle, NULL, NULL, 0);
 }
 
 void environ_popframe(node_t *env_handle)
 {
-	node_t *oldenv, *newenv;
-	assert(env_handle);
-	oldenv = node_handle(env_handle);
-	newenv = node_cons_cdr(oldenv);
-	node_handle_update(env_handle, newenv);
+	frame_pop(env_handle, NULL, 0);
 }
 
 void environ_add(node_t *env_handle, node_t *key, node_t *val)
 {
-	node_t *oldenv = node_handle(env_handle);
-
-	node_t *nextent = node_cons_car(oldenv);
-	node_t *nextfrm = node_cons_cdr(oldenv);
-
-	node_t *newkv = node_cons_new(key, val);
-	node_t *newent = node_cons_new(newkv, nextent);
-	node_t *newenv = node_cons_new(newent, nextfrm);
-
-	node_handle_update(env_handle, newenv);
+	frame_add_elem(env_handle, node_cons_new(key, val));
 }
 
-bool environ_keyval_frame(node_t *top_frame, node_t *key, node_t **keyval)
+struct kv_find
 {
-	node_t *entry_curs, *kv, *testkey;
-
-	for(entry_curs = node_cons_car(top_frame);
-	    entry_curs;
-	    entry_curs = node_cons_cdr(entry_curs)) {
-
-		kv = node_cons_car(entry_curs);
-		testkey = node_cons_car(kv);
-
-		if(!strcmp(node_symbol_name(testkey), node_symbol_name(key))) {
-			if(keyval) *keyval = kv;
-			return true;
-		}
-		
-	}
-	return false;
-}
-
-bool environ_keyval(node_t *top_frame, node_t *key, node_t **keyval)
-{
-	node_t *frame_curs;
-
-	for (frame_curs = top_frame;
-	     frame_curs;
-	     frame_curs = node_cons_cdr(frame_curs)) {
-
-		if(environ_keyval_frame(frame_curs, key, keyval)) {
-			return true;
-		}
-	}
-	return false;
-}
-
-bool environ_lookup(node_t *top_frame, node_t *key, node_t **value)
-{
+	node_t *key;
 	node_t *keyval;
+};
 
-	if(! environ_keyval(top_frame, key, &keyval)) {
-		return false;
-	}
-	if(value) *value = node_cons_cdr(keyval);
-	return true;
-}
-
-void environ_print(node_t *top_frame)
+static int find_keyval(node_t *kv, void *p)
 {
-	node_t *frame_curs, *entry_curs, *keyval;
+	struct kv_find *info = (struct kv_find *) p;
+	node_t *testkey;
 
-	printf("environ %p:\n", top_frame);
-	for (frame_curs = top_frame;
-	     frame_curs;
-	     frame_curs = node_cons_cdr(frame_curs)) {
+	testkey = node_cons_car(kv);
 
-		for (entry_curs = node_cons_car(frame_curs);
-		     entry_curs;
-		     entry_curs = node_cons_cdr(entry_curs)) {
-
-			keyval = node_cons_car(entry_curs);
-			node_print_pretty(node_cons_car(keyval), false);
-			printf(" -> ");
-			node_print_pretty(node_cons_cdr(keyval), false);
-			printf("\n");
-
-		}
-		printf("\n");
+	if(!strcmp(node_symbol_name(testkey), node_symbol_name(info->key))) {
+		info->keyval = kv;
+		return 1;
 	}
-	printf("\n");
+	return 0;
 }
 
+static bool environ_find(
+	node_t *env_handle,
+	node_t *key,
+	bool recursive,
+	node_t **keyval)
+{
+	struct kv_find info = { .key = key, .keyval = NULL };
+	int status;
+	status = frame_iterate(env_handle, find_keyval, &info, recursive,
+	                       NULL, NULL);
+	if(keyval) {
+		*keyval = info.keyval;
+	}
+	return status != 0;
+}
+
+bool environ_keyval_frame(node_t *env_handle, node_t *key, node_t **keyval)
+{
+	return environ_find(env_handle, key, false, keyval);
+}
+
+bool environ_keyval(node_t *env_handle, node_t *key, node_t **keyval)
+{
+	return environ_find(env_handle, key, true, keyval);
+}
+
+bool environ_lookup(node_t *env_handle, node_t *key, node_t **val)
+{
+	int status;
+	node_t *keyval;
+	status = environ_find(env_handle, key, true, &keyval);
+	if(val) {
+		*val = node_cons_cdr(keyval);
+	}
+	return status != 0;
+}
+
+static int print_env_cb(node_t *env, void *p)
+{
+	(void) p;
+	printf("env frame @ %p:\n", env);
+	return 0;
+}
+
+static int print_val_cb(node_t *kv, void *p)
+{
+	(void) p;
+	printf("    ");
+	node_print_pretty(node_cons_car(kv), false);
+	printf(" -> ");
+	node_print_pretty(node_cons_cdr(kv), false);
+	printf("\n");
+	return 0;
+}
+
+void environ_print(node_t *env_handle)
+{
+	frame_iterate(env_handle, print_env_cb, NULL, true, print_val_cb, NULL);
+}
