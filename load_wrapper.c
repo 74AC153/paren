@@ -27,6 +27,8 @@ int load_wrapper(char *path, ldwrap_ent_t **funs)
 	start = strrchr(path, PATH_SEP);
 	if(! start) {
 		start = path;
+	} else {
+		start++; // skip '/'
 	}
 	end = strchr(start, FEXT_SEP);
 	if(!end) {
