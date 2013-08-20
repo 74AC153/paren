@@ -1,3 +1,12 @@
+
+remove C lib deps from core?
+abstract malloc
+add static lib archive target
+add (load ...) / (load-graph ...) .. ?
+expand on readme
+add pre-parse functionality -- embedable into sharred libs
+add onload()/onexit() callbacks for shared libs
+
 add (eval ... ) builtin
 
 when returning error, must make sure we still lock/unlock returned value?
