@@ -25,6 +25,9 @@ typedef void (*print_callback)(void *data);
 
 typedef void (*init_callback)(void *data);
 
+typedef void *(*mem_alloc_callback)(size_t bytes, void *p);
+typedef void (*mem_free_callback)(void *alloc, void *p);
+
 typedef struct
 {
 	size_t datasize;
@@ -46,6 +49,9 @@ typedef struct
 	data_link_callback dl_cb;
 	print_callback p_cb;
 	uint32_t ms_flags;
+	mem_alloc_callback mem_alloc;
+	mem_free_callback mem_free;
+	void *mem_alloc_priv;
 } memory_state_t;
 
 /* initialize memory state */
@@ -54,7 +60,10 @@ void memory_state_init(
 	size_t datasize,
 	init_callback i_cb,
 	data_link_callback dl_cb,
-	print_callback p_cb);
+	print_callback p_cb,
+	mem_alloc_callback mem_alloc,
+	mem_free_callback mem_free,
+	void *mem_alloc_priv);
 
 /* request memory from the GC */
 void *memory_request(memory_state_t *s);

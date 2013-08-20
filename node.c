@@ -76,13 +76,26 @@ static void node_init_cb(void *p)
 	n->type = NODE_UNINITIALIZED;
 }
 
+static void *node_mem_alloc(size_t len, void *p)
+{
+	return malloc(len);
+}
+
+static void node_mem_free(void *alloc, void *p)
+{
+	free(alloc);
+}
+
 void nodes_initialize()
 {
 	memory_state_init(&g_memstate,
 	                  sizeof(node_t),
 	                  node_init_cb,
 	                  links_cb,
-	                  node_print_wrap);
+	                  node_print_wrap,
+	                  node_mem_alloc,
+	                  node_mem_free,
+	                  NULL);
 }
 
 #if defined(NODE_NO_INCREMENTAL_GC)

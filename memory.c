@@ -155,7 +155,10 @@ void memory_state_init(
 	size_t datasize,
 	init_callback i_cb,
 	data_link_callback dl_cb,
-	print_callback p_cb)
+	print_callback p_cb,
+	mem_alloc_callback mem_alloc,
+	mem_free_callback mem_free,
+	void *mem_alloc_priv)
 {
 	s->datasize = datasize;
 	dlist_init(&(s->free_list));
@@ -178,6 +181,9 @@ void memory_state_init(
 	s->clean_cycles = 0;
 	s->skipped_clean_iters = 0;
 	s->ms_flags = 0;
+	s->mem_alloc = mem_alloc;
+	s->mem_free = mem_free;
+	s->mem_alloc_priv = mem_alloc_priv;
 }
 
 static
@@ -223,7 +229,9 @@ void *memory_request(memory_state_t *s)
 		       (unsigned long long) s->total_free);
 #endif
 	} else {
-		mc = (memcell_t *) dlnode_init(malloc(sizeof(memcell_t)+s->datasize));
+		void *mem = s->mem_alloc(sizeof(memcell_t) + s->datasize,
+		                         s->mem_alloc_priv);
+		mc = (memcell_t *) dlnode_init(mem);
 #if ! defined(NO_GC_STATISTICS)
 		s->total_alloc++;
 #endif
