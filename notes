@@ -1,11 +1,10 @@
-
-remove C lib deps from core?
-abstract malloc
-add static lib archive target
 add (load ...) / (load-graph ...) .. ?
 expand on readme
 add pre-parse functionality -- embedable into sharred libs
 add onload()/onexit() callbacks for shared libs
+
+remove C lib deps from core?
+	token.c: isspace(), strtoll(), strncpy(), printf()
 
 add (eval ... ) builtin
 

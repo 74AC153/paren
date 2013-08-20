@@ -38,20 +38,23 @@ SO_LDFLAGS=-fPIC -dynamiclib -Wl,-undefined,dynamic_lookup # MacOSX
 #SO_LDFLAGS=-fPIC -shared -lgcov -fprofile-arcs # Linux
 
 EXECUTABLES=tokenize_test parse_test eval_test paren
-OUTLIBS=base.so sio.so testutil.so
+OUTLIBS=base.so sio.so testutil.so paren_interp.a
 
 default: ${EXECUTABLES} ${OUTLIBS}
 
 clean:
 	rm *.o ${EXECUTABLES} ${OUTLIBS}
 
-tokenize_test: tokenize_test.o token.o
+paren_interp.a: eval.o parse.o token.o node.o environ.o environ_utils.o eval_err.o memory.o dlist.o load_wrapper.o builtin_load.o foreign_common.o frame.o
+	ar -cvq $@ $^
+
+tokenize_test: tokenize_test.o paren_interp.a
 	gcc ${LDFLAGS} -o $@ $^
 
-parse_test: parse_test.o parse.o token.o node.o memory.o dlist.o
+parse_test: parse_test.o paren_interp.a
 	gcc ${LDFLAGS} -o $@ $^
 
-eval_test: eval_test.o builtins.o eval.o parse.o token.o node.o environ.o environ_utils.o eval_err.o memory.o dlist.o foreign_common.o frame.o
+eval_test: eval_test.o builtins.o paren_interp.a
 	gcc ${LDFLAGS} -o $@ $^
 
 base.so: builtins_shared.o builtins.o
@@ -63,7 +66,7 @@ sio.so: sio.o
 testutil.so: testutil.o
 	gcc ${SO_LDFLAGS} -o $@ $^
 
-paren: paren.o eval.o parse.o token.o node.o environ.o environ_utils.o eval_err.o memory.o dlist.o load_wrapper.o builtin_load.o foreign_common.o frame.o
+paren: paren.o paren_interp.a
 	gcc ${LDFLAGS} -o $@ $^
 
 builtins.o: builtins.c
