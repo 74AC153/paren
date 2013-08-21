@@ -64,19 +64,69 @@ void environ_add_argv(node_t *env_handle, int argc, char *argv[])
 	environ_add(env_handle, node_symbol_new("ARGV"), argv_head);
 }
 
+typedef struct {
+	int fd;
+	void *buf;
+	size_t len;
+	int err;
+} filemap_info_t;
+
+int map_file(filemap_info_t *info, char *path)
+{
+	struct stat sb;
+	int status = 0;
+
+	info->fd = open(path, O_RDONLY);
+	if(info->fd < 0) {
+		status = -1;
+		info->err = errno;
+		goto finish;
+	}
+
+	status = fstat(info->fd, &sb);
+	if(status < 0) {
+		status = -2;
+		info->err = errno;
+		goto finish;
+	}
+	info->len = sb.st_size;
+
+	info->buf = mmap(NULL, info->len, PROT_READ, MAP_PRIVATE, info->fd, 0);
+	if(info->buf == MAP_FAILED) {
+		status = -3;
+		info->err = errno;
+		goto finish;
+	}
+
+finish:
+	return status;
+}
+
+void unmap_file(filemap_info_t *info)
+{
+	if(info->buf != NULL && info->buf != MAP_FAILED) {
+		munmap(info->buf, info->len);
+	}
+	if(info->fd >= 0) {
+		close(info->fd);
+	}
+}
+
 int main(int argc, char *argv[])
 {
-	node_t *parse_result = NULL, *eval_in_hdl = NULL, *eval_out_hdl = NULL, *env_handle = NULL;
+	node_t *parse_result, *eval_in_hdl, *eval_out_hdl, *env_handle;
 	eval_err_t eval_stat;
 	parse_err_t parse_stat;
 	char *remain;
 	size_t i;
 	int status = 0;
-	char *infile;
-	int infd = -1;
-	char *filebuf = NULL, *bufcurs;
-	size_t file_len = 0;
-	struct stat sb;
+	char *bufcurs;
+
+	filemap_info_t info;
+
+	if(argc < 2) {
+		goto cleanup;
+	}
 
 	nodes_initialize();
 
@@ -94,39 +144,25 @@ int main(int argc, char *argv[])
 	environ_add_argv(env_handle, argc-1, argv+1); // NB: argv[0] is interp name
 	environ_add_builtins(env_handle, startenv, ARR_LEN(startenv));
 
-	if(argc < 2) {
-		goto cleanup;
-	}
-
-	infile = argv[1];
-	status = open(infile, O_RDONLY);
-	if(status < 0) {
+	status = map_file(&info, argv[1]);
+	switch(status) {
+	default: break;
+	case -1:
 		fprintf(stderr, "error: cannot open() file %s: %s (errno=%d)\n",
-		        infile, strerror(errno), errno);		
-		status = -1;
+		        argv[1], strerror(info.err), info.err);		
 		goto cleanup;
-	}
-	infd = status;
-
-	status = fstat(infd, &sb);
-	if(status < 0) {
+	case -2:
 		fprintf(stderr, "error: canno stat() file %s: %s (errno=%d)\n",
-		        infile, strerror(errno), errno);		
-		status = -1;
+		        argv[1], strerror(info.err), info.err);		
 		goto cleanup;
-	}
-	file_len = sb.st_size;
-
-	filebuf = mmap(NULL, file_len, PROT_READ, MAP_PRIVATE, infd, 0);
-	if(filebuf == MAP_FAILED) {
+	case -3:
 		fprintf(stderr, "error: cannot mmap() file %s: %s (errno=%d)\n",
-		        infile, strerror(errno), errno);		
-		status = -1;
+		        argv[1], strerror(info.err), info.err);		
 		goto cleanup;
 	}
 
-	for(bufcurs = filebuf;
-	    bufcurs - filebuf < (ssize_t) file_len;
+	for(bufcurs = info.buf;
+	    (uintptr_t) bufcurs - (uintptr_t) info.buf < info.len;
 	    ) {
 		parse_stat = parse(bufcurs, &bufcurs, &parse_result, NULL);
 		if(parse_stat != PARSE_OK) {
@@ -157,12 +193,7 @@ cleanup:
 	node_droproot(eval_in_hdl);
 	node_droproot(eval_out_hdl);
 	node_droproot(env_handle);
-	if(filebuf != NULL && filebuf != MAP_FAILED) {
-		munmap(filebuf, file_len);
-	}
-	if(infd >= 0) {
-		close(infd);
-	}
+	unmap_file(&info);
 
 	if(getenv("PAREN_MEMSTAT")) {
 		uintptr_t total_alloc, total_free;

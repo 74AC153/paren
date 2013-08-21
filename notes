@@ -1,10 +1,14 @@
+have parse return value inside handle
+add bootstrap program to paren, then call parse-file and eval on each one
+add nodes_cleanup()
 add (load ...) / (load-graph ...) .. ?
+  - _map-file
+  - _parse-buf
 expand on readme
 add pre-parse functionality -- embedable into sharred libs
 add onload()/onexit() callbacks for shared libs
 
 remove C lib deps from core?
-	token.c: isspace(), strtoll(), strncpy(), printf()
 
 add (eval ... ) builtin
 
