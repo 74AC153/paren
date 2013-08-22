@@ -98,6 +98,11 @@ void nodes_initialize()
 	                  NULL);
 }
 
+void nodes_reset()
+{
+	memory_state_reset(&g_memstate);
+}
+
 #if defined(NODE_NO_INCREMENTAL_GC)
 	#define NODE_GC_ITERATE()
 #else

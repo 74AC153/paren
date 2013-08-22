@@ -65,6 +65,9 @@ void memory_state_init(
 	mem_free_callback mem_free,
 	void *mem_alloc_priv);
 
+void memory_state_reset(
+	memory_state_t *s);
+
 /* request memory from the GC */
 void *memory_request(memory_state_t *s);
 /* attach finalizer callback to memory cell */

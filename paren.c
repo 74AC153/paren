@@ -219,5 +219,8 @@ cleanup:
 	if(getenv("PAREN_DUMPMEM")) {
 		node_gc_print_state();
 	}
+
+	nodes_reset();
+
 	return status;
 }

@@ -71,6 +71,7 @@ struct node {
 };
 
 void nodes_initialize();
+void nodes_reset();
 
 nodetype_t node_type(node_t *n);
 /* (locked, root), (unlocked, root), (unlocked, not root) */

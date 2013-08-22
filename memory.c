@@ -186,6 +186,61 @@ void memory_state_init(
 	s->mem_alloc_priv = mem_alloc_priv;
 }
 
+static void memcell_deinit(memory_state_t *s, memcell_t *mc)
+{
+	if(mc->fin) {
+		mc->fin(mc->data);
+	}
+#if ! defined(NO_CLEAR_ON_FREE)
+	memset(mc->data, 0, s->datasize);
+#endif
+}
+
+void memory_state_reset(
+	memory_state_t *s)
+{
+	dlnode_t *cursor;
+	memcell_t *mc;
+
+	while(! dlist_is_empty(&(s->free_pending_list))) {
+		mc = (memcell_t *) dlnode_remove(dlist_first(&(s->free_pending_list)));
+		memcell_deinit(s, mc);
+		s->mem_free(mc, s->mem_alloc_priv);
+	}
+
+	while(! dlist_is_empty(&(s->roots_list))) {
+		cursor = dlnode_remove(dlist_first(&(s->roots_list)));
+		if(cursor != &(s->root_sentinel)) {
+			mc = (memcell_t *) cursor;
+			memcell_deinit(s, mc);
+			s->mem_free(mc, s->mem_alloc_priv);
+		}
+	}
+
+	while(! dlist_is_empty(&(s->boundary_list))) {
+		mc = (memcell_t *) dlnode_remove(dlist_first(&(s->boundary_list)));
+		memcell_deinit(s, mc);
+		s->mem_free(mc, s->mem_alloc_priv);
+	}
+
+	while(! dlist_is_empty(&(s->black_list))) {
+		mc = (memcell_t *) dlnode_remove(dlist_first(&(s->black_list)));
+		memcell_deinit(s, mc);
+		s->mem_free(mc, s->mem_alloc_priv);
+	}
+
+	while(! dlist_is_empty(&(s->white_list))) {
+		mc = (memcell_t *) dlnode_remove(dlist_first(&(s->white_list)));
+		memcell_deinit(s, mc);
+		s->mem_free(mc, s->mem_alloc_priv);
+	}
+
+	while(! dlist_is_empty(&(s->free_list))) {
+		mc = (memcell_t *) dlnode_remove(dlist_first(&(s->free_list)));
+		s->mem_free(mc, s->mem_alloc_priv);
+	}
+}
+
 static
 void memstate_setactive(memory_state_t *s)
 {
@@ -243,16 +298,6 @@ void *memory_request(memory_state_t *s)
 	}
 	memcell_init(s, mc);
 	return mc->data;
-}
-
-static void memcell_deinit(memory_state_t *s, memcell_t *mc)
-{
-	if(mc->fin) {
-		mc->fin(mc->data);
-	}
-#if ! defined(NO_CLEAR_ON_FREE)
-	memset(mc->data, 0, s->datasize);
-#endif
 }
 
 void memory_set_finalizer(void *data, data_fin_t fin)

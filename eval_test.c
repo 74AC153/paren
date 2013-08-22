@@ -178,5 +178,7 @@ int main(int argc, char *argv[])
 
 	node_gc_print_state();
 
+	nodes_reset();
+
 	return 0;
 }
