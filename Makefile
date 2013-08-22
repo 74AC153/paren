@@ -46,7 +46,7 @@ clean:
 	rm *.o ${EXECUTABLES} ${OUTLIBS}
 
 paren_interp.a: eval.o parse.o token.o node.o environ.o environ_utils.o eval_err.o memory.o dlist.o load_wrapper.o builtin_load.o foreign_common.o frame.o
-	ar -cvq $@ $^
+	ar -cvr $@ $^
 
 tokenize_test: tokenize_test.o paren_interp.a
 	gcc ${LDFLAGS} -o $@ $^
