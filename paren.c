@@ -164,14 +164,13 @@ int main(int argc, char *argv[])
 	for(bufcurs = info.buf;
 	    (uintptr_t) bufcurs - (uintptr_t) info.buf < info.len;
 	    ) {
-		parse_stat = parse(bufcurs, &bufcurs, &parse_result, NULL);
+		parse_stat = parse(bufcurs, &bufcurs, eval_in_hdl, NULL);
 		if(parse_stat != PARSE_OK) {
 			printf("parse error for: %s\n", bufcurs);
 			printf("-- %s\n", parse_err_str(parse_stat));
 			status = -1;
 			goto cleanup;
 		}
-		node_handle_update(eval_in_hdl, parse_result);
 		eval_stat = eval(eval_in_hdl, env_handle, eval_out_hdl);
 		if(eval_stat) {
 			printf("eval error for: \n");

@@ -161,10 +161,11 @@ error:
 	return status;
 }
 
-parse_err_t parse(char *input, char **remain, node_t **result, parseloc_t *loc)
+parse_err_t parse(char *input, char **remain, node_t *out_hdl, parseloc_t *loc)
 {
 	parse_err_t status = PARSE_OK;
 	tok_state_t state;
+	node_t *result;
 
 	(void) loc;
 	tok_state_init(&state);
@@ -172,11 +173,8 @@ parse_err_t parse(char *input, char **remain, node_t **result, parseloc_t *loc)
 	/* prime tokenizer to have first token ready */
 	token_chomp(&input, &state);
 
-	*result = NULL;
-	status = parse_sexpr(&input, &state, result);
-	if(status != PARSE_OK) {
-		node_droproot(*result);
-	}
+	status = parse_sexpr(&input, &state, &result);
+	node_handle_update(out_hdl, result);
 
 	*remain = input;
 	/* the tokenizer will consume one token past what we've actually parsed,

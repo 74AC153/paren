@@ -103,7 +103,7 @@ foreign_assoc_t startenv[] = {
 
 int main(int argc, char *argv[])
 {
-	node_t *parse_result, *eval_in_hdl, *eval_out_hdl, *env_handle = NULL;
+	node_t *eval_in_hdl, *eval_out_hdl, *env_handle = NULL;
 	eval_err_t eval_stat;
 	parse_err_t parse_stat;
 	char *remain;
@@ -122,16 +122,15 @@ int main(int argc, char *argv[])
 	/* parse + eval argv */
 	for(i = 1; i < (unsigned) argc; i++) {
 		printf("*** parse %s ***\n", argv[i]);
-		parse_stat = parse(argv[i], &remain, &parse_result, NULL);
+		parse_stat = parse(argv[i], &remain, eval_in_hdl, NULL);
 		if(parse_stat != PARSE_OK) {
 			printf("parse error for: %s\n", remain);
 			printf("-- %s\n", parse_err_str(parse_stat));
 			continue;
 		}
-		node_handle_update(eval_in_hdl, parse_result);
 
-		printf("parse result: %p\n", parse_result);
-		node_print_pretty(parse_result, false);
+		printf("parse result: %p\n", node_handle(eval_in_hdl));
+		node_print_pretty(node_handle(eval_in_hdl), false);
 		printf("\n");
 
 		printf("start environment:\n");
@@ -151,7 +150,7 @@ int main(int argc, char *argv[])
 		node_print_pretty(node_handle(eval_out_hdl), false);
 		printf("\n");
 
-		printf("*** releasing parse result %p ***\n", parse_result);
+		printf("*** releasing parse result %p ***\n", node_handle(eval_in_hdl));
 		node_handle_update(eval_in_hdl, NULL);
 
 		printf("*** releasing eval result %p ***\n", node_handle(eval_out_hdl));

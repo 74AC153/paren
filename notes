@@ -1,6 +1,5 @@
-have parse return value inside handle
+add memstate_teardown(), nodes_cleanup()
 add bootstrap program to paren, then call parse-file and eval on each one
-add nodes_cleanup()
 add (load ...) / (load-graph ...) .. ?
   - _map-file
   - _parse-buf

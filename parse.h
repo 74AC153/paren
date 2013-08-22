@@ -25,7 +25,7 @@ typedef struct {
 	off_t input_linechr;
 } parseloc_t;
 
-parse_err_t parse(char *input, char **remain, node_t **result, parseloc_t *loc);
+parse_err_t parse(char *input, char **remain, node_t *out_hdl, parseloc_t *loc);
 
 char *parse_err_str(parse_err_t err);
 
