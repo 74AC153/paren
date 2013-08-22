@@ -1,6 +1,11 @@
-Paren -- an interpreter for a lisp-like language
+"Any sufficiently complicated C or Fortran program contains an ad hoc,
+informally-specified, bug-ridden, slow implementation of half of Common Lisp."
 
-featuures:
+   -- Greenspun's tenth rule of programming 
+
+Paren: an interpreter for a lisp-like language
+
+Features:
 - "string shorthand"
 - lexical scope
 - tail call optimization
@@ -8,7 +13,7 @@ featuures:
 - incremental, tracing/refcounting hybrid garbage collector
   (no mark/sweep pauses)
 
-to use:
+To use:
 paren <input-files>
 
 paren built-in functions:
