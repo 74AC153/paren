@@ -116,6 +116,7 @@ special_func_t node_special_func(node_t *n);
 
 node_t *node_blob_new(void *addr, blob_fin_t fin, uintptr_t sig);
 void *node_blob_addr(node_t *n);
+uintptr_t node_blob_sig(node_t *n);
 
 void node_print(node_t *n);
 void node_print_recursive(node_t *n);
