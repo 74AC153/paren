@@ -1,4 +1,5 @@
 #include <alloca.h>
+#include <limits.h>
 #include "foreign_common.h"
 #include "eval_err.h"
 
@@ -27,3 +28,65 @@ eval_err_t extract_args(
 	return cb(arglist, result, p);
 }
 
+int count_list_len(node_t *cons, size_t *len)
+{
+	node_t *cursor;
+	int status = 0;
+
+	*len = 0;
+	for(cursor = cons;
+	    cursor;
+	    cursor = node_cons_cdr(cursor)) {
+		if(node_type(cursor) != NODE_CONS) {
+			status = -1;
+			break;
+		}
+		(*len)++;
+	}
+
+	return status;
+}
+
+int list_to_cstr(
+	node_t *clist,
+	char *strbuf,
+	size_t buflen,
+	size_t *written)
+{
+	node_t *cursor;
+	node_t *val;
+	size_t off;
+	int status = 0;
+	value_t cval;
+
+	off = 0;
+	for(cursor = clist; cursor; cursor = node_cons_cdr(cursor)) {
+		if(node_type(cursor) != NODE_CONS) {
+			status = -1;
+			goto finish;
+		}
+		val = node_cons_car(cursor);
+		if(node_type(val) != NODE_VALUE) {
+			status = -2;
+			goto finish;
+		}
+		cval = node_value(val);
+		if(cval > UCHAR_MAX || cval < 0) {
+			status = -3;
+			goto finish;
+		}
+		if(off == (buflen)) {
+			status = -4;
+			goto finish;
+		}
+		strbuf[off++] = (unsigned char) cval;
+	}
+	if(off == (buflen)) {
+		status = -4;
+		goto finish;
+	}
+	strbuf[off++] = 0;
+finish:
+	if(written) *written = off;
+	return status;
+}
