@@ -104,7 +104,7 @@ static void *locals_restart_get(node_t **locals)
 
 static void locals_restart_set(node_t **locals, void *addr)
 {
-	node_handle_update(locals[LOCAL_ID_RESTART], node_blob_new(addr, NULL));
+	node_handle_update(locals[LOCAL_ID_RESTART], node_blob_new(addr, NULL, 0));
 }
 
 eval_err_t eval(node_t *in_handle, node_t *env_handle, node_t *out_handle)

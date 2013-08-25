@@ -419,7 +419,7 @@ static void blob_fin_wrap(void *data)
 	}
 }
 
-node_t *node_blob_new(void *addr, blob_fin_t fin)
+node_t *node_blob_new(void *addr, blob_fin_t fin, uintptr_t sig)
 {
 	node_t *ret = node_new();
 	assert(ret);
@@ -427,8 +427,10 @@ node_t *node_blob_new(void *addr, blob_fin_t fin)
 	ret->type = NODE_BLOB;
 	ret->dat.blob.addr = addr; 
 	ret->dat.blob.fin = fin;
+	ret->dat.blob.sig = sig;
 #if defined(NODE_INIT_TRACING)
-	printf("node init blob %p (addr=%p fin=%p)\n", addr, fin);
+	printf("node init blob %p (addr=%p fin=%p sig=%llu)\n",
+	       addr, fin, (unsigned long long) sig);
 #endif
 	NODE_GC_ITERATE();
 	return ret;
@@ -438,6 +440,12 @@ void *node_blob_addr(node_t *n)
 {
 	assert(node_type(n) == NODE_BLOB);
 	return n->dat.blob.addr;
+}
+
+uintptr_t node_blob_sig(node_t *n)
+{
+	assert(node_type(n) == NODE_BLOB);
+	return n->dat.blob.sig;
 }
 
 void node_print(node_t *n)

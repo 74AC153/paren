@@ -65,7 +65,7 @@ struct node {
 		value_t value;
 		struct { node_t *link; } handle;
 		struct { node_t *bt; } cont;
-		struct { void *addr; blob_fin_t fin; } blob;
+		struct { void *addr; blob_fin_t fin; uintptr_t sig; } blob;
 		special_func_t special;
 	} dat;
 };
@@ -114,7 +114,7 @@ node_t *node_cont(node_t *n);
 node_t *node_special_func_new(special_func_t func);
 special_func_t node_special_func(node_t *n);
 
-node_t *node_blob_new(void *addr, blob_fin_t fin);
+node_t *node_blob_new(void *addr, blob_fin_t fin, uintptr_t sig);
 void *node_blob_addr(node_t *n);
 
 void node_print(node_t *n);
