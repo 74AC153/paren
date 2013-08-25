@@ -48,20 +48,6 @@ static bool is_atom_char(unsigned char c)
 	return !isspace(c) && c != '(' && c != ')' && c != '.' && c != '\'';
 }
 
-static bool is_hex_char(unsigned char c)
-{
-	return (c >= '0' && c <= 9)
-	       || (c >= 'a' && c <= 'f')
-	       || (c >= 'A' && c <= 'F');
-}
-
-static unsigned hexch_to_unsigned(unsigned char c)
-{
-	if(c >= '0' && c <= '9') return c - '0';
-	if(c >= 'a' && c <= 'f') return c - ('a' - 10);
-	return c - ('A' - 10);
-}
-
 static void advance_tok_stream(tok_state_t *s)
 {
 	s->nextch = stream_advance(s->stream);
