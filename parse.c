@@ -7,17 +7,27 @@
 #include "token.h"
 #include "parse.h"
 
+parse_state_t *parse_state_init(void *p, stream_t *stream)
+{
+	parse_state_t *s = (parse_state_t *) p;
+	if(s) {
+		tok_state_init(&(s->tokstate), stream);
+	}
+	return s;
+}
 
 static
-parse_err_t parse_atom(char **input, tok_state_t *state, node_t **result)
+parse_err_t parse_atom(parse_state_t *state, node_t **result)
 {
-	switch(token_type(state)) {
+	tok_state_t *tokstate = &(state->tokstate);
+
+	switch(token_type(tokstate)) {
 	case TOK_SYM:
-		*result = node_symbol_new(token_sym(state));
+		*result = node_symbol_new(token_sym(tokstate));
 		break;
 
 	case TOK_LIT:
-		*result = node_value_new(token_lit(state));
+		*result = node_value_new(token_lit(tokstate));
 		break;
 
 	default:
@@ -25,22 +35,23 @@ parse_err_t parse_atom(char **input, tok_state_t *state, node_t **result)
 	}
 	assert(*result);
 
-	token_chomp(input, state);
+	token_chomp(tokstate);
 
 	return PARSE_OK;
 }
 
 static
-parse_err_t parse_sexpr(char **input, tok_state_t *state, node_t **result);
+parse_err_t parse_sexpr(parse_state_t *state, node_t **result);
 
 static
-parse_err_t parse_list(char **input, tok_state_t *state, node_t **result)
+parse_err_t parse_list(parse_state_t *state, node_t **result)
 {
 	parse_err_t status = PARSE_OK;
 	node_t *child = NULL, *next = NULL;
+	tok_state_t *tokstate = &(state->tokstate);
 
-	switch(token_type(state)) {
-	case TOK_NONE:
+	switch(token_type(tokstate)) {
+	case TOK_END:
 		status = PARSE_TOKEN_UNDERFLOW;
 		*result = NULL;
 		break;
@@ -54,9 +65,9 @@ parse_err_t parse_list(char **input, tok_state_t *state, node_t **result)
 		break;
 
 	case TOK_DOT:
-		token_chomp(input, state);
-		switch(token_type(state)) {
-		case TOK_NONE:
+		token_chomp(tokstate);
+		switch(token_type(tokstate)) {
+		case TOK_END:
 			status = PARSE_TOKEN_UNDERFLOW;
 			break;
 		case TOK_RPAREN:
@@ -66,14 +77,14 @@ parse_err_t parse_list(char **input, tok_state_t *state, node_t **result)
 			status = PARSE_UNEXPECTED_DOT;
 			break;
 		default:
-			status = parse_sexpr(input, state, result);
+			status = parse_sexpr(state, result);
 			break;
 		}
 		break;
 	default:
-		status = parse_sexpr(input, state, &child);
+		status = parse_sexpr(state, &child);
 		if(status == PARSE_OK) {
-			status = parse_list(input, state, &next);
+			status = parse_list(state, &next);
 			if(status == PARSE_OK) {
 				*result = node_cons_new(child, next);
 			} else {
@@ -87,35 +98,36 @@ parse_err_t parse_list(char **input, tok_state_t *state, node_t **result)
 }
 
 static
-parse_err_t parse_sexpr(char **input, tok_state_t *state, node_t **result)
+parse_err_t parse_sexpr(parse_state_t *state, node_t **result)
 {
 	node_t *ret = NULL;
+	tok_state_t *tokstate = &(state->tokstate);
 
 	parse_err_t status = PARSE_OK;
 
-	switch(token_type(state)) {
-	case TOK_NONE:
-		return PARSE_OK;
+	switch(token_type(tokstate)) {
+	case TOK_END:
+		return PARSE_END;
 
 	case TOK_SYM:
 	case TOK_LIT:
-		status = parse_atom(input, state, &ret);
+		status = parse_atom(state, &ret);
 		break;
 
 	case TOK_LPAREN:
 		/* ( ... */
 
-		token_chomp(input, state);
+		token_chomp(tokstate);
 		
-		switch(token_type(state)) {
-		case TOK_NONE:
+		switch(token_type(tokstate)) {
+		case TOK_END:
 			status = PARSE_TOKEN_UNDERFLOW;
 			goto error;
 
 		case TOK_RPAREN:
 			/* ( ) */
 			/* consume closing rparen */
-			token_chomp(input, state);
+			token_chomp(tokstate);
 			*result = NULL;
 			goto tok_lparen_finish;
 
@@ -129,16 +141,16 @@ parse_err_t parse_sexpr(char **input, tok_state_t *state, node_t **result)
 		}
 
 		/* ( ... */
-		status = parse_list(input, state, &ret);
+		status = parse_list(state, &ret);
 
 		/* ... ) */
-		switch(token_type(state)) {
-		case TOK_NONE:
+		switch(token_type(tokstate)) {
+		case TOK_END:
 			status = PARSE_TOKEN_UNDERFLOW;
 			goto error;
 		case TOK_RPAREN:
 			/* consume closing rparen */
-			token_chomp(input, state);
+			token_chomp(tokstate);
 			break;
 		default:
 			status = PARSE_EXPECTED_RPAREN;
@@ -161,31 +173,29 @@ error:
 	return status;
 }
 
-parse_err_t parse(char *input, char **remain, node_t *out_hdl, parseloc_t *loc)
+parse_err_t parse(parse_state_t *state, node_t *out_hdl)
 {
 	parse_err_t status = PARSE_OK;
-	tok_state_t state;
 	node_t *result;
 
-	(void) loc;
-	tok_state_init(&state);
-
-	/* prime tokenizer to have first token ready */
-	token_chomp(&input, &state);
-
-	status = parse_sexpr(&input, &state, &result);
+	if(token_type(&(state->tokstate)) == TOK_INIT) {
+		token_chomp(&(state->tokstate));
+	}
+	status = parse_sexpr(state, &result);
 	node_handle_update(out_hdl, result);
 
-	*remain = input;
-	/* the tokenizer will consume one token past what we've actually parsed,
-	   so put the string for that last token back to where it should be.
-	   However... if the tokenizer didn't consume any tokens, we don't need to
-	   back up */ 
-	if(token_type(&state) != TOK_NONE) {
-		*remain -= token_lastchomp(&state);
-	}
-
 	return status;
+}
+
+void parse_location(
+	parse_state_t *state,
+	off_t *offset,
+	off_t *line,
+	off_t *linechr)
+{
+	if(offset) *offset = tok_state_offset(&(state->tokstate));
+	if(line) tok_state_line(&(state->tokstate));
+	if(linechr) tok_state_linechr(&(state->tokstate));
 }
 
 static char *parse_err_messages[] = {

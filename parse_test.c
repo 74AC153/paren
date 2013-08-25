@@ -1,27 +1,39 @@
 #include <stdio.h>
+#include <string.h>
+#include "token.h"
 #include "parse.h"
 
 int main(int argc, char *argv[])
 {
 	node_t *result_hdl;
-	char *remain;
 	parse_err_t status;
-	//size_t count;
-	int count = 0;
+
+	parse_state_t state;
+	stream_t stream;
+	bufstream_t bs;
+
 
 	if(argc != 2) {
 		printf("usage: %s 'string'\n", argv[0]);
 		return -1;
 	}
 
+	bufstream_init(&bs, (unsigned char *) argv[1], strlen(argv[1]));
+	stream_init(&stream, bufstream_readch, &bs);
+	parse_state_init(&state, &stream);
+
 	nodes_initialize();
 	result_hdl = node_handle_new(NULL);
 
-	remain = argv[1];
-	while(remain && remain[0] && count++ < 10) {
-		status = parse(remain, &remain, result_hdl, NULL);
+	while((status = parse(&state, result_hdl)) != PARSE_END) {
 		if(status != PARSE_OK) {
-			printf("parse error before: %s\n", (*remain ? remain : "end of input"));
+			off_t off, line, lchr;
+			parse_location(&state, &off, &line, &lchr);
+			
+			printf("parse error line %llu char %llu (offset %llu)\n",
+			       (unsigned long long) line,
+			       (unsigned long long) lchr,
+			       (unsigned long long) off);
 			printf("-- %s\n", parse_err_str(status));
 			return -1;
 		}
@@ -39,6 +51,8 @@ int main(int argc, char *argv[])
 	node_gc();
 
 	node_gc_print_state();
+
+	nodes_reset();
 
 	return 0;
 }

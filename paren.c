@@ -64,6 +64,69 @@ void environ_add_argv(node_t *env_handle, int argc, char *argv[])
 	environ_add(env_handle, node_symbol_new("ARGV"), argv_head);
 }
 
+#if 0
+static eval_err_t evalbuffn(node_t **n, node_t **result, void *p)
+{
+	char *path = NULL, *bufcurs;
+	size_t len;
+	eval_err_t eval_stat = EVAL_OK;
+	parse_err_t parse_stat = PARSE_OK;
+	node_t *env_handle = (node_t *) p;
+
+	filemap_info_t *info;
+
+	if(node_type(n[0]) != NODE_BLOB) {
+		eval_stat = eval_err(EVAL_ERR_FOREIGN_FAILURE);
+		goto cleanup;
+	}
+	if(node_blob_sig(n[0]) != BLOB_SIG_MMAPFILE) {
+		printf("foreign_eval_buf: not an mmaped file! sig=%x\n",
+		       node_blob_sig(n[0]));
+		eval_stat = eval_err(EVAL_ERR_FOREIGN_FAILURE);
+		goto cleanup;
+	}
+	info = (filemap_info_t *) node_blob_addr(n[0]);
+
+	eval_in_hdl = node_lockroot(node_handle_new(NULL));
+	eval_out_hdl = node_lockroot(node_handle_new(NULL));
+
+	for(bufcurs = info.buf;
+	    (uintptr_t) bufcurs - (uintptr_t) info.buf < info.len;
+	    ) {
+		parse_stat = parse(bufcurs, &bufcurs, eval_in_hdl, NULL);
+		if(parse_stat != PARSE_OK) {
+			printf("parse error for: %s\n", bufcurs);
+			printf("-- %s\n", parse_err_str(parse_stat));
+			status = -1;
+			goto cleanup;
+		}
+		eval_stat = eval(eval_in_hdl, env_handle, eval_out_hdl);
+		if(eval_stat) {
+			printf("eval error for: \n");
+			node_print_pretty(node_handle(eval_out_hdl), false);
+			printf("\n");
+			printf("-- %s\n", eval_err_str(eval_stat));
+			status = -1;
+			goto cleanup;
+		}
+		node_handle_update(eval_in_hdl, NULL);
+		node_handle_update(eval_out_hdl, NULL);
+	}
+
+cleanup:
+	node_droproot(eval_in_hdl);
+	node_droproot(eval_out_hdl);
+	unmap_file(&info);
+}
+
+eval_err_t foreign_eval_buf(node_t *args, node_t *env_handle, node_t **result)
+{
+	return extract_args(1, evalbuffn, args, result, env_handle);
+}
+
+char *bootstrap = "(_eval-buf (car ARGV))";
+#endif
+
 typedef struct {
 	int fd;
 	void *buf;
@@ -71,7 +134,7 @@ typedef struct {
 	int err;
 } filemap_info_t;
 
-int map_file(filemap_info_t *info, char *path)
+static int map_file(filemap_info_t *info, char *path)
 {
 	struct stat sb;
 	int status = 0;
@@ -102,7 +165,7 @@ finish:
 	return status;
 }
 
-void unmap_file(filemap_info_t *info)
+static void unmap_file(filemap_info_t *info)
 {
 	if(info->buf != NULL && info->buf != MAP_FAILED) {
 		munmap(info->buf, info->len);
@@ -122,6 +185,10 @@ int main(int argc, char *argv[])
 	int status = 0;
 	char *bufcurs;
 
+	parse_state_t parse_state;
+	stream_t stream;
+	bufstream_t bs;
+
 	filemap_info_t info;
 
 	if(argc < 2) {
@@ -138,7 +205,7 @@ int main(int argc, char *argv[])
 	{
 		node_t *name, *val;
 		name = node_symbol_new("_load-lib");
-		val = node_foreign_new(foreign_load);
+		val = node_foreign_new(foreign_loadlib);
 		environ_add(env_handle, name, val);
 	}
 	environ_add_argv(env_handle, argc-1, argv+1); // NB: argv[0] is interp name
@@ -161,14 +228,20 @@ int main(int argc, char *argv[])
 		goto cleanup;
 	}
 
-	for(bufcurs = info.buf;
-	    (uintptr_t) bufcurs - (uintptr_t) info.buf < info.len;
-	    ) {
-		parse_stat = parse(bufcurs, &bufcurs, eval_in_hdl, NULL);
+	bufstream_init(&bs, info.buf, info.len);
+	stream_init(&stream, bufstream_readch, &bs);
+	parse_state_init(&parse_state, &stream);
+
+	while((parse_stat = parse(&parse_state, eval_in_hdl)) != PARSE_END) {
 		if(parse_stat != PARSE_OK) {
-			printf("parse error for: %s\n", bufcurs);
+			off_t off, line, lchr;
+			parse_location(&parse_state, &off, &line, &lchr);
+			
+			printf("parse error line %llu char %llu (offset %llu)\n",
+			       (unsigned long long) line,
+			       (unsigned long long) lchr,
+			       (unsigned long long) off);
 			printf("-- %s\n", parse_err_str(parse_stat));
-			status = -1;
 			goto cleanup;
 		}
 		eval_stat = eval(eval_in_hdl, env_handle, eval_out_hdl);

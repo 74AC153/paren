@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
+#include <string.h>
 
 #include "parse.h"
 #include "eval.h"
@@ -108,6 +109,9 @@ int main(int argc, char *argv[])
 	parse_err_t parse_stat;
 	char *remain;
 	size_t i;
+	parse_state_t state;
+	stream_t stream;
+	bufstream_t bs;
 
 	nodes_initialize();
 
@@ -119,12 +123,22 @@ int main(int argc, char *argv[])
 	node_lockroot(env_handle);
 	environ_add_builtins(env_handle, startenv, ARR_LEN(startenv));
 
+	stream_init(&stream, bufstream_readch, &bs);
+	parse_state_init(&state, &stream);
+
 	/* parse + eval argv */
 	for(i = 1; i < (unsigned) argc; i++) {
+		bufstream_init(&bs, (unsigned char *) argv[i], strlen(argv[i]));
 		printf("*** parse %s ***\n", argv[i]);
-		parse_stat = parse(argv[i], &remain, eval_in_hdl, NULL);
+		parse_stat = parse(&state, eval_in_hdl);
 		if(parse_stat != PARSE_OK) {
-			printf("parse error for: %s\n", remain);
+			off_t off, line, lchr;
+			parse_location(&state, &off, &line, &lchr);
+			
+			printf("parse error line %llu char %llu (offset %llu)\n",
+			       (unsigned long long) line,
+			       (unsigned long long) lchr,
+			       (unsigned long long) off);
 			printf("-- %s\n", parse_err_str(parse_stat));
 			continue;
 		}
