@@ -1,6 +1,5 @@
-abstract out tokenizer / parser state to be generic for underlying data stream
 add signature & finalizer to handle type?
-add 'c' character and 'asdf' composite character shorthand to tokenizer
+add 'c' character and 'asdf' composite character shorthand to tokenizer?
 test continuations more
 add bootstrap program to paren, then call parse-file and eval on each one
 add (load ...) / (load-graph ...) .. ?
