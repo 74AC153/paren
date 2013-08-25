@@ -48,10 +48,10 @@ clean:
 paren_interp.a: eval.o parse.o token.o node.o environ.o environ_utils.o eval_err.o memory.o dlist.o load_wrapper.o builtin_load.o foreign_common.o frame.o
 	ar -cvr $@ $^
 
-tokenize_test: tokenize_test.o paren_interp.a
+tokenize_test: tokenize_test.o token.o
 	gcc ${LDFLAGS} -o $@ $^
 
-parse_test: parse_test.o paren_interp.a
+parse_test: parse_test.o parse.o token.o node.o memory.o dlist.o
 	gcc ${LDFLAGS} -o $@ $^
 
 eval_test: eval_test.o builtins.o paren_interp.a
