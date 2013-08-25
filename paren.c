@@ -13,6 +13,7 @@
 #include "environ_utils.h"
 #include "environ.h"
 #include "builtin_load.h"
+#include "bufstream.h"
 
 #define DEFINE_SPECIAL_MAKER(FUNC) \
 static node_t *make_special_ ## FUNC (void) \

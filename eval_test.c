@@ -7,6 +7,7 @@
 #include "eval.h"
 #include "environ_utils.h"
 #include "builtins.h"
+#include "bufstream.h"
 
 #define DEFINE_FOREIGN_MAKER(FUNC) \
 static node_t *make_ ## FUNC (void) \

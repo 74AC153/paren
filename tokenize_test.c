@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "token.h"
+#include "bufstream.h"
 
 int main(int argc, char *argv[])
 {

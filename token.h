@@ -52,16 +52,4 @@ void token_print(tok_state_t *state);
 off_t tok_state_offset(tok_state_t *state);
 off_t tok_state_line(tok_state_t *state);
 off_t tok_state_linechr(tok_state_t *state);
-
-
-/* for your convenience */
-
-typedef struct {
-	unsigned char *cursor;
-	size_t len;
-} bufstream_t;
-
-int bufstream_readch(void *p);
-bufstream_t *bufstream_init(void *p, unsigned char *start, size_t len);
-
 #endif
