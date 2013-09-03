@@ -24,14 +24,14 @@ int map_file(filemap_info_t *info, char *path)
 
 	info->fd = open(path, O_RDONLY);
 	if(info->fd < 0) {
-		status = -1;
+		status = 1;
 		info->err = errno;
 		goto finish;
 	}
 
 	status = fstat(info->fd, &sb);
 	if(status < 0) {
-		status = -2;
+		status = 2;
 		info->err = errno;
 		goto finish;
 	}
@@ -39,7 +39,7 @@ int map_file(filemap_info_t *info, char *path)
 
 	info->buf = mmap(NULL, info->len, PROT_READ, MAP_PRIVATE, info->fd, 0);
 	if(info->buf == MAP_FAILED) {
-		status = -3;
+		status = 3;
 		info->err = errno;
 		goto finish;
 	}
