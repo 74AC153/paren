@@ -1,15 +1,20 @@
 #include <assert.h>
 #include <alloca.h>
 #include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 
+#include "eval.h"
 #include "builtin_load.h"
 #include "node.h"
 #include "environ.h"
 #include "load_wrapper.h"
 #include "foreign_common.h"
 #include "parse.h"
+#include "map_file.h"
+#include "bufstream.h"
 
-static eval_err_t loadfn(node_t **n, node_t **result, void *p)
+static eval_err_t loadlibfn(node_t **n, node_t **result, void *p)
 {
 	char *path = NULL;
 	int load_status;
@@ -62,126 +67,26 @@ cleanup:
 
 eval_err_t foreign_loadlib(node_t *args, node_t *env_handle, node_t **result)
 {
-	return extract_args(1, loadfn, args, result, env_handle);
+	return extract_args(1, loadlibfn, args, result, env_handle);
 }
 
-#if 0
-static eval_err_t parsefilefn(node_t **n, node_t **result, void *p)
+static eval_err_t readevalfn(node_t **n, node_t **result, void *p)
 {
 	char *path = NULL;
+	int load_status;
 	size_t len;
 	eval_err_t status = EVAL_OK;
 	node_t *cursor, *val;
 	node_t *env_handle = (node_t *) p;
 
-	char *filebuf = NULL;
+	node_t *eval_in_hdl, *eval_out_hdl;
+	eval_err_t eval_stat;
+	parse_err_t parse_stat;
 	filemap_info_t info;
-	int status;
+	parse_state_t parse_state;
+	stream_t stream;
+	bufstream_t bs;
 
-	/* count path length */
-	for(cursor = n[0], len = 0;
-	    cursor;
-	    cursor = node_cons_cdr(cursor), len++) {
-		if(node_type(cursor) != NODE_CONS) {
-			status = EVAL_ERR_EXPECTED_CONS;
-			goto cleanup;
-		}
-	}
-
-	/* make path string */
-	path = alloca(len + 1);
-	if(!path) {
-		status = EVAL_ERR_OUT_OF_MEM;
-		goto cleanup;
-	}
-	
-	for(cursor = n[0], len = 0; cursor; cursor = node_cons_cdr(cursor), len++) {
-		if(node_type(cursor) != NODE_CONS) {
-			status = EVAL_ERR_EXPECTED_CONS;
-			goto cleanup;
-		}
-		val = node_cons_car(cursor);
-		if(node_type(val) != NODE_VALUE) {
-			status = EVAL_ERR_EXPECTED_VALUE;
-			goto cleanup;
-		}
-		if(node_value(val) > 255 || node_value(val) < 0) {
-			status = EVAL_ERR_VALUE_BOUNDS;
-			goto cleanup;
-		}
-		path[len] = node_value(val);
-	}
-	path[len] = 0;
-
-	status = map_file(&info, path);
-	
-	
-}
-
-eval_err_t foreign_parsefile(node_t *args, node_t *env_handle, node_t **result)
-{
-	return extract_args(1, parsefilefn, args, result, env_handle);
-}
-#endif
-
-#if 0
-typedef struct {
-	int fd;
-	void *buf;
-	size_t len;
-	int err;
-} filemap_info_t;
-
-static int map_file(filemap_info_t *info, char *path)
-{
-	struct stat sb;
-	int status = 0;
-
-	info->fd = open(path, O_RDONLY);
-	if(info->fd < 0) {
-		status = -1;
-		info->err = errno;
-		goto finish;
-	}
-
-	status = fstat(info->fd, &sb);
-	if(status < 0) {
-		status = -2;
-		info->err = errno;
-		goto finish;
-	}
-	info->len = sb.st_size;
-
-	info->buf = mmap(NULL, info->len, PROT_READ, MAP_PRIVATE, info->fd, 0);
-	if(info->buf == MAP_FAILED) {
-		status = -3;
-		info->err = errno;
-		goto finish;
-	}
-
-finish:
-	return status;
-}
-
-static void unmap_file(filemap_info_t *info)
-{
-	if(info->buf != NULL && info->buf != MAP_FAILED) {
-		munmap(info->buf, info->len);
-	}
-	if(info->fd >= 0) {
-		close(info->fd);
-	}
-}
-
-
-static eval_err_t mmapfilefn(node_t **n, node_t **result, void *p)
-{
-	char *path = NULL;
-	size_t len;
-	eval_err_t status = EVAL_OK;
-	node_t *cursor, *val;
-
-	filemap_info_t *info;
 
 	/* count path length */
 	if(count_list_len(n[0], &len) != 0) {
@@ -199,43 +104,71 @@ static eval_err_t mmapfilefn(node_t **n, node_t **result, void *p)
 		goto cleanup;
 	}
 
-	if(!(info = malloc(sizeof(*info)))) {
-		status = eval_err(EVAL_ERR_OUT_OF_MEM);
-		goto cleanup;
-	}
-	info->fd = -1;
-	info->buf = MAP_FAILED;
-	info->len = 0;
-	info->err = 0;
 
-	switch(map_file(info, path)) {
+	status = map_file(&info, path);
+	switch(status) {
 	default: break;
 	case -1:
 		fprintf(stderr, "error: cannot open() file %s: %s (errno=%d)\n",
-		        argv[1], strerror(info.err), info.err);		
-		goto map_err;
+		        path, strerror(info.err), info.err);		
+		status = eval_err(EVAL_ERR_FOREIGN_FAILURE);
+		goto cleanup;
 	case -2:
 		fprintf(stderr, "error: canno stat() file %s: %s (errno=%d)\n",
-		        argv[1], strerror(info.err), info.err);		
-		goto map_err;
+		        path, strerror(info.err), info.err);		
+		status = eval_err(EVAL_ERR_FOREIGN_FAILURE);
+		goto cleanup;
 	case -3:
 		fprintf(stderr, "error: cannot mmap() file %s: %s (errno=%d)\n",
-		        argv[1], strerror(info.err), info.err);		
-		goto map_err;
+		        path, strerror(info.err), info.err);		
+		status = eval_err(EVAL_ERR_FOREIGN_FAILURE);
+		goto cleanup;
 	}
-	
-	*result = node_blob_new(info, (blob_fin_t) unmap_file, BLOB_SIG_MMAPFILE);
+
+	bufstream_init(&bs, info.buf, info.len);
+	stream_init(&stream, bufstream_readch, &bs);
+	parse_state_init(&parse_state, &stream);
+
+	eval_in_hdl = node_lockroot(node_handle_new(NULL));
+	eval_out_hdl = node_lockroot(node_handle_new(NULL));
+
+	while((parse_stat = parse(&parse_state, eval_in_hdl)) != PARSE_END) {
+		if(parse_stat != PARSE_OK) {
+			off_t off, line, lchr;
+			parse_location(&parse_state, &off, &line, &lchr);
+			
+			printf("parse error line %llu char %llu (offset %llu)\n",
+			       (unsigned long long) line,
+			       (unsigned long long) lchr,
+			       (unsigned long long) off);
+			printf("-- %s\n", parse_err_str(parse_stat));
+			status = eval_err(EVAL_ERR_FOREIGN_FAILURE);
+			goto cleanup;
+		}
+		eval_stat = eval(eval_in_hdl, env_handle, eval_out_hdl);
+		if(eval_stat) {
+			printf("eval error for: \n");
+			node_print_pretty(node_handle(eval_out_hdl), false);
+			printf("\n");
+			printf("-- %s\n", eval_err_str(eval_stat));
+			status = -1;
+			goto cleanup;
+		}
+		node_handle_update(eval_in_hdl, NULL);
+		node_handle_update(eval_out_hdl, NULL);
+	}
 
 cleanup:
-	return status;
 
-map_err:
+	node_droproot(eval_in_hdl);
+	node_droproot(eval_out_hdl);
+	node_droproot(env_handle);
 	unmap_file(&info);
-	return status;
+
+	return eval_stat;
 }
 
-eval_err_t foreign_mmapfile(node_t *args, node_t *env_handle, node_t **result)
+eval_err_t foreign_read_eval(node_t *args, node_t *env_handle, node_t **result)
 {
-	return extract_args(1, mmapfilefn, args, result, NULL);
+	return extract_args(1, readevalfn, args, result, env_handle);
 }
-#endif

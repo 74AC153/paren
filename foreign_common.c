@@ -1,5 +1,8 @@
 #include <alloca.h>
 #include <limits.h>
+#include <stdlib.h>
+#include <string.h>
+
 #include "foreign_common.h"
 #include "eval_err.h"
 
@@ -90,3 +93,23 @@ finish:
 	if(written) *written = off;
 	return status;
 }
+
+node_t *generate_argv(int argc, char *argv[])
+{
+	unsigned int len;
+	int i, c;
+	node_t *cnode, *lnode, *argv_head;
+
+	argv_head = NULL;
+	for(i = argc - 1; i >= 0; i--) {
+		len = strlen(argv[i]);
+		lnode = NULL;
+		for(c = len - 1; c >= 0; c--) {
+			cnode = node_value_new(argv[i][c]);
+			lnode = node_cons_new(cnode, lnode);
+		}
+		argv_head = node_cons_new(lnode, argv_head);
+	}
+	return argv_head;
+}
+

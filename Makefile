@@ -45,7 +45,7 @@ default: ${EXECUTABLES} ${OUTLIBS}
 clean:
 	rm *.o ${EXECUTABLES} ${OUTLIBS}
 
-paren_interp.a: eval.o parse.o token.o node.o environ.o environ_utils.o eval_err.o memory.o dlist.o load_wrapper.o builtin_load.o foreign_common.o frame.o bufstream.o
+paren_interp.a: eval.o parse.o token.o node.o environ.o frame.o environ_utils.o eval_err.o memory.o dlist.o 
 	ar -cvr $@ $^
 
 tokenize_test: tokenize_test.o token.o bufstream.o
@@ -54,7 +54,7 @@ tokenize_test: tokenize_test.o token.o bufstream.o
 parse_test: parse_test.o parse.o token.o node.o memory.o dlist.o bufstream.o
 	gcc ${LDFLAGS} -o $@ $^
 
-eval_test: eval_test.o builtins.o paren_interp.a
+eval_test: eval_test.o builtins.o paren_interp.a bufstream.o foreign_common.o
 	gcc ${LDFLAGS} -o $@ $^
 
 base.so: builtins_shared.o builtins.o
@@ -66,7 +66,7 @@ sio.so: sio.o
 testutil.so: testutil.o
 	gcc ${SO_LDFLAGS} -o $@ $^
 
-paren: paren.o paren_interp.a
+paren: paren.o paren_interp.a load_wrapper.o builtin_load.o foreign_common.o bufstream.o map_file.o
 	gcc ${LDFLAGS} -o $@ $^
 
 builtins.o: builtins.c

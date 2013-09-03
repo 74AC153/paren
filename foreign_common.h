@@ -30,4 +30,6 @@ int list_to_cstr(
 	size_t buflen,
 	size_t *written);
 
+node_t *generate_argv(int argc, char *argv[]);
+
 #endif
