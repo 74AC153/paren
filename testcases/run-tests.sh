@@ -2,7 +2,7 @@
 set -e
 PAREN=../paren
 
-if [ $1 = "all" ]
+if [ "$1" = "" ]
 then
 	for i in *.expect;
 	do
