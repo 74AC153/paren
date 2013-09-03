@@ -42,7 +42,7 @@ void usage(char *name)
 
 int main(int argc, char *argv[])
 {
-	node_t *env_handle, *ARGV;
+	node_t *env_handle = NULL, *ARGV;
 	int status = 0;
 
 	if(argc < 2) {

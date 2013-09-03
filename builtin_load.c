@@ -17,7 +17,6 @@
 static eval_err_t loadlibfn(node_t **n, node_t **result, void *p)
 {
 	char *path = NULL;
-	int load_status;
 	size_t len;
 	ldwrap_ent_t *ld_funs = NULL, *ld_funs_cursor;
 	eval_err_t status = EVAL_OK;
@@ -73,14 +72,13 @@ eval_err_t foreign_loadlib(node_t *args, node_t *env_handle, node_t **result)
 static eval_err_t readevalfn(node_t **n, node_t **result, void *p)
 {
 	char *path = NULL;
-	int load_status;
+	int map_status;
 	size_t len;
-	eval_err_t status = EVAL_OK;
 	node_t *cursor, *val;
 	node_t *env_handle = (node_t *) p;
 
-	node_t *eval_in_hdl, *eval_out_hdl;
-	eval_err_t eval_stat;
+	node_t *eval_in_hdl = NULL, *eval_out_hdl = NULL;
+	eval_err_t eval_stat = EVAL_OK;
 	parse_err_t parse_stat;
 	filemap_info_t info;
 	parse_state_t parse_state;
@@ -90,38 +88,38 @@ static eval_err_t readevalfn(node_t **n, node_t **result, void *p)
 
 	/* count path length */
 	if(count_list_len(n[0], &len) != 0) {
-		status = eval_err(EVAL_ERR_EXPECTED_CONS);
+		eval_stat  = eval_err(EVAL_ERR_EXPECTED_CONS);
 		goto cleanup;
 	}
 
 	/* make path string */
 	if(!(path = alloca(len + 1))) {
-		status = eval_err(EVAL_ERR_OUT_OF_MEM);
+		eval_stat  = eval_err(EVAL_ERR_OUT_OF_MEM);
 		goto cleanup;
 	}
 	if(list_to_cstr(n[0], path, len + 1, NULL)) {
-		status = eval_err(EVAL_ERR_FOREIGN_FAILURE);
+		eval_stat  = eval_err(EVAL_ERR_FOREIGN_FAILURE);
 		goto cleanup;
 	}
 
 
-	status = map_file(&info, path);
-	switch(status) {
+	map_status = map_file(&info, path);
+	switch(map_status) {
 	default: break;
-	case -1:
+	case 1:
 		fprintf(stderr, "error: cannot open() file %s: %s (errno=%d)\n",
 		        path, strerror(info.err), info.err);		
-		status = eval_err(EVAL_ERR_FOREIGN_FAILURE);
+		eval_stat = eval_err(EVAL_ERR_FOREIGN_FAILURE);
 		goto cleanup;
-	case -2:
+	case 2:
 		fprintf(stderr, "error: canno stat() file %s: %s (errno=%d)\n",
 		        path, strerror(info.err), info.err);		
-		status = eval_err(EVAL_ERR_FOREIGN_FAILURE);
+		eval_stat = eval_err(EVAL_ERR_FOREIGN_FAILURE);
 		goto cleanup;
-	case -3:
+	case 3:
 		fprintf(stderr, "error: cannot mmap() file %s: %s (errno=%d)\n",
 		        path, strerror(info.err), info.err);		
-		status = eval_err(EVAL_ERR_FOREIGN_FAILURE);
+		eval_stat = eval_err(EVAL_ERR_FOREIGN_FAILURE);
 		goto cleanup;
 	}
 
@@ -142,7 +140,7 @@ static eval_err_t readevalfn(node_t **n, node_t **result, void *p)
 			       (unsigned long long) lchr,
 			       (unsigned long long) off);
 			printf("-- %s\n", parse_err_str(parse_stat));
-			status = eval_err(EVAL_ERR_FOREIGN_FAILURE);
+			eval_stat = eval_err(EVAL_ERR_FOREIGN_FAILURE);
 			goto cleanup;
 		}
 		eval_stat = eval(eval_in_hdl, env_handle, eval_out_hdl);
@@ -151,7 +149,6 @@ static eval_err_t readevalfn(node_t **n, node_t **result, void *p)
 			node_print_pretty(node_handle(eval_out_hdl), false);
 			printf("\n");
 			printf("-- %s\n", eval_err_str(eval_stat));
-			status = -1;
 			goto cleanup;
 		}
 		node_handle_update(eval_in_hdl, NULL);
