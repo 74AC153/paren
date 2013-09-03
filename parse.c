@@ -176,7 +176,7 @@ error:
 parse_err_t parse(parse_state_t *state, node_t *out_hdl)
 {
 	parse_err_t status = PARSE_OK;
-	node_t *result;
+	node_t *result = NULL;
 
 	if(token_type(&(state->tokstate)) == TOK_INIT) {
 		token_chomp(&(state->tokstate));
