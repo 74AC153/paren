@@ -1,3 +1,10 @@
+add onload()/onexit() callbacks for shared libs
+figure out how to do file loading
+ - add support for mapping in files & reading contents?
+ - add support to parse / eval buffer?
+ - add fdstream?
+implement tokenizer/parser in script?
+split out "free memory" tracking from memory module
 add signature & finalizer to handle type?
 add 'c' character and 'asdf' composite character shorthand to tokenizer?
 test continuations more
@@ -9,7 +16,6 @@ expand on readme
  - foreign function interface
  - making library modules
 add pre-parse functionality -- embedable into sharred libs
-add onload()/onexit() callbacks for shared libs
 
 remove C lib deps from core?
 
