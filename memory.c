@@ -507,6 +507,9 @@ bool memory_gc_iterate(memory_state_t *s)
 	/* 2 clean cycles allows unprocessed nodes to reach the free list */
 	if(s->clean_cycles == 2) {
 		s->skipped_clean_iters++;
+		/* although we didn't cycle, we return true because the last
+		   "full" cycle was clean */
+		status = true;
 		goto finish;
 	}
 
