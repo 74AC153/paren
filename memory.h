@@ -11,7 +11,11 @@ typedef struct
 	dlnode_t hdr;
 	uintptr_t refcount;
 	data_fin_t fin;
-	unsigned int mc_flags;
+	struct {
+		bool live:1;
+		bool locked:1;
+		bool searched:1;
+	} mc_flags;
 	int data[0];
 } memcell_t;
 
@@ -51,7 +55,9 @@ typedef struct
 	init_callback i_cb;
 	data_link_callback dl_cb;
 	print_callback p_cb;
-	uint32_t ms_flags;
+	struct {
+		bool active:1;
+	} ms_flags;
 	mem_alloc_callback mem_alloc;
 	mem_free_callback mem_free;
 	void *mem_alloc_priv;

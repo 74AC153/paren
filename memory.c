@@ -11,9 +11,6 @@
 
 #define MS_FLAG_ACTIVE 0x1
 
-#define MC_FLAG_LOCKED 0x1
-#define MC_FLAG_SEARCHED 0x2
-
 void memstate_print(memory_state_t *state)
 {
 	printf("memstate @ %p:\n", state);
@@ -71,19 +68,19 @@ void memcell_resetref(memcell_t *mc)
 static
 bool memcell_locked(memcell_t *mc)
 {
-	return (mc->mc_flags & MC_FLAG_LOCKED) != 0;
+	return mc->mc_flags.locked;
 }
 
 static
 void memcell_lock(memcell_t *mc)
 {
-	mc->mc_flags |= MC_FLAG_LOCKED;
+	mc->mc_flags.locked = true;
 }
 
 static
 void memcell_unlock(memcell_t *mc)
 {
-	mc->mc_flags &= ~MC_FLAG_LOCKED;
+	mc->mc_flags.locked = false;
 }
 
 static
@@ -180,7 +177,7 @@ void memory_state_init(
 	s->cycle_count = 0;
 	s->clean_cycles = 0;
 	s->skipped_clean_iters = 0;
-	s->ms_flags = 0;
+	s->ms_flags.active = false;
 	s->mem_alloc = mem_alloc;
 	s->mem_free = mem_free;
 	s->mem_alloc_priv = mem_alloc_priv;
@@ -244,18 +241,18 @@ void memory_state_reset(
 static
 void memstate_setactive(memory_state_t *s)
 {
-	s->ms_flags |= MS_FLAG_ACTIVE;
+	s->ms_flags.active = true;
 }
 
 static
 void memstate_resetactive(memory_state_t *s)
 {
-	s->ms_flags &= ~MS_FLAG_ACTIVE;
+	s->ms_flags.active = false;
 }
 
 static bool memstate_isactive(memory_state_t *s)
 {
-	return (s->ms_flags & MS_FLAG_ACTIVE) != 0;
+	return s->ms_flags.active;
 }
 
 static void memcell_init(memory_state_t *s, memcell_t *mc)
@@ -653,11 +650,11 @@ static void reachable_helper(void *link, void *p)
 
 	/* recursive depth-first search with loop detection */
 
-	if(mc->mc_flags & MC_FLAG_SEARCHED) {
+	if(mc->mc_flags.searched) {
 		return;
 	}
 
-	mc->mc_flags |= MC_FLAG_SEARCHED;
+	mc->mc_flags.searched = true;
 
 	if(mc == ri->dest) {
 		ri->found = true;
@@ -665,7 +662,7 @@ static void reachable_helper(void *link, void *p)
 		ri->s->dl_cb(reachable_helper, &(mc->data), ri);
 	}
 
-	mc->mc_flags &= ~MC_FLAG_SEARCHED;
+	mc->mc_flags.searched = false;
 }
 
 bool memcell_reachable(memory_state_t *s, memcell_t *dst)
