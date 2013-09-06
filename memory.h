@@ -19,7 +19,10 @@ typedef struct
 	foreach link from *data:
 		cb(link, p)
 */
-typedef void (*data_link_callback)(void (*cb)(void *link, void *p), void *data, void *p);
+typedef void (*data_link_callback)(
+	void (*cb)(void *link, void *p),
+	void *data,
+	void *p);
 
 typedef void (*print_callback)(void *data);
 
