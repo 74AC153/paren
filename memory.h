@@ -37,14 +37,17 @@ typedef void (*mem_free_callback)(void *alloc, void *p);
 
 typedef struct
 {
-	size_t datasize;
 	uintptr_t total_alloc;
+#if ! defined(NO_GC_FREELIST)
 	uintptr_t total_free;
+#endif /* ! defined(NO_GC_FREELIST) */
 	unsigned long long iter_count;
 	unsigned long long cycle_count;
 	unsigned int clean_cycles;
 	unsigned long long skipped_clean_iters;
+#if ! defined(NO_GC_FREELIST)
 	dlist_t free_list;
+#endif /* ! defined(NO_GC_FREELIST) */
 	dlnode_t root_sentinel;
 	dlist_t roots_list;
 	dlist_t boundary_list;
@@ -66,7 +69,6 @@ typedef struct
 /* initialize memory state */
 void memory_state_init(
 	memory_state_t *s,
-	size_t datasize,
 	init_callback i_cb,
 	data_link_callback dl_cb,
 	print_callback p_cb,
@@ -78,7 +80,7 @@ void memory_state_reset(
 	memory_state_t *s);
 
 /* request memory from the GC */
-void *memory_request(memory_state_t *s);
+void *memory_request(memory_state_t *s, size_t len);
 /* attach finalizer callback to memory cell */
 void memory_set_finalizer(void *data, data_fin_t fin);
 

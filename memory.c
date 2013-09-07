@@ -14,14 +14,17 @@
 void memstate_print(memory_state_t *state)
 {
 	printf("memstate @ %p:\n", state);
-	printf("datasize=%llu\n", (unsigned long long) state->datasize);
 	printf("total_alloc=%llu\n", (unsigned long long) state->total_alloc);
+#if ! defined(NO_GC_FREELIST)
 	printf("total_free=%llu\n", (unsigned long long) state->total_free);
+#endif /* ! defined(NO_GC_FREELIST) */
 	printf("iter count=%llu\n", state->iter_count);
 	printf("cycle count=%llu\n", state->cycle_count);
 	printf("clean_cycles=%u\n", state->clean_cycles);
 	printf("skipped_clean_iters=%llu\n", state->skipped_clean_iters);
+#if ! defined(NO_GC_FREELIST)
 	printf("free list @ %p\n", &(state->free_list));
+#endif /* ! defined(NO_GC_FREELIST) */
 	printf("root sentinel @ %p\n", &(state->root_sentinel));
 	printf("roots_list @ %p\n", &(state->roots_list));
 	printf("boundary_list @ %p\n", &(state->boundary_list));
@@ -92,7 +95,10 @@ bool memcell_is_root(memory_state_t *s, memcell_t *mc)
 static
 bool memcell_is_free(memory_state_t *s, memcell_t *mc)
 {
-	return dlnode_owner(&(mc->hdr)) == &(s->free_list);
+#if ! defined(NO_GC_FREELIST)
+	assert(mc->mc_flags.live == (dlnode_owner(&(mc->hdr)) != &(s->free_list)));
+#endif /* ! defined(NO_GC_FREELIST) */
+	return ! mc->mc_flags.live;
 }
 
 static
@@ -134,10 +140,40 @@ void memcell_to_free_pending(memory_state_t *s, memcell_t *mc)
 }
 
 static
-void memcell_to_free(memory_state_t *s, memcell_t *mc)
+void memcell_deinit(memory_state_t *s, memcell_t *mc)
 {
-	dlist_insertlast(&(s->free_list), &(mc->hdr));
+	if(mc->fin) {
+		mc->fin(mc->data);
+	}
 }
+
+#if ! defined(NO_GC_FREELIST)
+static
+void memcell_free(memory_state_t *s, memcell_t *mc)
+{
+	memcell_deinit(s, mc);
+	mc->mc_flags.live = false;
+	dlnode_remove(&(mc->hdr));
+	dlist_insertlast(&(s->free_list), &(mc->hdr));
+#if ! defined(NO_GC_STATISTICS)
+	s->total_free++;
+#endif
+}
+#else /* defined(NO_GC_FREELIST) */
+static
+void memcell_free(memory_state_t *s, memcell_t *mc)
+{
+	memcell_deinit(s, mc);
+	/* note that this is more 'hopeful' than useful, as we don't know what will
+	   happen to the memory once we call mem_free(). However, if the memory
+	   isn't immediately reused and we try to reference it, then this may help
+	   track down errors */
+	mc->mc_flags.live = false;
+	dlnode_remove(&(mc->hdr));
+	s->mem_free(mc, s->mem_alloc_priv);
+	s->total_alloc--;
+}
+#endif /* ! defined(NO_GC_FREELIST) */
 
 static
 void memcell_to_reachable(memory_state_t *s, memcell_t *mc)
@@ -145,11 +181,8 @@ void memcell_to_reachable(memory_state_t *s, memcell_t *mc)
 	dlist_insertlast(s->reachable_listref, &(mc->hdr));
 }
 
-
-
 void memory_state_init(
 	memory_state_t *s,
-	size_t datasize,
 	init_callback i_cb,
 	data_link_callback dl_cb,
 	print_callback p_cb,
@@ -157,8 +190,9 @@ void memory_state_init(
 	mem_free_callback mem_free,
 	void *mem_alloc_priv)
 {
-	s->datasize = datasize;
+#if ! defined(NO_GC_FREELIST)
 	dlist_init(&(s->free_list));
+#endif /* ! defined(NO_GC_FREELIST) */
 	dlist_init(&(s->free_pending_list));
 	dlist_init(&(s->roots_list));
 	dlist_init(&(s->boundary_list));
@@ -172,7 +206,9 @@ void memory_state_init(
 	s->dl_cb = dl_cb;
 	s->p_cb = p_cb;
 	s->total_alloc = 0;
+#if ! defined(NO_GC_FREELIST)
 	s->total_free = 0;
+#endif /* ! defined(NO_GC_FREELIST) */
 	s->iter_count = 0;
 	s->cycle_count = 0;
 	s->clean_cycles = 0;
@@ -183,16 +219,6 @@ void memory_state_init(
 	s->mem_alloc_priv = mem_alloc_priv;
 }
 
-static void memcell_deinit(memory_state_t *s, memcell_t *mc)
-{
-	if(mc->fin) {
-		mc->fin(mc->data);
-	}
-#if ! defined(NO_CLEAR_ON_FREE)
-	memset(mc->data, 0, s->datasize);
-#endif
-}
-
 void memory_state_reset(
 	memory_state_t *s)
 {
@@ -200,42 +226,41 @@ void memory_state_reset(
 	memcell_t *mc;
 
 	while(! dlist_is_empty(&(s->free_pending_list))) {
-		mc = (memcell_t *) dlnode_remove(dlist_first(&(s->free_pending_list)));
-		memcell_deinit(s, mc);
-		s->mem_free(mc, s->mem_alloc_priv);
+		mc = (memcell_t *) dlist_first(&(s->free_pending_list));
+		memcell_free(s, mc);
 	}
 
 	while(! dlist_is_empty(&(s->roots_list))) {
-		cursor = dlnode_remove(dlist_first(&(s->roots_list)));
-		if(cursor != &(s->root_sentinel)) {
+		cursor = dlist_first(&(s->roots_list));
+		if(cursor == &(s->root_sentinel)) {
+			dlnode_remove(cursor);
+		} else {
 			mc = (memcell_t *) cursor;
-			memcell_deinit(s, mc);
-			s->mem_free(mc, s->mem_alloc_priv);
+			memcell_free(s, mc);
 		}
 	}
 
 	while(! dlist_is_empty(&(s->boundary_list))) {
-		mc = (memcell_t *) dlnode_remove(dlist_first(&(s->boundary_list)));
-		memcell_deinit(s, mc);
-		s->mem_free(mc, s->mem_alloc_priv);
+		mc = (memcell_t *) dlist_first(&(s->boundary_list));
+		memcell_free(s, mc);
 	}
 
 	while(! dlist_is_empty(&(s->black_list))) {
-		mc = (memcell_t *) dlnode_remove(dlist_first(&(s->black_list)));
-		memcell_deinit(s, mc);
-		s->mem_free(mc, s->mem_alloc_priv);
+		mc = (memcell_t *) dlist_first(&(s->black_list));
+		memcell_free(s, mc);
 	}
 
 	while(! dlist_is_empty(&(s->white_list))) {
-		mc = (memcell_t *) dlnode_remove(dlist_first(&(s->white_list)));
-		memcell_deinit(s, mc);
-		s->mem_free(mc, s->mem_alloc_priv);
+		mc = (memcell_t *) dlist_first(&(s->white_list));
+		memcell_free(s, mc);
 	}
 
+#if ! defined(NO_GC_FREELIST)
 	while(! dlist_is_empty(&(s->free_list))) {
 		mc = (memcell_t *) dlnode_remove(dlist_first(&(s->free_list)));
 		s->mem_free(mc, s->mem_alloc_priv);
 	}
+#endif
 }
 
 static
@@ -257,6 +282,7 @@ static bool memstate_isactive(memory_state_t *s)
 
 static void memcell_init(memory_state_t *s, memcell_t *mc)
 {
+	mc->mc_flags.live = true;
 	memcell_unlock(mc);
 	memcell_resetref(mc);
 	memory_set_finalizer(mc->data, NULL);
@@ -264,9 +290,11 @@ static void memcell_init(memory_state_t *s, memcell_t *mc)
 	memcell_to_roots_unproc(s, mc);
 }
 
-void *memory_request(memory_state_t *s)
+#if ! defined(NO_GC_FREELIST)
+void *memory_request(memory_state_t *s, size_t len)
 {
 	memcell_t *mc;
+
 	if(! dlist_is_empty(&(s->free_list))) {
 		mc = (memcell_t *) dlnode_remove(dlist_first(&(s->free_list)));
 		assert(! memcell_locked(mc));
@@ -274,28 +302,40 @@ void *memory_request(memory_state_t *s)
 #if ! defined(NO_GC_STATISTICS)
 		assert(s->total_free);
 		s->total_free--;
-#endif
+#endif /* ! defined(NO_GC_STATISTICS) */
 #if defined(ALLOC_DEBUG)
 		printf("gc (%llu): reuse node %p (%p) nfree=%llu\n",
 		       s->iter_count, mc, mc->data,
 		       (unsigned long long) s->total_free);
-#endif
+#endif /* defined(ALLOC_DEBUG) ? */
 	} else {
-		void *mem = s->mem_alloc(sizeof(memcell_t) + s->datasize,
+		void *mem = s->mem_alloc(sizeof(memcell_t) + len,
 		                         s->mem_alloc_priv);
 		mc = (memcell_t *) dlnode_init(mem);
 #if ! defined(NO_GC_STATISTICS)
 		s->total_alloc++;
-#endif
+#endif /* ! defined(NO_GC_STATISTICS) */
 #if defined(ALLOC_DEBUG)
 		printf("gc (%llu): malloc node %p (%p) nalloc=%llu\n",
 		       s->iter_count, mc, mc->data,
 		       (unsigned long long) s->total_alloc);
-#endif
+#endif /* defined(ALLOC_DEBUG) */
 	}
+
 	memcell_init(s, mc);
 	return mc->data;
 }
+#else /* defined(NO_GC_FREELIST) */
+void *memory_request(memory_state_t *s, size_t len)
+{
+	memcell_t *mc;
+	mc = s->mem_alloc(sizeof(memcell_t) + len, s->mem_alloc_priv);
+	dlnode_init(&(mc->hdr));
+	memcell_init(s, mc);
+	s->total_alloc++;
+	return mc->data;
+}
+#endif /* ! defined(NO_GC_FREELIST) */
 
 void memory_set_finalizer(void *data, data_fin_t fin)
 {
@@ -528,17 +568,16 @@ bool memory_gc_iterate(memory_state_t *s)
 		/* TODO: what about loops here? should they still be unlinked? */
 		assert(!memcell_refcount(mc)); // free_pending nodees must be unlinked
 		s->dl_cb(dl_cb_decref_free_pending_z, &(mc->data), s);
-		memcell_deinit(s, mc);
-		dlnode_remove(&(mc->hdr));
-		memcell_to_free(s, mc);
-#if ! defined(NO_GC_STATISTICS)
-		s->total_free++;
-#endif
+		memcell_free(s, mc);
+#if ! defined(NO_GC_FREELIST)
 #if defined(ALLOC_DEBUG)
 		printf("gc (%llu): free node (pending) %p nfree=%llu\n",
 		       s->iter_count, mc, (unsigned long long) s->total_free);
 #endif
+#endif /* ! defined(NO_GC_FREELIST) */
+#if ! defined(NO_GC_FREELIST)
 		assert(s->total_free <= s->total_alloc);
+#endif /* ! defined(NO_GC_FREELIST) */
 		goto finish;
 	}
 
@@ -585,17 +624,14 @@ bool memory_gc_iterate(memory_state_t *s)
 		assert(! memcell_locked(mc)); // locked nodes should stay in root list
 		// NB: unreachable can be referenced if e.g. lambda points back to it.
 		s->dl_cb(dl_cb_decref_free_pending_z, &(mc->data), s);
-		memcell_deinit(s, mc);
-		dlnode_remove(&(mc->hdr));
-		memcell_to_free(s, mc);
-#if ! defined(NO_GC_STATISTICS)
-		s->total_free++;
-#endif
+		memcell_free(s, mc);
 #if defined(ALLOC_DEBUG)
 		printf("gc (%llu): free node (unreachable) %p nfree=%llu\n",
 		       s->iter_count, mc, (unsigned long long) s->total_free);
 #endif
+#if ! defined(NO_GC_FREELIST)
 		assert(s->total_free <= s->total_alloc);
+#endif /* ! defined(NO_GC_FREELIST) */
 		goto finish;
 	}
 
@@ -695,7 +731,7 @@ static void memcell_print_meta(memory_state_t *s, memcell_t *mc)
 	unsigned long long refcount;
 	bool reachable, locked;
 
-	if(mc->hdr.owner == &(s->free_list)) listname = "free";
+	if(memcell_is_free(s, mc)) listname = "free";
 	else if(mc->hdr.owner == &(s->roots_list)) listname = "root";
 	else if(mc->hdr.owner == &(s->boundary_list) )listname = "boundary";
 	else if(mc->hdr.owner == &(s->free_pending_list) )listname = "free_pend";
@@ -719,10 +755,9 @@ void memory_gc_print_state(memory_state_t *s)
 	dlnode_t *cursor;
 	memcell_t *mc;
 
-	printf("gc (%llu) state %p (%lu alloc, %lu bytes):\n",
+	printf("gc (%llu) state %p (%lu alloc):\n",
 	       s->iter_count, s,
-	       (unsigned long) s->total_alloc, 
-	       (unsigned long) ((sizeof(memcell_t)+s->datasize)*s->total_alloc));
+	       (unsigned long) s->total_alloc);
 
 	DLIST_FOR_FWD(&(s->free_pending_list), cursor) {
 		mc = (memcell_t *) cursor;
@@ -758,11 +793,13 @@ void memory_gc_print_state(memory_state_t *s)
 		s->p_cb(mc->data);
 	}
 
+#if ! defined(NO_GC_FREELIST)
 	DLIST_FOR_FWD(&(s->free_list), cursor) {
 		mc = (memcell_t *) cursor;
 		memcell_print_meta(s, mc);
 		s->p_cb(mc->data);
 	}
+#endif
 }
 
 unsigned long long memory_gc_count_iters(memory_state_t *s)
@@ -782,5 +819,9 @@ uintptr_t memory_gc_count_total(memory_state_t *s)
 
 uintptr_t memory_gc_count_free(memory_state_t *s)
 {
+#if ! defined(NO_GC_FREELIST)
 	return s->total_free;
+#else
+	return 0;
+#endif
 }

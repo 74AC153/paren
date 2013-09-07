@@ -89,7 +89,6 @@ static void node_mem_free(void *alloc, void *p)
 void nodes_initialize()
 {
 	memory_state_init(&g_memstate,
-	                  sizeof(node_t),
 	                  node_init_cb,
 	                  links_cb,
 	                  node_print_wrap,
@@ -116,7 +115,7 @@ void nodes_reset()
 static node_t *node_new(void)
 {
 	node_t *n;
-	n = memory_request(&g_memstate);
+	n = memory_request(&g_memstate, sizeof(node_t));
 	return n;
 }
 
