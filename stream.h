@@ -27,4 +27,31 @@ static inline int stream_advance(stream_t *s)
 	return s->getch_cb(s->getch_priv);
 }
 
+
+
+typedef int (*wr_stream_putch_fn)(void *p, unsigned char val);
+
+typedef struct {
+	wr_stream_putch_fn putch_cb;
+	void *wr_stream_priv;
+} wr_stream_t;
+
+static inline wr_stream_t *wr_stream_init(
+	void *p,
+	wr_stream_putch_fn putch_cb,
+	void *wr_stream_priv)
+{
+	wr_stream_t *ws = (wr_stream_t *) p;
+	if(ws) {
+		ws->putch_cb = putch_cb;
+		ws->wr_stream_priv = wr_stream_priv;
+	}
+	return ws;
+}
+
+static inline int wrstream_putch(wr_stream_t *ws, unsigned char val)
+{
+	return ws->putch_cb(ws->wr_stream_priv, val);
+}
+
 #endif
