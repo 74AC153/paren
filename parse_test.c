@@ -19,7 +19,7 @@ int main(int argc, char *argv[])
 	}
 
 	bufstream_init(&bs, (unsigned char *) argv[1], strlen(argv[1]));
-	stream_init(&stream, bufstream_readch, &bs);
+	stream_init(&stream, bufstream_readch, NULL, &bs);
 	parse_state_init(&state, &stream);
 
 	nodes_initialize();

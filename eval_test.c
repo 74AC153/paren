@@ -124,7 +124,7 @@ int main(int argc, char *argv[])
 	node_lockroot(env_handle);
 	environ_add_builtins(env_handle, startenv, ARR_LEN(startenv));
 
-	stream_init(&stream, bufstream_readch, &bs);
+	stream_init(&stream, bufstream_readch, NULL, &bs);
 	parse_state_init(&state, &stream);
 
 	/* parse + eval argv */

@@ -14,7 +14,7 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 	bufstream_init(&bs, (unsigned char *) argv[1], strlen(argv[1]));
-	stream_init(&stream, bufstream_readch, &bs);
+	stream_init(&stream, bufstream_readch, NULL, &bs);
 	tok_state_init(&state, &stream);
 	token_chomp(&state);
 	while(token_type(&state) != TOK_END) {

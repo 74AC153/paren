@@ -50,7 +50,7 @@ static bool is_atom_char(unsigned char c)
 
 static void advance_tok_stream(tok_state_t *s)
 {
-	s->nextch = stream_advance(s->stream);
+	s->nextch = stream_getch(s->stream);
 	if(s->nextch != -1) {
 		s->stream_off++;
 		if(s->nextch == '\n') {

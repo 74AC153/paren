@@ -124,7 +124,7 @@ static eval_err_t readevalfn(node_t **n, node_t **result, void *p)
 	}
 
 	bufstream_init(&bs, info.buf, info.len);
-	stream_init(&stream, bufstream_readch, &bs);
+	stream_init(&stream, bufstream_readch, NULL, &bs);
 	parse_state_init(&parse_state, &stream);
 
 	eval_in_hdl = node_lockroot(node_handle_new(NULL));
