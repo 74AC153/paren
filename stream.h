@@ -21,6 +21,7 @@ static inline stream_t *stream_init(
 	stream_t *s = (stream_t *) p;
 	if(s) {
 		s->getch_cb = getch_cb;
+		s->putch_cb = putch_cb;
 		s->stream_priv = stream_priv;
 	}
 	return s;
