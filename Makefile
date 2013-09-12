@@ -58,6 +58,9 @@ parse_test: parse_test.o parse.o token.o node.o memory.o dlist.o bufstream.o
 eval_test: eval_test.o builtins.o bufstream.o foreign_common.o paren_interp.a
 	gcc ${LDFLAGS} -o $@ $^
 
+libc_custom_test: libc_custom.o libc_custom_test.o
+	gcc ${LDFLAGS} -o $@ $^
+
 base.so: builtins_shared.o builtins.o
 	gcc ${SO_LDFLAGS} -o $@ $^
 
