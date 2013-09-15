@@ -1,7 +1,9 @@
 #include <string.h>
 #include <assert.h>
 #include <stdbool.h>
+#if defined(EVAL_TRACING)
 #include <stdio.h>
+#endif
 
 #include "environ.h"
 #include "frame.h"
