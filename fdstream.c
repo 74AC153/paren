@@ -1,6 +1,7 @@
 #include <unistd.h>
 #include "fdstream.h"
 
+
 static int fdstream_writech(void *p, char c)
 {
 	fdstream_t *fs = (fdstream_t *) p;
@@ -21,6 +22,24 @@ static int fdstream_readch(void *p)
 
 	return (int) c;
 }
+
+static fdstream_t fdstream_stdin = {
+	.hdr = STREAM_STATIC_INITIALIZER(&fdstream_stdin, fdstream_readch, NULL),
+	.fd = STDIN_FILENO
+};
+stream_t *g_stream_stdin = &(fdstream_stdin.hdr);
+
+static fdstream_t fdstream_stdout = {
+	.hdr = STREAM_STATIC_INITIALIZER(&fdstream_stdin, NULL, fdstream_writech),
+	.fd = STDOUT_FILENO
+};
+stream_t *g_stream_stdout = &(fdstream_stdout.hdr);
+
+static fdstream_t fdstream_stderr = {
+	.hdr = STREAM_STATIC_INITIALIZER(&fdstream_stdin, NULL, fdstream_writech),
+	.fd = STDERR_FILENO
+};
+stream_t *g_stream_stderr = &(fdstream_stderr.hdr);
 
 stream_t *fdstream_init(void *p, int fd)
 {

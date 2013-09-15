@@ -29,4 +29,7 @@ int stream_putstr(stream_t *s, char *str, size_t *nput);
 
 int stream_putcomp(stream_t *s, size_t *nput, ...);
 
+#define STREAM_STATIC_INITIALIZER(PRIV, GETCH, PUTCH) \
+	{ .stream_priv = (PRIV), .getch_cb = (GETCH), .putch_cb = (PUTCH) }
+
 #endif
