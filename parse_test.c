@@ -9,7 +9,7 @@ int main(int argc, char *argv[])
 	parse_err_t status;
 
 	parse_state_t state;
-	stream_t stream;
+	stream_t *stream;
 	bufstream_t bs;
 
 
@@ -18,9 +18,8 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	bufstream_init(&bs, (unsigned char *) argv[1], strlen(argv[1]));
-	stream_init(&stream, bufstream_readch, NULL, &bs);
-	parse_state_init(&state, &stream);
+	stream = bufstream_init(&bs, (unsigned char *) argv[1], strlen(argv[1]));
+	parse_state_init(&state, stream);
 
 	nodes_initialize();
 	result_hdl = node_handle_new(NULL);

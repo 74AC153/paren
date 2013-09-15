@@ -111,8 +111,8 @@ int main(int argc, char *argv[])
 	char *remain;
 	size_t i;
 	parse_state_t state;
-	stream_t stream;
 	bufstream_t bs;
+	stream_t *stream;
 
 	nodes_initialize();
 
@@ -124,12 +124,10 @@ int main(int argc, char *argv[])
 	node_lockroot(env_handle);
 	environ_add_builtins(env_handle, startenv, ARR_LEN(startenv));
 
-	stream_init(&stream, bufstream_readch, NULL, &bs);
-	parse_state_init(&state, &stream);
-
 	/* parse + eval argv */
 	for(i = 1; i < (unsigned) argc; i++) {
-		bufstream_init(&bs, (unsigned char *) argv[i], strlen(argv[i]));
+		stream = bufstream_init(&bs, (unsigned char *) argv[i], strlen(argv[i]));
+		parse_state_init(&state, stream);
 		printf("*** parse %s ***\n", argv[i]);
 		parse_stat = parse(&state, eval_in_hdl);
 		if(parse_stat != PARSE_OK) {

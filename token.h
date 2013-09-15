@@ -29,7 +29,7 @@ typedef struct {
 	bool in_string;
 	off_t stream_off, stream_lines, stream_linechar;
 	union {
-		unsigned char sym[MAX_SYM_LEN+1]; // include space for trailing null
+		char sym[MAX_SYM_LEN+1]; // include space for trailing null
 		int64_t lit;
 	} u;
 
@@ -47,7 +47,7 @@ char *token_sym(tok_state_t *state);
 int64_t token_lit(tok_state_t *state);
 
 char *token_type_str(tok_state_t *state);
-void token_print(tok_state_t *state);
+void token_print(stream_t *s, tok_state_t *state);
 
 off_t tok_state_offset(tok_state_t *state);
 off_t tok_state_line(tok_state_t *state);

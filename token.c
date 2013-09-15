@@ -6,6 +6,8 @@
 #include <ctype.h>
 
 #include "token.h"
+#include "stream.h"
+#include "libc_custom.h"
 
 char *token_type_names[] = {
 	#define X(name) #name,
@@ -66,7 +68,7 @@ void token_chomp(tok_state_t *state)
 	size_t len;
 	int64_t lit;
 	bool in_comment = false;
-	unsigned char *cursor, *test_end;
+	char *cursor, *test_end;
 
 	/* prime the stream (no-op if stream end) */
 	if(state->nextch == -1) {
@@ -163,7 +165,7 @@ void token_chomp(tok_state_t *state)
 			*cursor = (unsigned char) state->nextch;
 			advance_tok_stream(state);
 		}
-		*cursor = 0;
+		*cursor = 0; /* null terminate u.sym */
 		/* discard rest of token that doesn't fit in symbol buffer */
 		if(cursor - state->u.sym == (sizeof(state->u.sym) - 1)) {
 			while(is_atom_char(state->nextch)) {
@@ -210,17 +212,18 @@ char *token_type_str(tok_state_t *state)
 	return token_type_names[state->type];
 }
 
-void token_print(tok_state_t *state)
+void token_print(stream_t *s, tok_state_t *state)
 {
+	char buf[17];
 	switch(state->type) {
-	case TOK_SYM:
-		printf("TOK_SYM(%s)\n", state->u.sym);
+	case TOK_SYM: 
+		stream_putcomp(s, NULL, "TOK_SYM(", state->u.sym, ")\n", NULL);
 		break;
 	case TOK_LIT:
-		printf("TOK_LIT(0x%llx)\n", (unsigned long long) state->u.lit);
+		stream_putcomp(s, NULL, "TOK_LIT(0x", u64_to_str16(buf, state->u.lit), ")\n", NULL);
 		break;
 	default:
-		printf("%s\n", token_type_names[state->type]);
+		stream_putcomp(s, NULL, token_type_names[state->type], "\n", NULL);
 		break;
 	}
 }

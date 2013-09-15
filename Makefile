@@ -46,13 +46,13 @@ default: ${EXECUTABLES} ${OUTLIBS}
 clean:
 	rm *.o ${EXECUTABLES} ${OUTLIBS}
 
-paren_interp.a: eval.o parse.o token.o node.o environ.o frame.o environ_utils.o eval_err.o memory.o dlist.o 
+paren_interp.a: eval.o parse.o token.o node.o environ.o frame.o environ_utils.o eval_err.o memory.o dlist.o libc_custom.o stream.o
 	ar -cvr $@ $^
 
-tokenize_test: tokenize_test.o token.o bufstream.o
+tokenize_test: tokenize_test.o token.o bufstream.o fdstream.o stream.o libc_custom.o
 	gcc ${LDFLAGS} -o $@ $^
 
-parse_test: parse_test.o parse.o token.o node.o memory.o dlist.o bufstream.o
+parse_test: parse_test.o parse.o token.o node.o memory.o dlist.o bufstream.o stream.o libc_custom.o
 	gcc ${LDFLAGS} -o $@ $^
 
 eval_test: eval_test.o builtins.o bufstream.o foreign_common.o paren_interp.a

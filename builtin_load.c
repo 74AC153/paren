@@ -82,7 +82,7 @@ static eval_err_t readevalfn(node_t **n, node_t **result, void *p)
 	parse_err_t parse_stat;
 	filemap_info_t info;
 	parse_state_t parse_state;
-	stream_t stream;
+	stream_t *stream;
 	bufstream_t bs;
 
 
@@ -123,9 +123,8 @@ static eval_err_t readevalfn(node_t **n, node_t **result, void *p)
 		goto cleanup;
 	}
 
-	bufstream_init(&bs, info.buf, info.len);
-	stream_init(&stream, bufstream_readch, NULL, &bs);
-	parse_state_init(&parse_state, &stream);
+	stream = bufstream_init(&bs, info.buf, info.len);
+	parse_state_init(&parse_state, stream);
 
 	eval_in_hdl = node_lockroot(node_handle_new(NULL));
 	eval_out_hdl = node_lockroot(node_handle_new(NULL));

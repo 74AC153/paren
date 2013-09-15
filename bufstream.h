@@ -2,13 +2,15 @@
 #define BUFSTREAM_H
 
 #include <stddef.h>
+#include "stream.h"
 
 typedef struct {
-	unsigned char *cursor;
+	stream_t hdr;
+	unsigned char *buf;
 	size_t len;
+	size_t roff;
 } bufstream_t;
 
-int bufstream_readch(void *p);
-bufstream_t *bufstream_init(void *p, unsigned char *start, size_t len);
+stream_t *bufstream_init(void *p, unsigned char *start, size_t len);
 
 #endif
