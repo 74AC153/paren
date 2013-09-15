@@ -4,12 +4,12 @@
 
 #include "libc_custom.h"
 
-static unsigned int char_to_num(char c)
+static int char_to_num(char c)
 {
 	if(c >= '0' && c <= '9') return c - '0';
 	if(c >= 'A' && c <= 'Z') return c - 'A' + 10;
 	if(c >= 'a' && c <= 'z') return c - 'a' + 10;
-	return (unsigned int) -1;
+	return -1;
 }
 
 long long int strtoll_custom(const char *str, char **end)
@@ -32,17 +32,21 @@ long long int strtoll_custom(const char *str, char **end)
 			str++;
 		} else {
 			base = 8;
-			str++;
 		}
+		str++;
 	} else {
 		base = 10;
 	}
 
-	if(*str && ((cval = char_to_num(*str)) < base)) {
+	if(*str
+	   && ((cval = char_to_num(*str)) >= 0)
+	   && (cval < base)) {
 		val = cval;
 		str++;
 	}
-	while(*str && ((cval = char_to_num(*str)) < base)) {
+	while(*str
+	   && ((cval = char_to_num(*str)) >= 0)
+	   && (cval < base)) {
 		val = val * base + cval;
 		str++;
 	}
