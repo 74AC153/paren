@@ -1,6 +1,8 @@
 #include <stdbool.h>
 #include <stddef.h>
-#include "utils.h"
+#include <stdint.h>
+
+#include "libc_custom.h"
 
 static unsigned int char_to_num(char c)
 {
@@ -51,6 +53,63 @@ long long int strtoll_custom(const char *str, char **end)
 
 	if(neg) val = -val;
 	return val;
+}
+
+static char num_to_char(unsigned int n)
+{
+	if(n < 10) return '0' + n;
+	if(n < 36) return 'a' + n - 10;
+	return 0;
+}
+
+static void str_rev(char *start, char *last)
+{
+	unsigned char temp;
+
+	while(start < last) {
+		temp = *start;
+		*start = *last;
+		*last= temp;
+		start++;
+		last--;
+	}
+
+}
+
+char *u64_to_str16(char buf[17], uint64_t val)
+{
+	char *cursor = &(buf[0]);
+	
+	*cursor++ = 0;
+	while(val) {
+		*cursor++ = num_to_char(val & 0xF);
+		val >>= 4;
+	}
+	cursor--;
+
+	str_rev(&(buf[0]), cursor);
+
+	return &(buf[0]);
+}
+
+char *s64_to_str10(char buf[21], int64_t val)
+{
+	char *cursor = &(buf[0]);
+	bool neg = val < 0;
+	
+	*cursor++ = 0;
+	while(val) {
+		*cursor++ = num_to_char(val % 10);
+		val /= 10;
+	}
+	if(neg) {
+		*cursor++ = '-';
+	}
+	cursor--;
+
+	str_rev(&(buf[0]), cursor);
+
+	return &(buf[0]);
 }
 
 void bzero_custom(void *s, size_t len)
