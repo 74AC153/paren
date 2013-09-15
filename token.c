@@ -1,9 +1,6 @@
 #include <assert.h>
+#include <sys/types.h>
 #include <stdbool.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdio.h>
-#include <ctype.h>
 
 #include "token.h"
 #include "stream.h"
@@ -45,9 +42,18 @@ off_t tok_state_linechr(tok_state_t *state)
 	return state->stream_linechar;
 }
 
-static bool is_atom_char(unsigned char c)
+static bool isspace_custom(char c)
 {
-	return !isspace(c) && c != '(' && c != ')' && c != '.' && c != '\'';
+	return c == '\t'
+	    || c == '\n'
+	    || c == '\v'
+	    || c == '\f'
+	    || c == '\r'
+	    || c == ' ';
+}
+static bool is_atom_char(char c)
+{
+	return !isspace_custom(c) && c != '(' && c != ')' && c != '.' && c != '\'';
 }
 
 static void advance_tok_stream(tok_state_t *s)
@@ -132,7 +138,7 @@ void token_chomp(tok_state_t *state)
 		} else if(state->nextch == '\n') {
 			in_comment = false;
 		}
-		if(! isspace(state->nextch) && ! in_comment) {
+		if(! isspace_custom(state->nextch) && ! in_comment) {
 			break;
 		}
 		advance_tok_stream(state);
@@ -174,7 +180,7 @@ void token_chomp(tok_state_t *state)
 		}
 
 		/* try to convert symbol buffer to a numeric literal */
-		lit = strtoll((char *) state->u.sym, (char **) &test_end, 0);
+		lit = strtoll_custom((char *) state->u.sym, (char **) &test_end);
 
 		if(test_end == cursor) {
 			/* whole string consumed -> numeric literal */
