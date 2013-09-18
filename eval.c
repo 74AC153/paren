@@ -5,6 +5,7 @@
 #include <stdio.h>
 #endif
 
+#include "libc_custom.h"
 #include "environ.h"
 #include "frame.h"
 #include "eval.h"
@@ -147,7 +148,7 @@ eval_err_t eval(node_t *in_handle, node_t *env_handle, node_t *out_handle)
 	node_t *temp;
 
 	frame_init(locals, LOCAL_ID_MAX);
-	memset(newvals, 0, sizeof(newvals));
+	bzero_custom(newvals, sizeof(newvals));
 
 	assert(node_type(in_handle) == NODE_HANDLE);
 	assert(node_type(env_handle) == NODE_HANDLE);
