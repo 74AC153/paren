@@ -1,7 +1,18 @@
-"Any sufficiently complicated C or Fortran program contains an ad hoc,
-informally-specified, bug-ridden, slow implementation of half of Common Lisp."
+``Any sufficiently complicated C or Fortran program contains an ad hoc,
+informally-specified, bug-ridden, slow implementation of half of Common Lisp.''
 
    -- Greenspun's tenth rule of programming 
+
+``Almost everybody has their own lisp implementation. Some programmers' dogs
+and cats probably have their own lisp implementations as well. This is great,
+but too often I see people omit some of the obscure but critical features that
+make lisp uniquely wonderful. ... Many others offering their own "shiny new"
+lisp dialects get carried away and change anything that strikes their fancy.
+These changes have no effect except incompatibility, and often make the
+language worse because the new design was not as carefully thought out and has
+not stood the test of time.''
+
+   -- Author of the Julia language
 
 Paren: an interpreter for a lisp-like language
 
