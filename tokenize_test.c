@@ -15,7 +15,7 @@ int main(int argc, char *argv[])
 		printf("usage: %s 'string'\n", argv[0]);
 		return -1;
 	}
-	b_stream = bufstream_init(&bs, (unsigned char *) argv[1], strlen(argv[1]));
+	b_stream = bufstream_init(&bs, argv[1], strlen(argv[1]));
 
 	tok_state_init(&state, b_stream);
 	token_chomp(&state);

@@ -126,7 +126,7 @@ int main(int argc, char *argv[])
 
 	/* parse + eval argv */
 	for(i = 1; i < (unsigned) argc; i++) {
-		stream = bufstream_init(&bs, (unsigned char *) argv[i], strlen(argv[i]));
+		stream = bufstream_init(&bs, argv[i], strlen(argv[i]));
 		parse_state_init(&state, stream);
 		printf("*** parse %s ***\n", argv[i]);
 		parse_stat = parse(&state, eval_in_hdl);

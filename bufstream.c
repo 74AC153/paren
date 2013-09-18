@@ -1,16 +1,18 @@
 #include "bufstream.h"
 
-static int bufstream_readch(void *p)
+static int bufstream_readch(void *p, char *ch_out)
 {
 	int ch;
 	bufstream_t *bs = (bufstream_t *) p;
 
-	if(bs->roff == bs->len) return -1;
-	ch = bs->buf[bs->roff++];
-	return ch;
+	if(bs->roff == bs->len) {
+		return STREAM_END;
+	}
+	*ch_out = bs->buf[bs->roff++];
+	return 0;
 }
 
-stream_t *bufstream_init(void *p, unsigned char *start, size_t len)
+stream_t *bufstream_init(void *p, char *start, size_t len)
 {
 	bufstream_t *bs = (bufstream_t *) p;
 	if(bs) {

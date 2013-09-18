@@ -4,8 +4,9 @@
 #include <stdint.h>
 
 long long int strtoll_custom(const char *str, char **end);
-char *u64_to_str16(char buf[17], uint64_t val);
-char *s64_to_str10(char buf[21], int64_t val);
+char *fmt_u64(char buf[17], uint64_t val); /* hex */
+char *fmt_ptr(char buf[21], void *val); /* hex */
+char *fmt_s64(char buf[21], int64_t val); /* dec */
 
 void bzero_custom(void *s, size_t len);
 char *strncpy_custom(char *restrict s1, const char *restrict s2, size_t n);

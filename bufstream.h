@@ -6,11 +6,11 @@
 
 typedef struct {
 	stream_t hdr;
-	unsigned char *buf;
+	char *buf;
 	size_t len;
 	size_t roff;
 } bufstream_t;
 
-stream_t *bufstream_init(void *p, unsigned char *start, size_t len);
+stream_t *bufstream_init(void *p, char *start, size_t len);
 
 #endif

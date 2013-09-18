@@ -1,26 +1,33 @@
 #include <unistd.h>
+#include <errno.h>
 #include "fdstream.h"
 
-
-static int fdstream_writech(void *p, char c)
-{
-	fdstream_t *fs = (fdstream_t *) p;
-
-	return write(fs->fd, &c, 1);
-}
-
-static int fdstream_readch(void *p)
+static int fdstream_readch(void *p, char *ch_out)
 {
 	unsigned char c;
 	int status;
+
 	fdstream_t *fs = (fdstream_t *) p;
 	
-	status = read(fs->fd, &c, 1);
+	status = read(fs->fd, ch_out, 1);
 	if(status == 0) {
-		return -1;
+		return STREAM_END;
+	} else if(status < 0) {
+		return errno;
 	}
+	return 0;
+}
 
-	return (int) c;
+static int fdstream_writech(void *p, char ch_in)
+{
+	int status;
+	fdstream_t *fs = (fdstream_t *) p;
+
+	status = write(fs->fd, &ch_in, 1);
+	if(status != 1) {
+		return errno;
+	}
+	return 0;
 }
 
 static fdstream_t fdstream_stdin = {

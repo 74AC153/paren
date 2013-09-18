@@ -38,15 +38,13 @@ long long int strtoll_custom(const char *str, char **end)
 		base = 10;
 	}
 
-	if(*str
-	   && ((cval = char_to_num(*str)) >= 0)
+	if(((cval = char_to_num(*str)) >= 0)
 	   && (cval < base)) {
 		val = cval;
 		str++;
 	}
-	while(*str
-	   && ((cval = char_to_num(*str)) >= 0)
-	   && (cval < base)) {
+	while(((cval = char_to_num(*str)) >= 0)
+	      && (cval < base)) {
 		val = val * base + cval;
 		str++;
 	}
@@ -80,7 +78,7 @@ static void str_rev(char *start, char *last)
 
 }
 
-char *u64_to_str16(char buf[17], uint64_t val)
+char *fmt_u64(char buf[17], uint64_t val)
 {
 	char *cursor = &(buf[0]);
 	
@@ -96,7 +94,12 @@ char *u64_to_str16(char buf[17], uint64_t val)
 	return &(buf[0]);
 }
 
-char *s64_to_str10(char buf[21], int64_t val)
+char *fmt_ptr(char buf[21], void *val)
+{
+	return fmt_u64(buf, (uint64_t) val);
+}
+
+char *fmt_s64(char buf[21], int64_t val)
 {
 	char *cursor = &(buf[0]);
 	bool neg = val < 0;

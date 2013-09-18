@@ -58,14 +58,20 @@ static bool is_atom_char(char c)
 
 static void advance_tok_stream(tok_state_t *s)
 {
-	s->nextch = stream_getch(s->stream);
-	if(s->nextch != -1) {
+	int status;
+	char ch;
+	status = stream_getch(s->stream, &ch);
+	if(status == 0) {
+		s->nextch = ch;
 		s->stream_off++;
 		if(s->nextch == '\n') {
 			s->stream_lines++;
 			s->stream_linechar = 0;
 		}
 		s->stream_linechar++;
+	} else {
+		/* ostensibly, the stream is EOF, but... FIXME */
+		s->nextch = -1;
 	}
 }
 
@@ -223,13 +229,13 @@ void token_print(stream_t *s, tok_state_t *state)
 	char buf[17];
 	switch(state->type) {
 	case TOK_SYM: 
-		stream_putcomp(s, NULL, "TOK_SYM(", state->u.sym, ")\n", NULL);
+		stream_putcomp(s, "TOK_SYM(", state->u.sym, ")\n", NULL);
 		break;
 	case TOK_LIT:
-		stream_putcomp(s, NULL, "TOK_LIT(0x", u64_to_str16(buf, state->u.lit), ")\n", NULL);
+		stream_putcomp(s, "TOK_LIT(0x", fmt_u64(buf, state->u.lit), ")\n", NULL);
 		break;
 	default:
-		stream_putcomp(s, NULL, token_type_names[state->type], "\n", NULL);
+		stream_putcomp(s, token_type_names[state->type], "\n", NULL);
 		break;
 	}
 }

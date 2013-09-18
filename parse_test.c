@@ -18,7 +18,7 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	stream = bufstream_init(&bs, (unsigned char *) argv[1], strlen(argv[1]));
+	stream = bufstream_init(&bs, argv[1], strlen(argv[1]));
 	parse_state_init(&state, stream);
 
 	nodes_initialize();
