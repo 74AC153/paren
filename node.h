@@ -122,6 +122,10 @@ void node_print(node_t *n);
 void node_print_recursive(node_t *n);
 void node_print_pretty(node_t *n, bool verbose);
 
+void node_print_stream(stream_t *s, node_t *n);
+void node_print_recursive_stream(stream_t *s, node_t *n);
+void node_print_pretty_stream(stream_t *s, node_t *n, bool verbose);
+
 /* run garbage collector one full cycle */
 void node_gc(void);
 void node_gc_print_state(void);

@@ -1,13 +1,15 @@
 #include <stdint.h>
-#include <assert.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdio.h>
 #include <stddef.h>
+#include <assert.h>
+//#if defined(NODE_GC_TRACING) || defined(NODE_INIT_TRACING)
+#include <stdio.h>
+//#endif
 
 #include "dlist.h"
 #include "node.h"
 #include "memory.h"
+#include "libc_custom.h"
+#include "stream.h"
 
 char *node_type_names[] = {
 	#define X(name) #name,
@@ -72,7 +74,7 @@ static void node_print_wrap(void *p)
 static void node_init_cb(void *p)
 {
 	node_t *n = (node_t *) p;
-	memset(n, 0, sizeof(*n));
+	bzero_custom(n, sizeof(*n));
 	n->type = NODE_UNINITIALIZED;
 }
 
@@ -301,7 +303,7 @@ node_t *node_symbol_new(char *name)
 {
 	node_t *ret = node_new();
 	assert(ret);
-	strncpy(ret->dat.name, name, sizeof(ret->dat.name));
+	strncpy_custom(ret->dat.name, name, sizeof(ret->dat.name));
 	ret->type = NODE_SYMBOL;
 #if defined(NODE_INIT_TRACING)
 	printf("node init symbol %p (\"%s\")\n", ret, ret->dat.name);
@@ -495,7 +497,62 @@ void node_print(node_t *n)
 	printf("\n");
 }
 
-void node_print_recursive(node_t *n )
+void node_print_stream(stream_t *s, node_t *n)
+{
+	char buf[21], buf2[21], buf3[21];
+	if(!n) {
+		stream_putstr(s, "node NULL");
+	} else {
+		stream_putcomp(s, "node@", fmt_ptr(buf, n), NULL);
+
+		switch(n->type) {
+		case NODE_NIL:
+			stream_putstr(s, "nil");
+			break;
+		case NODE_UNINITIALIZED:
+			stream_putstr(s, "uninitialized");
+			break;
+		case NODE_CONS:
+			stream_putcomp(s, "cons car=", fmt_ptr(buf, n->dat.cons.car),
+			                  " cdr=", fmt_ptr(buf2, n->dat.cons.cdr),
+			                  NULL);
+			break;
+		case NODE_LAMBDA:
+			stream_putcomp(s, "lam env=", fmt_ptr(buf, n->dat.lambda.env),
+			                  " vars=", fmt_ptr(buf2, n->dat.lambda.vars),
+			                  " expr=", fmt_ptr(buf3, n->dat.lambda.expr),
+			                  NULL);
+			break;
+		case NODE_SYMBOL:
+			stream_putcomp(s, "sym ", n->dat.name, NULL);
+			break;
+		case NODE_VALUE:
+			stream_putcomp(s, "value ", fmt_s64(buf, n->dat.value), NULL);
+			break;
+		case NODE_FOREIGN:
+			stream_putcomp(s, "foreign ", fmt_ptr(buf, n->dat.func), NULL);
+			break;
+		case NODE_HANDLE:
+			stream_putcomp(s, "handle ", fmt_ptr(buf, n->dat.handle.link), 
+			                   NULL);
+			break;
+		case NODE_CONTINUATION:
+			stream_putcomp(s, "cont ", fmt_ptr(buf, n->dat.cont.bt), NULL);
+			break;
+		case NODE_SPECIAL_FUNC:
+			stream_putcomp(s, "special ", fmt_s64(buf, n->dat.special), NULL);
+			break;
+		case NODE_BLOB:
+			stream_putcomp(s, "blob addr=", fmt_ptr(buf, n->dat.blob.addr),
+			                  " fin=", fmt_ptr(buf2, n->dat.blob.fin),
+			                  NULL);
+			break;
+		}
+	}
+	stream_putch(s, '\n');
+}
+
+void node_print_recursive(node_t *n)
 {
 	node_print(n);
 	if(!n) {
@@ -515,7 +572,34 @@ void node_print_recursive(node_t *n )
 	}
 }
 
-void node_print_list_shorthand(node_t *n)
+void node_print_recursive_stream(stream_t *s, node_t *n)
+{
+	node_print_stream(s, n);
+	if(!n) {
+		return;
+	}
+	if(n->type == NODE_CONS) {
+		if(n->dat.cons.car)
+			node_print_recursive_stream(s, n->dat.cons.car);
+		if(n->dat.cons.cdr)
+			node_print_recursive_stream(s, n->dat.cons.cdr);
+	} else if(n->type == NODE_LAMBDA) {
+    	if(n->dat.lambda.env)
+			node_print_stream(s, n->dat.lambda.env);
+		if(n->dat.lambda.vars)
+			node_print_recursive_stream(s, n->dat.lambda.vars);
+		if(n->dat.lambda.expr)
+			node_print_recursive_stream(s, n->dat.lambda.expr);
+	} else if(n->type == NODE_HANDLE) {
+    	if(n->dat.handle.link)
+			node_print_recursive_stream(s, n->dat.handle.link);
+	} else if(n->type == NODE_CONTINUATION) {
+    	if(n->dat.cont.bt)
+			node_print_recursive_stream(s, n->dat.cont.bt);
+	}
+}
+
+static void node_print_list_shorthand(node_t *n)
 {
 	if(node_type(n) == NODE_CONS) {
 		node_print_pretty(n->dat.cons.car, false);
@@ -528,98 +612,207 @@ void node_print_list_shorthand(node_t *n)
 	}
 }
 
+static void node_print_list_shorthand_stream(stream_t *s,node_t *n)
+{
+	if(node_type(n) == NODE_CONS) {
+		node_print_pretty_stream(s, n->dat.cons.car, false);
+		node_print_list_shorthand_stream(s, n->dat.cons.cdr);
+	} else if(n == NULL) {
+
+	} else {
+		stream_putstr(s, ". ");
+		node_print_pretty_stream(s, n, false);
+	}
+}
+
 void node_print_pretty(node_t *n, bool isverbose)
 {
-		switch(node_type(n)) {
-		case NODE_UNINITIALIZED:
-			printf("<uninitialized memory>");
-			break;
-		case NODE_NIL:
-			printf("() ");
-			break;
-		case NODE_CONS:
-			printf("( ");
-			node_print_pretty(n->dat.cons.car, isverbose);
-			if(isverbose) {
-				printf(". ");
-				node_print_pretty(node_cons_cdr(n), true);
-			} else if(node_type(n->dat.cons.cdr) == NODE_CONS ||
-			          node_type(n->dat.cons.cdr) == NODE_NIL ||
-			          node_type(n->dat.cons.cdr) == NODE_LAMBDA){
-				node_print_list_shorthand(n->dat.cons.cdr);
-			} else {
-				printf(". ");
-				node_print_pretty(n->dat.cons.cdr, false);
-			}
-			printf(") ");
-			break;
-		case NODE_LAMBDA:
-			if(isverbose) {
-				printf("( lambda . ( ");
-				node_print_pretty(n->dat.lambda.vars, true);
-				printf(" . ");
-				node_print_pretty(n->dat.lambda.expr, true);
-				printf(") ) ");
-			} else if(node_type(n->dat.lambda.vars) == NODE_SYMBOL){
-				printf("( lambda ");
-				node_print_pretty(n->dat.lambda.vars, false);
-				node_print_list_shorthand(n->dat.lambda.expr);
-				printf(") ");
-			} else {
-				printf("( lambda ( ");
-				node_print_list_shorthand(n->dat.lambda.vars);
-				printf(") ");
-				node_print_list_shorthand(n->dat.lambda.expr);
-				printf(") ");
-			}
-			break;
-		case NODE_SYMBOL:
-			printf("%s ", n->dat.name);
-			break;
-		case NODE_VALUE:
-			printf("%lld ", (long long) n->dat.value);
-			break;
-		case NODE_FOREIGN:
-			printf("foreign:%p ", n->dat.func);
-			break;
-		case NODE_HANDLE:
-			printf("& ");
-			node_print_pretty(n->dat.handle.link, isverbose);
-			break;
-		case NODE_CONTINUATION:
-			printf("@ ");
-			break;
-		case NODE_SPECIAL_FUNC:
-			switch(node_special_func(n)) {
-			case SPECIAL_IF:
-				printf("if ");
-				break;
-			case SPECIAL_LAMBDA:
-				printf("lambda ");
-				break;
-			case SPECIAL_QUOTE:
-				printf("quote ");
-				break;
-			case SPECIAL_MK_CONT:
-				printf("call/cc ");
-				break;
-			case SPECIAL_DEF:
-				printf("def! ");
-				break;
-			case SPECIAL_SET:
-				printf("set! ");
-				break;
-			case SPECIAL_DEFINED:
-				printf("defined? ");
-				break;
-			case SPECIAL_EVAL:
-				printf("eval ");
-			}
-			break;
-		case NODE_BLOB:
-			printf("blob:%p ", n->dat.blob.addr);
-			break;
+	switch(node_type(n)) {
+	case NODE_UNINITIALIZED:
+		printf("<uninitialized memory>");
+		break;
+	case NODE_NIL:
+		printf("() ");
+		break;
+	case NODE_CONS:
+		printf("( ");
+		node_print_pretty(n->dat.cons.car, isverbose);
+		if(isverbose) {
+			printf(". ");
+			node_print_pretty(node_cons_cdr(n), true);
+		} else if(node_type(n->dat.cons.cdr) == NODE_CONS ||
+		          node_type(n->dat.cons.cdr) == NODE_NIL ||
+		          node_type(n->dat.cons.cdr) == NODE_LAMBDA){
+			node_print_list_shorthand(n->dat.cons.cdr);
+		} else {
+			printf(". ");
+			node_print_pretty(n->dat.cons.cdr, false);
 		}
+		printf(") ");
+		break;
+	case NODE_LAMBDA:
+		if(isverbose) {
+			printf("( lambda . ( ");
+			node_print_pretty(n->dat.lambda.vars, true);
+			printf(" . ");
+			node_print_pretty(n->dat.lambda.expr, true);
+			printf(") ) ");
+		} else if(node_type(n->dat.lambda.vars) == NODE_SYMBOL){
+			printf("( lambda ");
+			node_print_pretty(n->dat.lambda.vars, false);
+			node_print_list_shorthand(n->dat.lambda.expr);
+			printf(") ");
+		} else {
+			printf("( lambda ( ");
+			node_print_list_shorthand(n->dat.lambda.vars);
+			printf(") ");
+			node_print_list_shorthand(n->dat.lambda.expr);
+			printf(") ");
+		}
+		break;
+	case NODE_SYMBOL:
+		printf("%s ", n->dat.name);
+		break;
+	case NODE_VALUE:
+		printf("%lld ", (long long) n->dat.value);
+		break;
+	case NODE_FOREIGN:
+		printf("foreign:%p ", n->dat.func);
+		break;
+	case NODE_HANDLE:
+		printf("& ");
+		node_print_pretty(n->dat.handle.link, isverbose);
+		break;
+	case NODE_CONTINUATION:
+		printf("@ ");
+		break;
+	case NODE_SPECIAL_FUNC:
+		switch(node_special_func(n)) {
+		case SPECIAL_IF:
+			printf("if ");
+			break;
+		case SPECIAL_LAMBDA:
+			printf("lambda ");
+			break;
+		case SPECIAL_QUOTE:
+			printf("quote ");
+			break;
+		case SPECIAL_MK_CONT:
+			printf("call/cc ");
+			break;
+		case SPECIAL_DEF:
+			printf("def! ");
+			break;
+		case SPECIAL_SET:
+			printf("set! ");
+			break;
+		case SPECIAL_DEFINED:
+			printf("defined? ");
+			break;
+		case SPECIAL_EVAL:
+			printf("eval ");
+		}
+		break;
+	case NODE_BLOB:
+		printf("blob:%p ", n->dat.blob.addr);
+		break;
+	}
+}
+
+void node_print_pretty_stream(stream_t *s, node_t *n, bool isverbose)
+{
+	char buf[21];
+
+	switch(node_type(n)) {
+	case NODE_UNINITIALIZED:
+		stream_putstr(s, "<uninitialized memory>");
+		break;
+	case NODE_NIL:
+		stream_putstr(s, "() ");
+		break;
+	case NODE_CONS:
+		stream_putstr(s, "( ");
+		node_print_pretty_stream(s, n->dat.cons.car, isverbose);
+		if(isverbose) {
+			stream_putstr(s, ". ");
+			node_print_pretty_stream(s, node_cons_cdr(n), true);
+		} else if(node_type(n->dat.cons.cdr) == NODE_CONS ||
+		          node_type(n->dat.cons.cdr) == NODE_NIL ||
+		          node_type(n->dat.cons.cdr) == NODE_LAMBDA){
+			node_print_list_shorthand_stream(s, n->dat.cons.cdr);
+		} else {
+			stream_putstr(s, ". ");
+			node_print_pretty_stream(s, n->dat.cons.cdr, false);
+		}
+		stream_putstr(s, ") ");
+		break;
+	case NODE_LAMBDA:
+		if(isverbose) {
+			stream_putstr(s, "( lambda . ( ");
+			node_print_pretty_stream(s, n->dat.lambda.vars, true);
+			stream_putstr(s, " . ");
+			node_print_pretty_stream(s, n->dat.lambda.expr, true);
+			stream_putstr(s, ") ) ");
+		} else if(node_type(n->dat.lambda.vars) == NODE_SYMBOL){
+			stream_putstr(s, "( lambda ");
+			node_print_pretty_stream(s, n->dat.lambda.vars, false);
+			node_print_list_shorthand_stream(s, n->dat.lambda.expr);
+			stream_putstr(s, ") ");
+		} else {
+			stream_putstr(s, "( lambda ( ");
+			node_print_list_shorthand_stream(s, n->dat.lambda.vars);
+			stream_putstr(s, ") ");
+			node_print_list_shorthand_stream(s, n->dat.lambda.expr);
+			stream_putstr(s, ") ");
+		}
+		break;
+	case NODE_SYMBOL:
+		stream_putcomp(s, n->dat.name, " ", NULL);
+		break;
+	case NODE_VALUE:
+		stream_putcomp(s, fmt_s64(buf, n->dat.value), " ", NULL);
+		break;
+	case NODE_FOREIGN:
+		stream_putcomp(s, "foreign:", fmt_ptr(buf, n->dat.func), " ", NULL);
+		break;
+	case NODE_HANDLE:
+		stream_putstr(s, "& ");
+		node_print_pretty_stream(s, n->dat.handle.link, isverbose);
+		break;
+	case NODE_CONTINUATION:
+		stream_putstr(s, "@ ");
+		break;
+	case NODE_SPECIAL_FUNC:
+		switch(node_special_func(n)) {
+		case SPECIAL_IF:
+			stream_putstr(s, "if ");
+			break;
+		case SPECIAL_LAMBDA:
+			stream_putstr(s, "lambda ");
+			break;
+		case SPECIAL_QUOTE:
+			stream_putstr(s, "quote ");
+			break;
+		case SPECIAL_MK_CONT:
+			stream_putstr(s, "call/cc ");
+			break;
+		case SPECIAL_DEF:
+			stream_putstr(s, "def! ");
+			break;
+		case SPECIAL_SET:
+			stream_putstr(s, "set! ");
+			break;
+		case SPECIAL_DEFINED:
+			stream_putstr(s, "defined? ");
+			break;
+		case SPECIAL_EVAL:
+			stream_putstr(s, "eval ");
+		}
+		break;
+	case NODE_BLOB:
+		stream_putcomp(s, "blob:", fmt_ptr(buf, n->dat.blob.addr), " ", NULL);
+		break;
+	}
 }
 
 void node_gc(void)
