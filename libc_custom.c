@@ -64,9 +64,11 @@ static char num_to_char(unsigned int n)
 	return 0;
 }
 
-static void str_rev(char *start, char *last)
+/* reverse string from start to limit-1 */
+static void str_rev(char *start, char *limit)
 {
-	unsigned char temp;
+	char temp;
+	char *last = limit - 1;
 
 	while(start < last) {
 		temp = *start;
@@ -83,20 +85,33 @@ char *fmt_u64(char buf[17], uint64_t val)
 	char *cursor = &(buf[0]);
 	
 	*cursor++ = 0;
-	while(val) {
-		*cursor++ = num_to_char(val & 0xF);
-		val >>= 4;
+	if(val) {
+		while(val) {
+			*cursor++ = num_to_char(val & 0xF);
+			val >>= 4;
+		}
+	} else {
+		*cursor++ = '0';
 	}
-	cursor--;
 
 	str_rev(&(buf[0]), cursor);
 
 	return &(buf[0]);
 }
 
-char *fmt_ptr(char buf[21], void *val)
+char *fmt_ptr(char buf[17], void *val)
 {
-	return fmt_u64(buf, (uint64_t) val);
+	char *cursor = &(buf[0]);
+	uintptr_t _val = (uintptr_t ) val;
+	unsigned int i;
+	*cursor++ = 0;
+	for(i = 0; i < sizeof(uintptr_t) * 2; i++) {
+		*cursor++ = num_to_char(_val & 0xF);
+		_val >>= 4;
+	}
+	str_rev(&(buf[0]), cursor);
+
+	return &(buf[0]);
 }
 
 char *fmt_s64(char buf[21], int64_t val)
@@ -105,14 +120,17 @@ char *fmt_s64(char buf[21], int64_t val)
 	bool neg = val < 0;
 	
 	*cursor++ = 0;
-	while(val) {
-		*cursor++ = num_to_char(val % 10);
-		val /= 10;
+	if(val) {
+		while(val) {
+			*cursor++ = num_to_char(val % 10);
+			val /= 10;
+		}
+		if(neg) {
+			*cursor++ = '-';
+		}
+	} else {
+		*cursor++ = '0';
 	}
-	if(neg) {
-		*cursor++ = '-';
-	}
-	cursor--;
 
 	str_rev(&(buf[0]), cursor);
 
