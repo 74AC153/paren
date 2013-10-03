@@ -8,50 +8,39 @@ dlnode_t *dlnode_init(dlnode_t *n)
 	return n;
 }
 
-bool dlnode_is_terminal(dlnode_t *n)
+static void dlnode_join(dlnode_t *n, dlnode_t *m)
 {
-	return n == &(n->owner->hdr);
+	m->next = n;
+	n->prev = m;
 }
 
-dlnode_t *dlnode_next(dlnode_t *n)
+void dlnode_insert(dlnode_t *prev, dlnode_t *n, dlnode_t *next)
 {
-	return n->next;
+	assert(prev->next == next);
+	assert(next->prev == prev);
+	assert(prev->owner);
+	assert(prev->owner == next->owner);
+	assert(! n->owner);
+
+	dlnode_join(prev, n);
+	dlnode_join(n, next);
+
+	n->owner = prev->owner;
 }
 
-dlnode_t *dlnode_prev(dlnode_t *n)
+void dlnode_move(dlnode_t *newprev, dlnode_t *n, dlnode_t *newnext)
 {
-	return n->prev;
-}
+	assert(newprev->next == newnext);
+	assert(newnext->prev == newprev);
+	assert(newprev->owner);
+	assert(newprev->owner == newnext->owner);
+	assert(n->owner);
 
-dlist_t *dlnode_owner(dlnode_t *n)
-{
-	return n->owner;
-}
+	dlnode_join(n->prev, n->next);
+	dlnode_join(newprev, n);
+	dlnode_join(n, newnext);
 
-void dlnode_insertnext(dlnode_t *n, dlnode_t *next)
-{
-	dlnode_t *n_next;
-	assert(next->owner == NULL);
-	assert(n->owner != NULL);
-	n_next = n->next;
-	next->next = n_next;
-	n_next->prev = next;
-	n->next = next;
-	next->prev = n;
-	next->owner = n->owner;
-}
-
-void dlnode_insertprev(dlnode_t *n, dlnode_t *prev)
-{
-	dlnode_t *n_prev;
-	assert(prev->owner == NULL);
-	assert(n->owner != NULL);
-	n_prev = n->prev;
-	prev->prev = n_prev;
-	n_prev->next = prev;
-	n->prev = prev;
-	prev->next = n;
-	prev->owner = n->owner;
+	n->owner = newprev->owner;
 }
 
 dlnode_t *dlnode_remove(dlnode_t *n)
@@ -59,11 +48,9 @@ dlnode_t *dlnode_remove(dlnode_t *n)
 	dlnode_t *n_prev;
 	dlnode_t *n_next;
 	assert(n->owner != NULL);
-	n_prev = n->prev;
-	n_next = n->next;
-	n_prev->next = n_next;
-	n_next->prev = n_prev;
-	n->next = n->prev = NULL;
+
+	dlnode_join(n->prev, n->next);
+
 	n->owner = NULL;
 	return n;
 }
@@ -72,29 +59,4 @@ void dlist_init(dlist_t *l)
 {
 	l->hdr.prev = l->hdr.next = &(l->hdr);
 	l->hdr.owner = l;
-}
-
-dlnode_t *dlist_first(dlist_t *l)
-{
-	return l->hdr.next;
-}
-
-dlnode_t *dlist_last(dlist_t *l)
-{
-	return l->hdr.prev;
-}
-
-void dlist_insertfirst(dlist_t *l, dlnode_t *n)
-{
-	dlnode_insertnext(&(l->hdr), n);
-}
-
-void dlist_insertlast(dlist_t *l, dlnode_t *n)
-{
-	dlnode_insertprev(&(l->hdr), n);
-}
-
-bool dlist_is_empty(dlist_t *l)
-{
-	return l->hdr.next == &(l->hdr);
 }
