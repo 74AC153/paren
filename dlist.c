@@ -10,8 +10,8 @@ dlnode_t *dlnode_init(dlnode_t *n)
 
 static void dlnode_join(dlnode_t *n, dlnode_t *m)
 {
-	m->next = n;
-	n->prev = m;
+	n->next = m;
+	m->prev = n;
 }
 
 void dlnode_insert(dlnode_t *prev, dlnode_t *n, dlnode_t *next)
