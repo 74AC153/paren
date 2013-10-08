@@ -80,7 +80,7 @@ static void str_rev(char *start, char *limit)
 
 }
 
-char *fmt_u64(char buf[17], uint64_t val)
+char *fmt_u64(char buf[static 17], uint64_t val)
 {
 	char *cursor = &(buf[0]);
 	
@@ -99,7 +99,27 @@ char *fmt_u64(char buf[17], uint64_t val)
 	return &(buf[0]);
 }
 
-char *fmt_ptr(char buf[17], void *val)
+char *fmt_u64d(char buf[static 21], uint64_t val)
+{
+	char *cursor = &(buf[0]);
+	
+	*cursor++ = 0;
+	if(val) {
+		while(val) {
+			*cursor++ = num_to_char(val % 10);
+			val /= 10;
+		}
+	} else {
+		*cursor++ = '0';
+	}
+
+	str_rev(&(buf[0]), cursor);
+
+	return &(buf[0]);
+
+}
+
+char *fmt_ptr(char buf[static 17], void *val)
 {
 	char *cursor = &(buf[0]);
 	uintptr_t _val = (uintptr_t ) val;
@@ -114,7 +134,7 @@ char *fmt_ptr(char buf[17], void *val)
 	return &(buf[0]);
 }
 
-char *fmt_s64(char buf[21], int64_t val)
+char *fmt_s64(char buf[static 21], int64_t val)
 {
 	char *cursor = &(buf[0]);
 	bool neg = val < 0;

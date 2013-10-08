@@ -18,13 +18,10 @@ then
 
 	done
 else
-	BASE=`echo $0 | sed 's/\(.*\).expect/\1/g'`
-	echo $BASE
-
-	if [ -e $BASE.sh ]
+	if [ -e $1.sh ]
 	then
-		./$BASE.sh
+		./$1.sh
 	else
-		diff $1 <( LD_LIBRARY_PATH=../ PAREN_LEAK_CHECK=1 ${PAREN} $BASE )
+		diff $1.expect <( LD_LIBRARY_PATH=../ PAREN_LEAK_CHECK=1 ${PAREN} $1 )
 	fi
 fi
