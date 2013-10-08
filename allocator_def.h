@@ -3,7 +3,7 @@
 
 #include <stddef.h>
 
-typedef void * (*mem_allocator_fn_t)(size_t len, void *p);
-typedef void (*mem_free_fn_t)(void *p);
+typedef void * (*mem_allocator_fn_t)(size_t len, void *priv);
+typedef void (*mem_free_fn_t)(void *mem, void *priv);
 
 #endif
