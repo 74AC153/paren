@@ -29,9 +29,8 @@ int stream_getch(stream_t *s, char *ch_out)
 
 int stream_putch(stream_t *s, char val)
 {
-	int status;
 	s->status = s->putch_cb(s->stream_priv, val);
-	if(status) {
+	if(s->status) {
 		return -1;
 	}
 	return 0;
@@ -60,15 +59,22 @@ int stream_putstr(stream_t *s, char *str)
 	return count;
 }
 
-int stream_putcomp(stream_t *s, ...)
+int _stream_put(stream_t *s, ...)
 {
 	va_list ap;
-	int status = 0;
-	size_t count = 0;
-	char *str;
+	int count;
 
 	va_start(ap, s);
+	count = stream_putv(s, ap);
+	va_end(ap);
+	return count;
+}
 
+int stream_putv(stream_t *s, va_list ap)
+{
+	int status = 0;
+	int count = 0;
+	char *str;
 	while(NULL != (str = va_arg(ap, char *))) {
 		while(*str) {
 			if(count == INT_MAX) {
@@ -90,9 +96,9 @@ int stream_putcomp(stream_t *s, ...)
 	}
 
 finish:
-	va_end(ap);
 	return count;
 }
+
 
 int stream_status_set(stream_t *s)
 {

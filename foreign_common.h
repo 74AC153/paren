@@ -2,10 +2,16 @@
 #define FOREIGN_COMMON_H
 
 #include "node.h"
+#include "eval.h"
 
-typedef eval_err_t (*callback_t)(node_t **args, node_t **result, void *p);
+typedef eval_err_t (*callback_t)(
+	memory_state_t *ms,
+	node_t **args,
+	node_t **result,
+	void *p);
 
 eval_err_t extract_args(
+	memory_state_t *ms,
 	unsigned int n,
 	callback_t cb,
 	node_t *args,
@@ -30,6 +36,6 @@ int list_to_cstr(
 	size_t buflen,
 	size_t *written);
 
-node_t *generate_argv(int argc, char *argv[]);
+node_t *generate_argv(memory_state_t *ms, int argc, char *argv[]);
 
 #endif

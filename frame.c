@@ -1,6 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
+#include "libc_custom.h"
+#include "stream.h"
+#include "memory.h"
 #include "frame.h"
 
 void frame_push(
@@ -11,12 +14,13 @@ void frame_push(
 {
 	ssize_t i;
 	node_t *cursor = NULL;
+	memory_state_t *ms = data_to_memstate(frame_hdl);
 
 	for(i = n - 1; i >= 0; i--) {
-		cursor = node_cons_new(node_handle(locals[i]), cursor);
+		cursor = node_cons_new(ms, node_handle(locals[i]), cursor);
 		node_handle_update(locals[i], newvals[i]);
 	}
-	cursor = node_cons_new(cursor, node_handle(frame_hdl));
+	cursor = node_cons_new(ms, cursor, node_handle(frame_hdl));
 	node_handle_update(frame_hdl, cursor);
 }
 
@@ -52,22 +56,24 @@ void frame_add_elem(
 	node_t *frame_hdl,
 	node_t *val)
 {
+	memory_state_t *ms = data_to_memstate(frame_hdl);
+
 	node_t *oldframe = node_handle(frame_hdl);
 
 	node_t *nextent = node_cons_car(oldframe);
 	node_t *nextfrm = node_cons_cdr(oldframe);
 
-	node_t *newent = node_cons_new(val, nextent);
-	node_t *newframe = node_cons_new(newent, nextfrm);
+	node_t *newent = node_cons_new(ms, val, nextent);
+	node_t *newframe = node_cons_new(ms, newent, nextfrm);
 
 	node_handle_update(frame_hdl, newframe);
 }
 
 int frame_iterate(
 	node_t *frame_hdl,
-	frm_cb_t e_cb, void *e_p,
+	frm_cb_t e_cb, void *e_p, /* callback for each value in a frame */
 	bool recursive,
-	frm_cb_t f_cb, void *f_p)
+	frm_cb_t f_cb, void *f_p) /* callback for frame header */
 {
 	node_t *frame_curs, *var_curs, *val;
 	int status;
@@ -106,12 +112,13 @@ restart:
 }
 	
 void frame_init(
+	memory_state_t *ms,
 	node_t **locals,
 	size_t n)
 {
 	size_t i;
 	for(i = 0; i < n; i++) {
-		locals[i] = node_lockroot(node_handle_new(NULL));
+		locals[i] = node_lockroot(node_handle_new(ms, NULL));
 	}
 }
 
@@ -127,16 +134,26 @@ void frame_deinit(
 
 static int print_frm_cb(node_t *n, void *p)
 {
-	char *fmt = (char *) p;
-	printf(fmt, n);
-	node_print(n);
+	stream_t *s = (stream_t *) p;
+	char buf[17];
+	stream_putln(s, "frame @ ", fmt_ptr(buf, n));
+	node_print_stream(s, n);
 	return 0;
 }
 
-void frame_print_bt(node_t *frame_hdl)
+static int print_val_cb(node_t *n, void *p)
+{
+	stream_t *s = (stream_t *) p;
+	char buf[17];
+	stream_putln(s, "    val @ ", fmt_ptr(buf, n));
+	node_print_stream(s, n);
+	return 0;
+}
+
+void frame_print_bt(node_t *frame_hdl, stream_t *stream)
 {
 	frame_iterate(frame_hdl,
-	              print_frm_cb, "frame @ %p: ",
+	              print_val_cb, stream,
 	              true,
-	              print_frm_cb, "    val @ %p: ");
+	              print_frm_cb, stream);
 }

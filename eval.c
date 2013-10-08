@@ -1,14 +1,13 @@
 #include <string.h>
 #include <assert.h>
 #include <stdbool.h>
-#if defined(EVAL_TRACING)
-#include <stdio.h>
-#endif
 
 #include "libc_custom.h"
 #include "environ.h"
 #include "frame.h"
 #include "eval.h"
+#include "dbgtrace.h"
+#include "traceclass.h"
 
 eval_err_t lambda_bind(node_t *env_handle, node_t *vars, node_t *args)
 {
@@ -91,9 +90,10 @@ static value_t locals_state_get(node_t **locals)
 	}
 }
 
-static void locals_state_set(node_t **locals, value_t v)
+static void locals_state_set(memory_state_t *s, node_t **locals, value_t v)
 {
-	node_handle_update(locals[LOCAL_ID_STATE], node_value_new(v));
+	node_handle_update(locals[LOCAL_ID_STATE],
+	                   node_value_new(s, v));
 }
 
 static void *locals_restart_get(node_t **locals)
@@ -105,13 +105,21 @@ static void *locals_restart_get(node_t **locals)
 	}
 }
 
-static void locals_restart_set(node_t **locals, void *addr)
+static void locals_restart_set(memory_state_t *s, node_t **locals, void *addr)
 {
-	node_handle_update(locals[LOCAL_ID_RESTART], node_blob_new(addr, NULL, 0));
+	node_handle_update(locals[LOCAL_ID_RESTART],
+	                   node_blob_new(s, addr, NULL, 0));
 }
 
-eval_err_t eval(node_t *in_handle, node_t *env_handle, node_t *out_handle)
+eval_err_t eval(
+	memory_state_t *ms,
+	node_t *env_handle,
+	node_t *in_handle,
+	node_t *out_handle)
 {
+	DBGSTMT(char buf[21]);
+	DBGSTMT(char buf2[21]);
+	DBGSTMT(char buf3[21]);
 	eval_err_t status = EVAL_OK;
 
 	/* saved local variables */
@@ -127,8 +135,8 @@ eval_err_t eval(node_t *in_handle, node_t *env_handle, node_t *out_handle)
 	#define _FUNC node_handle(locals[LOCAL_ID_FUNC])
 	#define _INPUT node_handle(locals[LOCAL_ID_INPUT])
 
-	#define _SET_STATE(x) locals_state_set(locals, (x))
-	#define _SET_RESTART(x) locals_restart_set(locals, (x))
+	#define _SET_STATE(x) locals_state_set(ms, locals, (x))
+	#define _SET_RESTART(x) locals_restart_set(ms, locals, (x))
 	#define _SET_CURSOR(x) node_handle_update(locals[LOCAL_ID_CURSOR], (x))
 	#define _SET_NA_LAST(x) node_handle_update(locals[LOCAL_ID_NA_LAST], (x))
 	#define _SET_NEWARGS(x) node_handle_update(locals[LOCAL_ID_NEWARGS], (x))
@@ -147,25 +155,26 @@ eval_err_t eval(node_t *in_handle, node_t *env_handle, node_t *out_handle)
 	node_t *keyval;
 	node_t *temp;
 
-	frame_init(locals, LOCAL_ID_MAX);
+	frame_init(ms, locals, LOCAL_ID_MAX);
 	bzero_custom(newvals, sizeof(newvals));
 
 	assert(node_type(in_handle) == NODE_HANDLE);
 	assert(node_type(env_handle) == NODE_HANDLE);
 	assert(node_type(out_handle) == NODE_HANDLE);
 
-	frame_hdl = node_lockroot(node_handle_new(NULL));
-	result_handle = node_lockroot(node_handle_new(NULL));
+	frame_hdl = node_lockroot(node_handle_new(ms, NULL));
+	result_handle = node_lockroot(node_handle_new(ms, NULL));
 
 	_SET_INPUT(node_handle(in_handle));
 	_SET_ENV_HDL(env_handle);
 
 restart:
-#if defined(EVAL_TRACING)
-	printf("%zu eval enter %p: -> ", bt_depth, _INPUT);
-	node_print_pretty(_INPUT, false);
-	printf("\n");
-#endif
+
+	DBGTRACE(TC_EVAL, fmt_u64d(buf, bt_depth),
+	         " eval enter ", fmt_ptr(buf2, _INPUT), ": -> ");
+	DBGRUN(TC_EVAL,
+	       { node_print_pretty_stream(dbgtrace_getstream(), _INPUT, false); });
+	DBGTRACE(TC_EVAL, "\n");
 
 	switch(node_type(_INPUT)) {
 	case NODE_UNINITIALIZED:
@@ -273,7 +282,7 @@ restart:
 			goto restart;
 
 		case SPECIAL_LAMBDA:
-			temp = node_lambda_new(node_handle(_ENV_HDL),
+			temp = node_lambda_new(ms, node_handle(_ENV_HDL),
 			                       /* vars */
 			                       node_cons_car(_args), 
 			                       /* expr list */
@@ -295,9 +304,9 @@ restart:
 			/* generate new cons with first arg as passed func, second arg
 			   as result of node_cont_new(), then do a tail call. */
 			/* TODO: node_cons_car(_args) should be eval'd */
-			temp = node_cons_new(node_cont_new(node_handle(frame_hdl)),
+			temp = node_cons_new(ms, node_cont_new(ms, node_handle(frame_hdl)),
 			                     NULL);
-			temp = node_cons_new(node_cons_car(_args), temp);
+			temp = node_cons_new(ms, node_cons_car(_args), temp);
 			_SET_INPUT(temp);
 			_SET_STATE(_STATE | STATE_FLAG_NEW_INPUT);
 			_SET_FUNC(NULL);
@@ -376,11 +385,11 @@ restart:
 
 		temp = node_handle(result_handle);
 		if(_NEWARGS == NULL) {
-			_SET_NEWARGS(node_cons_new(temp, NULL));
+			_SET_NEWARGS(node_cons_new(ms, temp, NULL));
 			_SET_NA_LAST(_NEWARGS);
 		} else {
 			node_cons_patch_cdr(_NEWARGS_LAST,
-			                    node_cons_new(temp, NULL));
+			                    node_cons_new(ms, temp, NULL));
 			_SET_NA_LAST(node_cons_cdr(_NEWARGS_LAST));
 		}
 	}
@@ -394,7 +403,7 @@ restart:
 				if(node_type(temp) == NODE_SYMBOL
 				   && environ_lookup(_ENV_HDL,
 				                     temp, NULL)) {
-					node_handle_update(result_handle, node_value_new(1));
+					node_handle_update(result_handle, node_value_new(ms, 1));
 				}
 			}
 			goto node_cons_cleanup;
@@ -406,9 +415,7 @@ restart:
 			assert(false);
 		}
 	case NODE_FOREIGN:
-		status = node_foreign_func(_FUNC)(_NEWARGS,
-		                                  _ENV_HDL,
-		                                  &temp);
+		status = node_foreign_func(_FUNC)(ms, _NEWARGS, _ENV_HDL, &temp);
 		node_handle_update(result_handle, temp);
 		goto node_cons_cleanup;
 
@@ -423,13 +430,14 @@ restart:
 		   to the environment that the lambda was called from */
 		if(! (_STATE & STATE_FLAG_TAILCALL)) {
 			node_t *lambda_env = node_lambda_env(_FUNC);
-			node_t *newhandle = node_handle_new(lambda_env);
+			node_t *newhandle = node_handle_new(ms, lambda_env);
 			_SET_ENV_HDL(newhandle);
 			environ_pushframe(_ENV_HDL);
 			env_depth++;
-#if defined(EVAL_TRACING)
-		printf("%zu eval env_depth++ -> %zu\n", bt_depth, env_depth);
-#endif
+
+			DBGTRACELN(TC_EVAL, fmt_u64d(buf, bt_depth),
+			           " eval env_depth++ -> ", fmt_u64(buf2, env_depth));
+
 			_SET_STATE(_STATE | STATE_FLAG_FRAMEADDED);
 		}
 
@@ -499,9 +507,10 @@ finish:
 	if(_STATE & STATE_FLAG_FRAMEADDED) {
 		environ_popframe(_ENV_HDL);
 		env_depth--;
-#if defined(EVAL_TRACING)
-		printf("%zu eval env_depth-- -> %zu\n", bt_depth, env_depth);
-#endif
+
+		DBGTRACELN(TC_EVAL, fmt_u64d(buf, bt_depth),
+		           " eval env_depth-- -> ", fmt_u64(buf2, env_depth));
+
 		_SET_ENV_HDL(NULL);
 	}
 
@@ -512,13 +521,20 @@ finish:
 		if(_STATE & STATE_FLAG_NEW_INPUT) {
 			_SET_INPUT(NULL);
 		}
-#if defined(EVAL_TRACING)
-		printf("%zu eval leave %p: <- ", bt_depth, _INPUT);
-		node_print_pretty(_INPUT, false);
-		printf(" ... ");
-		node_print_pretty(node_handle(result_handle), false);
-		printf("\n");
-#endif
+
+		DBGTRACE(TC_EVAL, fmt_u64d(buf, bt_depth), " eval leave ", 
+		         fmt_ptr(buf2, _INPUT), ": <- ");
+		DBGRUN(TC_EVAL, {
+			node_print_pretty_stream(dbgtrace_getstream(), _INPUT, false);
+		});
+		DBGTRACE(TC_EVAL, " ... ");
+		DBGRUN(TC_EVAL, {
+			node_print_pretty_stream(dbgtrace_getstream(), 
+			                         node_handle(result_handle),
+			                         false);
+		});
+		DBGTRACE(TC_EVAL, "\n");
+
 		frame_pop(frame_hdl, locals, LOCAL_ID_MAX);
 		bt_depth--;
 		assert(_RESTART);

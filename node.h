@@ -5,6 +5,8 @@
 #include <stdbool.h>
 #include "token.h"
 #include "eval_err.h"
+#include "memory.h"
+#include "allocator_def.h"
 
 #define NODE_TYPES \
 X(NODE_UNINITIALIZED) \
@@ -47,8 +49,9 @@ extern char *node_special_names[];
 struct node;
 typedef struct node node_t;
 
-typedef eval_err_t (*foreign_t)(node_t *args,
-                                node_t *env_handle,
+typedef eval_err_t (*foreign_t)(memory_state_t *s,
+                                node_t *args,
+                                node_t *env_hdl,
                                 node_t **result);
 typedef int64_t value_t;
 typedef uint64_t u_value_t;
@@ -70,8 +73,12 @@ struct node {
 	} dat;
 };
 
-void nodes_initialize();
-void nodes_reset();
+memory_state_t *node_memstate_init(
+	memory_state_t *s,
+	mem_allocator_fn_t allocfn,
+	mem_free_fn_t freefn,
+	void *alloc_priv);
+memory_state_t *node_memstate(node_t *n);
 
 nodetype_t node_type(node_t *n);
 /* (locked, root), (unlocked, root), (unlocked, not root) */
@@ -81,58 +88,46 @@ bool node_isroot(node_t *n);
 node_t *node_lockroot(node_t *n); /* -> (locked, root) */
 bool node_islocked(node_t *n);
 
-node_t *node_cons_new(node_t *car, node_t *cdr);
+node_t *node_cons_new(memory_state_t *s, node_t *car, node_t *cdr);
 node_t *node_cons_car(node_t *n);
 node_t *node_cons_cdr(node_t *n);
 void node_cons_patch_car(node_t *n, node_t *newcar);
 void node_cons_patch_cdr(node_t *n, node_t *newcdr);
 
-node_t *node_lambda_new(node_t *env, node_t *vars, node_t *expr);
+node_t *node_lambda_new(memory_state_t *s, node_t *env, node_t *vars, node_t *expr);
 node_t *node_lambda_env(node_t *n);
 node_t *node_lambda_vars(node_t *n);
 node_t *node_lambda_expr(node_t *n);
 
-node_t *node_value_new(value_t val);
+node_t *node_value_new(memory_state_t *s, value_t val);
 value_t node_value(node_t *n);
 
-node_t *node_symbol_new(char *name);
+node_t *node_symbol_new(memory_state_t *s, char *name);
 char *node_symbol_name(node_t *n);
 
-node_t *node_foreign_new(foreign_t func);
+node_t *node_foreign_new(memory_state_t *s, foreign_t func);
 foreign_t node_foreign_func(node_t *n);
 
-node_t *node_quote_new(node_t *val);
+node_t *node_quote_new(memory_state_t *s, node_t *val);
 node_t *node_quote_val(node_t *n);
 
-node_t *node_handle_new(node_t *link);
+node_t *node_handle_new(memory_state_t *s, node_t *link);
 node_t *node_handle(node_t *n);
 void node_handle_update(node_t *n, node_t *newlink);
 
-node_t *node_cont_new(node_t *bt);
+node_t *node_cont_new(memory_state_t *s, node_t *bt);
 node_t *node_cont(node_t *n);
 
-node_t *node_special_func_new(special_func_t func);
+node_t *node_special_func_new(memory_state_t *s, special_func_t func);
 special_func_t node_special_func(node_t *n);
 
-node_t *node_blob_new(void *addr, blob_fin_t fin, uintptr_t sig);
+node_t *node_blob_new(memory_state_t *s,
+                      void *addr, blob_fin_t fin, uintptr_t sig);
 void *node_blob_addr(node_t *n);
 uintptr_t node_blob_sig(node_t *n);
-
-void node_print(node_t *n);
-void node_print_recursive(node_t *n);
-void node_print_pretty(node_t *n, bool verbose);
 
 void node_print_stream(stream_t *s, node_t *n);
 void node_print_recursive_stream(stream_t *s, node_t *n);
 void node_print_pretty_stream(stream_t *s, node_t *n, bool verbose);
-
-/* run garbage collector one full cycle */
-void node_gc(void);
-void node_gc_print_state(void);
-void node_gc_statistics(
-	uintptr_t *total_alloc,
-	uintptr_t *total_free,
-	unsigned long long *iter_count,
-	unsigned long long *cycle_count);
 
 #endif

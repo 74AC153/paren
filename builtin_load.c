@@ -13,8 +13,9 @@
 #include "parse.h"
 #include "map_file.h"
 #include "bufstream.h"
+#include "fdstream.h"
 
-static eval_err_t loadlibfn(node_t **n, node_t **result, void *p)
+static eval_err_t loadlibfn(memory_state_t *ms, node_t **n, node_t **result, void *p)
 {
 	char *path = NULL;
 	size_t len;
@@ -53,8 +54,8 @@ static eval_err_t loadlibfn(node_t **n, node_t **result, void *p)
 	}
 	for(ld_funs_cursor = ld_funs; ld_funs_cursor->name; ld_funs_cursor++) {
 		node_t *name, *val;
-		name = node_symbol_new(ld_funs_cursor->name);
-		val = node_foreign_new(ld_funs_cursor->fun);
+		name = node_symbol_new(ms, ld_funs_cursor->name);
+		val = node_foreign_new(ms, ld_funs_cursor->fun);
 		environ_add(env_handle, name, val);
 	}
 
@@ -64,12 +65,12 @@ cleanup:
 }
 
 
-eval_err_t foreign_loadlib(node_t *args, node_t *env_handle, node_t **result)
+eval_err_t foreign_loadlib(memory_state_t *ms, node_t *args, node_t *env_handle, node_t **result)
 {
-	return extract_args(1, loadlibfn, args, result, env_handle);
+	return extract_args(ms, 1, loadlibfn, args, result, env_handle);
 }
 
-static eval_err_t readevalfn(node_t **n, node_t **result, void *p)
+static eval_err_t readevalfn(memory_state_t *ms, node_t **n, node_t **result, void *p)
 {
 	char *path = NULL;
 	int map_status;
@@ -77,14 +78,13 @@ static eval_err_t readevalfn(node_t **n, node_t **result, void *p)
 	node_t *cursor, *val;
 	node_t *env_handle = (node_t *) p;
 
-	node_t *eval_in_hdl = NULL, *eval_out_hdl = NULL;
-	eval_err_t eval_stat = EVAL_OK;
 	parse_err_t parse_stat;
 	filemap_info_t info;
-	parse_state_t parse_state;
 	stream_t *stream;
+	tok_state_t ts;
 	bufstream_t bs;
-
+	eval_err_t eval_stat = EVAL_OK;
+	node_t *eval_in_hdl = NULL, *eval_out_hdl = NULL;
 
 	/* count path length */
 	if(count_list_len(n[0], &len) != 0) {
@@ -124,28 +124,26 @@ static eval_err_t readevalfn(node_t **n, node_t **result, void *p)
 	}
 
 	stream = bufstream_init(&bs, info.buf, info.len);
-	parse_state_init(&parse_state, stream);
+	tok_state_init(&ts, stream);
 
-	eval_in_hdl = node_lockroot(node_handle_new(NULL));
-	eval_out_hdl = node_lockroot(node_handle_new(NULL));
+	eval_in_hdl = node_lockroot(node_handle_new(ms, NULL));
+	eval_out_hdl = node_lockroot(node_handle_new(ms, NULL));
 
-	while((parse_stat = parse(&parse_state, eval_in_hdl)) != PARSE_END) {
+	while((parse_stat = parse(ms, &ts, eval_in_hdl)) != PARSE_END) {
 		if(parse_stat != PARSE_OK) {
-			off_t off, line, lchr;
-			parse_location(&parse_state, &off, &line, &lchr);
-			
 			printf("parse error line %llu char %llu (offset %llu)\n",
-			       (unsigned long long) line,
-			       (unsigned long long) lchr,
-			       (unsigned long long) off);
+			       (unsigned long long) tok_state_line(&ts),
+			       (unsigned long long) tok_state_linechr(&ts),
+			       (unsigned long long) tok_state_offset(&ts));
 			printf("-- %s\n", parse_err_str(parse_stat));
 			eval_stat = eval_err(EVAL_ERR_FOREIGN_FAILURE);
 			goto cleanup;
 		}
-		eval_stat = eval(eval_in_hdl, env_handle, eval_out_hdl);
+		eval_stat = eval(ms, env_handle, eval_in_hdl, eval_out_hdl);
 		if(eval_stat) {
 			printf("eval error for: \n");
-			node_print_pretty(node_handle(eval_out_hdl), false);
+			node_print_pretty_stream(g_stream_stdout,
+			                         node_handle(eval_out_hdl), false);
 			printf("\n");
 			printf("-- %s\n", eval_err_str(eval_stat));
 			goto cleanup;
@@ -164,7 +162,7 @@ cleanup:
 	return eval_stat;
 }
 
-eval_err_t foreign_read_eval(node_t *args, node_t *env_handle, node_t **result)
+eval_err_t foreign_read_eval(memory_state_t *ms, node_t *args, node_t *env_handle, node_t **result)
 {
-	return extract_args(1, readevalfn, args, result, env_handle);
+	return extract_args(ms, 1, readevalfn, args, result, env_handle);
 }

@@ -6,6 +6,8 @@
 #include "node.h"
 #include "environ.h"
 #include "frame.h"
+#include "stream.h"
+#include "libc_custom.h"
 
 void environ_pushframe(node_t *env_handle)
 {
@@ -19,7 +21,8 @@ void environ_popframe(node_t *env_handle)
 
 void environ_add(node_t *env_handle, node_t *key, node_t *val)
 {
-	frame_add_elem(env_handle, node_cons_new(key, val));
+	memory_state_t *ms = data_to_memstate(env_handle);
+	frame_add_elem(env_handle, node_cons_new(ms, key, val));
 }
 
 struct kv_find
@@ -81,23 +84,26 @@ bool environ_lookup(node_t *env_handle, node_t *key, node_t **val)
 
 static int print_env_cb(node_t *env, void *p)
 {
-	(void) p;
-	printf("env frame @ %p:\n", env);
+	char buf[17];
+	stream_t *s = (stream_t *) p;
+	stream_putln(s, "env frame @ ", fmt_ptr(buf, env), ":");
 	return 0;
 }
 
 static int print_val_cb(node_t *kv, void *p)
 {
-	(void) p;
-	printf("    ");
-	node_print_pretty(node_cons_car(kv), false);
-	printf(" -> ");
-	node_print_pretty(node_cons_cdr(kv), false);
-	printf("\n");
+	stream_t *s = (stream_t *) p;
+	stream_putstr(s, "    ");
+	node_print_pretty_stream(s, node_cons_car(kv), false);
+	stream_putstr(s, " -> ");
+	node_print_pretty_stream(s, node_cons_cdr(kv), false);
+	stream_putch(s, '\n');
 	return 0;
 }
 
-void environ_print(node_t *env_handle)
+void environ_print(node_t *env_handle, stream_t *stream)
 {
-	frame_iterate(env_handle, print_env_cb, NULL, true, print_val_cb, NULL);
+	frame_iterate(env_handle,
+	              print_val_cb, stream, true,
+	              print_env_cb, stream);
 }

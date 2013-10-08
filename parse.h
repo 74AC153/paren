@@ -4,6 +4,7 @@
 #include <sys/types.h>
 #include "node.h"
 #include "stream.h"
+#include "memory.h"
 
 #define PARSE_ERR_DEFS \
 X(PARSE_OK, "no error") \
@@ -21,19 +22,7 @@ PARSE_ERR_DEFS
 #undef X
 } parse_err_t;
 
-typedef struct {
-	tok_state_t tokstate;
-} parse_state_t;
-
-parse_state_t *parse_state_init(void *p, stream_t *stream);
-
-parse_err_t parse(parse_state_t *state, node_t *out_hdl);
-
-void parse_location(
-	parse_state_t *state,
-	off_t *offset,
-	off_t *line,
-	off_t *linechr);
+parse_err_t parse(memory_state_t *ms, tok_state_t *ts, node_t *out_hdl);
 
 char *parse_err_str(parse_err_t err);
 

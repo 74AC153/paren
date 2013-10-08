@@ -2,6 +2,7 @@
 #define ENVIRON_H
 
 #include "node.h"
+#include "stream.h"
 
 /* Environ format:
 
@@ -46,6 +47,6 @@ bool environ_keyval_frame(node_t *env_handle, node_t *key, node_t **keyval);
 bool environ_keyval(node_t *env_handle, node_t *key, node_t **keyval);
 bool environ_lookup(node_t *env_handle, node_t *key, node_t **val);
 
-void environ_print(node_t *top_frame);
+void environ_print(node_t *env_handle, stream_t *stream);
 
 #endif

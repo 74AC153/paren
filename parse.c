@@ -1,30 +1,25 @@
 #include <stdlib.h>
 #include <assert.h>
+#include <inttypes.h>
 
 #include "token.h"
 #include "parse.h"
 
-parse_state_t *parse_state_init(void *p, stream_t *stream)
-{
-	parse_state_t *s = (parse_state_t *) p;
-	if(s) {
-		tok_state_init(&(s->tokstate), stream);
-	}
-	return s;
-}
+typedef struct {
+	memory_state_t *ms;
+	tok_state_t *ts;
+} parse_state_t;
 
 static
 parse_err_t parse_atom(parse_state_t *state, node_t **result)
 {
-	tok_state_t *tokstate = &(state->tokstate);
-
-	switch(token_type(tokstate)) {
+	switch(token_type(state->ts)) {
 	case TOK_SYM:
-		*result = node_symbol_new(token_sym(tokstate));
+		*result = node_symbol_new(state->ms, token_sym(state->ts));
 		break;
 
 	case TOK_LIT:
-		*result = node_value_new(token_lit(tokstate));
+		*result = node_value_new(state->ms, token_lit(state->ts));
 		break;
 
 	default:
@@ -32,7 +27,7 @@ parse_err_t parse_atom(parse_state_t *state, node_t **result)
 	}
 	assert(*result);
 
-	token_chomp(tokstate);
+	token_chomp(state->ts);
 
 	return PARSE_OK;
 }
@@ -45,9 +40,8 @@ parse_err_t parse_list(parse_state_t *state, node_t **result)
 {
 	parse_err_t status = PARSE_OK;
 	node_t *child = NULL, *next = NULL;
-	tok_state_t *tokstate = &(state->tokstate);
 
-	switch(token_type(tokstate)) {
+	switch(token_type(state->ts)) {
 	case TOK_END:
 		status = PARSE_TOKEN_UNDERFLOW;
 		*result = NULL;
@@ -62,8 +56,8 @@ parse_err_t parse_list(parse_state_t *state, node_t **result)
 		break;
 
 	case TOK_DOT:
-		token_chomp(tokstate);
-		switch(token_type(tokstate)) {
+		token_chomp(state->ts);
+		switch(token_type(state->ts)) {
 		case TOK_END:
 			status = PARSE_TOKEN_UNDERFLOW;
 			break;
@@ -83,7 +77,7 @@ parse_err_t parse_list(parse_state_t *state, node_t **result)
 		if(status == PARSE_OK) {
 			status = parse_list(state, &next);
 			if(status == PARSE_OK) {
-				*result = node_cons_new(child, next);
+				*result = node_cons_new(state->ms, child, next);
 			} else {
 				node_droproot(next);
 			}
@@ -98,11 +92,10 @@ static
 parse_err_t parse_sexpr(parse_state_t *state, node_t **result)
 {
 	node_t *ret = NULL;
-	tok_state_t *tokstate = &(state->tokstate);
 
 	parse_err_t status = PARSE_OK;
 
-	switch(token_type(tokstate)) {
+	switch(token_type(state->ts)) {
 	case TOK_END:
 		return PARSE_END;
 
@@ -114,9 +107,9 @@ parse_err_t parse_sexpr(parse_state_t *state, node_t **result)
 	case TOK_LPAREN:
 		/* ( ... */
 
-		token_chomp(tokstate);
+		token_chomp(state->ts);
 		
-		switch(token_type(tokstate)) {
+		switch(token_type(state->ts)) {
 		case TOK_END:
 			status = PARSE_TOKEN_UNDERFLOW;
 			goto error;
@@ -124,7 +117,7 @@ parse_err_t parse_sexpr(parse_state_t *state, node_t **result)
 		case TOK_RPAREN:
 			/* ( ) */
 			/* consume closing rparen */
-			token_chomp(tokstate);
+			token_chomp(state->ts);
 			*result = NULL;
 			goto tok_lparen_finish;
 
@@ -141,13 +134,13 @@ parse_err_t parse_sexpr(parse_state_t *state, node_t **result)
 		status = parse_list(state, &ret);
 
 		/* ... ) */
-		switch(token_type(tokstate)) {
+		switch(token_type(state->ts)) {
 		case TOK_END:
 			status = PARSE_TOKEN_UNDERFLOW;
 			goto error;
 		case TOK_RPAREN:
 			/* consume closing rparen */
-			token_chomp(tokstate);
+			token_chomp(state->ts);
 			break;
 		default:
 			status = PARSE_EXPECTED_RPAREN;
@@ -170,29 +163,19 @@ error:
 	return status;
 }
 
-parse_err_t parse(parse_state_t *state, node_t *out_hdl)
+parse_err_t parse(memory_state_t *ms, tok_state_t *ts, node_t *out_hdl)
 {
 	parse_err_t status = PARSE_OK;
 	node_t *result = NULL;
+	parse_state_t state = { .ms = ms, .ts = ts };
 
-	if(token_type(&(state->tokstate)) == TOK_INIT) {
-		token_chomp(&(state->tokstate));
+	if(token_type(state.ts) == TOK_INIT) {
+		token_chomp(state.ts);
 	}
-	status = parse_sexpr(state, &result);
+	status = parse_sexpr(&state, &result);
 	node_handle_update(out_hdl, result);
 
 	return status;
-}
-
-void parse_location(
-	parse_state_t *state,
-	off_t *offset,
-	off_t *line,
-	off_t *linechr)
-{
-	if(offset) *offset = tok_state_offset(&(state->tokstate));
-	if(line) tok_state_line(&(state->tokstate));
-	if(linechr) tok_state_linechr(&(state->tokstate));
 }
 
 static char *parse_err_messages[] = {

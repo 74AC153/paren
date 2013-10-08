@@ -60,6 +60,7 @@ int frame_iterate(
 	frm_cb_t f_cb, void *f_p);
 	
 void frame_init(
+	memory_state_t *ms,
 	node_t **locals,
 	size_t n);
 
@@ -67,6 +68,8 @@ void frame_deinit(
 	node_t **locals,
 	size_t n);
 
-void frame_print_bt(node_t *frame_hdl);
+void frame_print_bt(
+	node_t *frame_hdl,
+	stream_t *stream);
 
 #endif

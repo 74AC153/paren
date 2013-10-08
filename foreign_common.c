@@ -7,6 +7,7 @@
 #include "eval_err.h"
 
 eval_err_t extract_args(
+	memory_state_t *ms,
 	unsigned int n,
 	callback_t cb,
 	node_t *args,
@@ -28,7 +29,7 @@ eval_err_t extract_args(
 		*result = args;
 		return eval_err(EVAL_ERR_TOO_MANY_ARGS);
 	}
-	return cb(arglist, result, p);
+	return cb(ms, arglist, result, p);
 }
 
 int count_list_len(node_t *cons, size_t *len)
@@ -94,7 +95,7 @@ finish:
 	return status;
 }
 
-node_t *generate_argv(int argc, char *argv[])
+node_t *generate_argv(memory_state_t *ms, int argc, char *argv[])
 {
 	unsigned int len;
 	int i, c;
@@ -105,10 +106,10 @@ node_t *generate_argv(int argc, char *argv[])
 		len = strlen(argv[i]);
 		lnode = NULL;
 		for(c = len - 1; c >= 0; c--) {
-			cnode = node_value_new(argv[i][c]);
-			lnode = node_cons_new(cnode, lnode);
+			cnode = node_value_new(ms, argv[i][c]);
+			lnode = node_cons_new(ms, cnode, lnode);
 		}
-		argv_head = node_cons_new(lnode, argv_head);
+		argv_head = node_cons_new(ms, lnode, argv_head);
 	}
 	return argv_head;
 }

@@ -2,6 +2,7 @@
 #define STREAM_H
 
 #include <stddef.h>
+#include <stdarg.h>
 
 #define STREAM_END (-1)
 
@@ -33,8 +34,11 @@ int stream_putch(stream_t *s, char ch_in);
 /* return # chars written or -1 for error */
 int stream_putstr(stream_t *s, char *str);
 
-/* return # chars written or -1 for error */
-int stream_putcomp(stream_t *s, ...);
+#define stream_put(s, ...) _stream_put(s, __VA_ARGS__, NULL)
+#define stream_putln(s, ...) _stream_put(s, __VA_ARGS__, "\n", NULL)
+/* return # chars written or -1 for error, terminate with NULL */
+int _stream_put(stream_t *s, ...);
+int stream_putv(stream_t *s, va_list ap);
 
 int stream_status_get(stream_t *s);
 

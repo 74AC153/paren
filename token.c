@@ -229,13 +229,13 @@ void token_print(stream_t *s, tok_state_t *state)
 	char buf[17];
 	switch(state->type) {
 	case TOK_SYM: 
-		stream_putcomp(s, "TOK_SYM(", state->u.sym, ")\n", NULL);
+		stream_put(s, "TOK_SYM(", state->u.sym, ")\n", NULL);
 		break;
 	case TOK_LIT:
-		stream_putcomp(s, "TOK_LIT(0x", fmt_u64(buf, state->u.lit), ")\n", NULL);
+		stream_put(s, "TOK_LIT(0x", fmt_u64(buf, state->u.lit), ")\n", NULL);
 		break;
 	default:
-		stream_putcomp(s, token_type_names[state->type], "\n", NULL);
+		stream_put(s, token_type_names[state->type], "\n", NULL);
 		break;
 	}
 }
