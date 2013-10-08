@@ -30,8 +30,8 @@ fmcache_state_t *fmcache_state_init(
 
 void fmcache_state_reset(fmcache_state_t *state);
 
-void *fmcache_request(fmcache_state_t *state, size_t len);
-void fmcache_return(fmcache_state_t *state, void *p);
+void *fmcache_request( size_t len, void *fmcache_state);
+void fmcache_return(void *p, void *fmcache_state);
 
 uintptr_t fmcache_count(fmcache_state_t *state);
 

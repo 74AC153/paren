@@ -1,4 +1,5 @@
 #include <stddef.h>
+#include "libc_custom.h"
 #include "freemem_cache.h"
 
 fmcache_state_t *fmcache_state_init(
@@ -41,17 +42,19 @@ void fmcache_state_reset(fmcache_state_t * state)
 	state->alloc_count = 0;
 }
 
-void *fmcache_request(fmcache_state_t *state, size_t len)
+void *fmcache_request(size_t len, void *fmcache_state)
 {
 	/* find a memory allocation that is large enough to hold len */
 	dlnode_t *cursor;
 	free_mem_cell_t *fmc;
+	fmcache_state_t *state = (fmcache_state_t *)fmcache_state;
+
 	for(cursor = dlist_first(&(state->free_list));
 	    ! dlnode_is_terminal(cursor);
 	    cursor = dlnode_next(cursor)) {
 		fmc = hdr_to_fmcell(cursor);
 		if(fmc->len >= len) {
-#if defined(ALLOC_DEBUG)
+#if defined(FMC_ALLOC_DEBUG)
 		printf("fm_cache: reuse node 0x%p (data@0x%p) nfree=%llu\n",
 		       fmc, &(fmc->u.data[0]), (unsigned long long) s->total_free);
 #endif
@@ -60,7 +63,7 @@ void *fmcache_request(fmcache_state_t *state, size_t len)
 			return (void *) &(fmc->u.data[0]);
 		}
 	}
-#if defined(ALLOC_DEBUG)
+#if defined(FMC_ALLOC_DEBUG)
 	printf("fm_cache: malloc node %p (%p) nalloc=%llu\n",
 	       fmc, &(fmc->u.data[0]), (unsigned long long) s->total_alloc);
 #endif
@@ -73,13 +76,14 @@ void *fmcache_request(fmcache_state_t *state, size_t len)
 	return NULL;
 }
 
-void fmcache_return(fmcache_state_t * state, void *data)
+void fmcache_return(void *data, void *fmcache_state)
 {
 	free_mem_cell_t *fmc = data_to_fmcell(data);
+	fmcache_state_t *state = (fmcache_state_t *)fmcache_state;
 	dlnode_init(&(fmc->u.hdr));
 	dlist_insertfirst(&(state->free_list), &(fmc->u.hdr));
 	state->free_count++;
-#if defined(ALLOC_DEBUG)
+#if defined(FMC_ALLOC_DEBUG)
 	printf("fm_cache: return node %p (%p) nfree=%llu\n",
 	       fmc, &(fmc->u.data[0]), (unsigned long long) s->total_free);
 #endif
