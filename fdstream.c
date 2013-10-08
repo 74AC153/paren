@@ -37,13 +37,13 @@ static fdstream_t fdstream_stdin = {
 stream_t *g_stream_stdin = &(fdstream_stdin.hdr);
 
 static fdstream_t fdstream_stdout = {
-	.hdr = STREAM_STATIC_INITIALIZER(&fdstream_stdin, NULL, fdstream_writech),
+	.hdr = STREAM_STATIC_INITIALIZER(&fdstream_stdout, NULL, fdstream_writech),
 	.fd = STDOUT_FILENO
 };
 stream_t *g_stream_stdout = &(fdstream_stdout.hdr);
 
 static fdstream_t fdstream_stderr = {
-	.hdr = STREAM_STATIC_INITIALIZER(&fdstream_stdin, NULL, fdstream_writech),
+	.hdr = STREAM_STATIC_INITIALIZER(&fdstream_stderr, NULL, fdstream_writech),
 	.fd = STDERR_FILENO
 };
 stream_t *g_stream_stderr = &(fdstream_stderr.hdr);
