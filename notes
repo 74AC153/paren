@@ -1,3 +1,9 @@
+macros!!! FFS, stop faffing about and just do it
+expand readme with how to embed
+add links_cb function ptr to blob node type -- extendable datatypes!
+change memory_state_t to memctx_t
+make use of dlnode_move
+
 how does eval() interact with macro system?
 remove global memstate from node layer
 convert printing functions to stream
