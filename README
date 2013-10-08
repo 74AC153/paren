@@ -23,6 +23,7 @@ Features:
 - continuations
 - incremental, tracing/refcounting hybrid garbage collector
   (no mark/sweep pauses)
+- easy (?) embedding and extension with a C FFI
 
 To use:
 paren <input-files>
@@ -73,17 +74,17 @@ addc? -- return 1 if adding two values would cause overflow
 
 Architecture:
 
-+----------------------------------+
-| paren interpreter                |
-+---------------+------------------+
-| evaluator     | parser/tokenizer |
-+---------------+------------------+
-| node                             |
-+----------------------------------+
-| memory manager                   |
-+--------------------+-------------+
-| circular dlist lib | malloc      |
-+--------------------+-------------+
++-----------------------------------+
+| paren interpreter                 |
++---------------+-------------------+
+| evaluator     | parser/tokenizer  |
++---------------+-------------------+
+| node                              |
++-----------------------------------+
+| garbage collection                |
++--------------------+--------------+
+| circular dlist lib | memory arena |
++--------------------+--------------+
 
 Memory manager subsystem:
 
