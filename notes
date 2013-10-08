@@ -1,3 +1,65 @@
+how does eval() interact with macro system?
+remove global memstate from node layer
+convert printing functions to stream
+nail down state hierarchy
+	- I/O streams state
+	- garbage collector state
+	- memory arena state
+
+
+- add dbgstrm to nodes_initialize
+  - create node state
+  - add ptr to node state from each node obj
+- add dbgstrm to memstate
+places where printing is done inside paren_interp.a:
+	environ.c
+	-- modify print_env_cb to take stream
+	-- modify print_val_cb to take stream
+		print_env_cb
+		print_val_cb
+	eval.c
+	-- add interp_state to hold env_hdl, (syntax__hdl) dbg_outstrm, nodestate
+		eval tracing inside eval()
+	frame.c
+	-- modify frame_print_bt to take a stream
+	-- modify print_frm_cb to take fmt str and out stream
+		print_frm_cb
+		frame_print_bt
+	node.c
+	-- add nodestate to *_new functions
+	-- nodestate should contain dbg_outstrm
+	-- print callbacks need to (as they do) take outstream args
+		tracing inside
+			links_cb
+			node_cons_new
+			node_lambda_new
+			node_value_new
+			node_symbol_new
+			node_foreign_new
+			node_handle_new
+			node_cont_new
+			node_special_func_new
+			node_blob_new
+
+	memory.c
+	-- add dbg_outstrm to memstate_t
+		memstate_print
+		tracing inside
+			memory_request
+			memory_gc_lock
+			memory_gc_unlock
+			memory_gc_advise_link
+			memory_gc_advise_stale_link
+			dl_cb_try_move_boundary
+			memory_gc_iterate
+		memcell_print_meta
+		memory_gc_print_state
+		memstate_t p_cb
+	
+
+
+test continuations more
+
 add onload()/onexit() callbacks for shared libs
 figure out how to do file loading
  - add support for mapping in files & reading contents?
@@ -7,7 +69,6 @@ implement tokenizer/parser in script?
 split out "free memory" tracking from memory module
 add signature & finalizer to handle type?
 add 'c' character and 'asdf' composite character shorthand to tokenizer?
-test continuations more
 add bootstrap program to paren, then call parse-file and eval on each one
 add (load ...) / (load-graph ...) .. ?
   - _map-file
