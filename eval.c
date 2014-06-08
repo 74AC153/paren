@@ -162,16 +162,16 @@ eval_err_t eval(
 	node_t *keyval;
 	node_t *temp;
 
+	assert(node_type(in_handle) == NODE_HANDLE);
+	assert(node_type(env_handle) == NODE_HANDLE);
+	assert(node_type(out_handle) == NODE_HANDLE);
+
 	/* frame list holds execution "stack" of eval
 	   -- can be saved / unwound independent of C runtime function calls
 	      to eval() */
 	frame_init(ms, locals, LOCAL_ID_MAX);
 	/* holds the actual frame variables for current loop through eval() */
 	bzero_custom(newvals, sizeof(newvals));
-
-	assert(node_type(in_handle) == NODE_HANDLE);
-	assert(node_type(env_handle) == NODE_HANDLE);
-	assert(node_type(out_handle) == NODE_HANDLE);
 
 	frame_hdl = node_lockroot(node_handle_new(ms, NULL));
 	result_handle = node_lockroot(node_handle_new(ms, NULL));
