@@ -11,6 +11,10 @@
 
 eval_err_t lambda_bind(node_t *env_handle, node_t *vars, node_t *args)
 {
+	/* walk down the lists pointed to by vars and args in unison, and add
+	   bindings from each element in vars to each element in args into
+	   env_handle */
+
 	node_t *var_curs = NULL, *arg_curs = NULL;
 	node_t *kv, *name, *value;
 	bool early_term = false;
@@ -18,6 +22,7 @@ eval_err_t lambda_bind(node_t *env_handle, node_t *vars, node_t *args)
 	var_curs = vars;
 	arg_curs = args;
 	while(true) {
+		/* get next name and value */
 		if(! var_curs) {
 			/* ( ) */
 			if(arg_curs) {
@@ -40,15 +45,15 @@ eval_err_t lambda_bind(node_t *env_handle, node_t *vars, node_t *args)
 			value = arg_curs;
 			name = var_curs;
 			/* the last symbol is bound to the rest of the arg list, we can
-			   stop walking the arg list */
+			   stop walking the arg list after we add this binding */
 			early_term = true;
 		} else {
 			/* should only be given a list of symbols */
 			return eval_err(EVAL_ERR_EXPECTED_CONS_SYM);
 		}
 
-		/* if the symbol already exists in the current frame, update its
-		   value, otherwise, add the value to the frame */
+		/* if the symbol with same name already exists in the current frame,
+		   update its value, otherwise, add the name/value pair to the frame */
 		if(environ_keyval_frame(env_handle, name, &kv)) {
 			node_cons_patch_cdr(kv, value);
 		} else {
@@ -65,6 +70,7 @@ eval_err_t lambda_bind(node_t *env_handle, node_t *vars, node_t *args)
 	return EVAL_OK;
 }
 
+// flags that control type of execution in eval
 #define STATE_FLAG_TAILCALL   0x1
 #define STATE_FLAG_FRAMEADDED 0x2
 #define STATE_FLAG_NEW_INPUT  0x4
@@ -126,6 +132,7 @@ eval_err_t eval(
 	node_t *locals[LOCAL_ID_MAX] = { NULL };
 	node_t *newvals[LOCAL_ID_MAX] = { NULL };
 
+	/* accessor macros for state held at each eval step */
 	#define _STATE locals_state_get(locals)
 	#define _RESTART locals_restart_get(locals)
 	#define _CURSOR node_handle(locals[LOCAL_ID_CURSOR])
@@ -155,7 +162,11 @@ eval_err_t eval(
 	node_t *keyval;
 	node_t *temp;
 
+	/* frame list holds execution "stack" of eval
+	   -- can be saved / unwound independent of C runtime function calls
+	      to eval() */
 	frame_init(ms, locals, LOCAL_ID_MAX);
+	/* holds the actual frame variables for current loop through eval() */
 	bzero_custom(newvals, sizeof(newvals));
 
 	assert(node_type(in_handle) == NODE_HANDLE);
