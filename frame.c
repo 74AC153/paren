@@ -113,12 +113,12 @@ restart:
 	
 void frame_init(
 	memory_state_t *ms,
-	node_t **locals,
-	size_t n)
+	node_t **locals_arr,
+	size_t locals_len)
 {
 	size_t i;
-	for(i = 0; i < n; i++) {
-		locals[i] = node_lockroot(node_handle_new(ms, NULL));
+	for(i = 0; i < locals_len; i++) {
+		locals_arr[i] = node_lockroot(node_handle_new(ms, NULL));
 	}
 }
 

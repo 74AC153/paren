@@ -59,10 +59,11 @@ int frame_iterate(
 	bool recursive,
 	frm_cb_t f_cb, void *f_p);
 	
+// set all entries in locals_arr to newly allocated, locked root node handles
 void frame_init(
 	memory_state_t *ms,
-	node_t **locals,
-	size_t n);
+	node_t **locals_arr,
+	size_t locals_len);
 
 void frame_deinit(
 	node_t **locals,
